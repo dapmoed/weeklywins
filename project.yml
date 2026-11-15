@@ -1,0 +1,61 @@
+name: WeeklyWins
+options:
+  deploymentTarget:
+    iOS: "26.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "3"
+targets:
+  WeeklyWins:
+    type: application
+    platform: iOS
+    sources:
+      - path: WeeklyWins
+        excludes:
+          - Recording/RecordingActivityWidget.swift
+          - Recording/RecordingExtension-Info.plist
+    info:
+      path: WeeklyWins/Info.plist
+      properties:
+        NSMicrophoneUsageDescription: "Запись голосовых заметок о делах в течение дня."
+        UIBackgroundModes: [audio]
+        NSSupportsLiveActivities: true
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.weeklywins.app
+        GENERATE_INFOPLIST_FILE: false
+    dependencies:
+      - target: RecordingActivityExtension
+        embed: true
+  RecordingActivityExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: WeeklyWins/Recording/RecordingActivityWidget.swift
+      - path: WeeklyWins/Recording/RecordingAttributes.swift
+    info:
+      path: WeeklyWins/Recording/RecordingExtension-Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.weeklywins.app.RecordingActivityExtension
+        APPLICATION_EXTENSION_API_ONLY: true
+        GENERATE_INFOPLIST_FILE: false
+  WeeklyWinsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [WeeklyWinsTests]
+    dependencies:
+      - target: WeeklyWins
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.weeklywins.app.tests
