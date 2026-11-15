@@ -10,14 +10,14 @@ Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 
 
 - Work in the repository root: `/Users/konstantin.brikalov/Projects/Обучение/AI/weeklywins` on branch `main`.
 - The design/plan commit is `9815fb6 docs: plan offline iPhone voice daily log`.
-- The base commit is `ea25b9f feat: add voice diary recording prototype`; current build-6 / UI-test updates are uncommitted in the main checkout. Preserve them; do not reset or overwrite.
+- The base commit is `ea25b9f feat: add voice diary recording prototype`; current build-8 / UI-test updates are uncommitted in the main checkout. Preserve them; do not reset or overwrite.
 - `project.yml` is the XcodeGen source. XcodeGen is installed. Generate with `xcodegen generate`.
 - The shared `WeeklyWins` scheme now explicitly launches `WeeklyWins.app`; do not launch `RecordingActivityExtension.appex` directly.
 - Xcode 26.6 is installed, but the active developer directory is Command Line Tools. Prefix Xcode commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 - Simulator device: iPhone 17 Pro, iOS 26.5, UDID `01FDA22D-80AB-4612-B93C-C63DFD9ABBAB`.
 - Connected physical iPhone: iPhone 16 Pro, iOS 27.2, UDID `540CA7E2-ACAE-5E2D-9D47-1E4AF7762E68`.
 - The phone currently has app version `0.1.0`, build `5` installed; user reports the Action Button error persists.
-- Current app version is `0.1.0 (build 6)`.
+- Current app version is `0.1.0 (build 8)`.
 
 ## Relevant files
 
@@ -35,8 +35,9 @@ Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 
 ## What has been verified
 
 - The in-app Start/Stop button works in Simulator. Unified logs showed audio session activation, AAC input queue start, and ActivityKit accepted/activated the Live Activity.
+- The physical app Documents container contained 11 `recording-*.m4a` files; only filenames and file metadata were inspected, not audio contents. Build 8 displays local recordings with date/time and duration; the phone still has build 7.
 - Full `xcodebuild test` on Simulator passes: one in-process recording test passes; two App Shortcut/Action Button integration tests are skipped by design on iOS Simulator 26/27. The passing test does **not** exercise Shortcuts' out-of-process provider lookup or Action Button dispatch.
-- Version/build are visible on the recording screen; current build is `0.1.0 (сборка 6)`.
+- Version/build are visible on the recording screen; current build is `0.1.0 (сборка 8)`.
 - Build/test command:
 
   ```sh
@@ -54,7 +55,7 @@ Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 
 - Reordered permission request ahead of AVAudioSession activation. This was not enough to resolve the installed-phone failure.
 - Changed the Action Button command from `AudioRecordingIntent` to a regular background `AppIntent`; Sol thought the special recording protocol might be activating/preparing the session before `perform()`, but this was a hypothesis.
 - Simulator Shortcuts UI discovers `WeeklyWins → Запись`; when tapped it reports `Не удается запустить быструю команду приложения`. No `perform()` log appears.
-- The latest Xcode screenshot showed Run targeting `RecordingActivityExtension.appex` and reporting `Failed to show Widget`. The generated `WeeklyWins` scheme had its LaunchAction and ProfileAction pointed at the extension. `project.yml` now pins Run/Profile and Test macro expansion to `WeeklyWins.app`; regenerating the project launches the main app in Simulator and shows build 6.
+- The latest Xcode screenshot showed Run targeting `RecordingActivityExtension.appex` and reporting `Failed to show Widget`. The generated `WeeklyWins` scheme had its LaunchAction and ProfileAction pointed at the extension. `project.yml` now pins Run/Profile and Test macro expansion to `WeeklyWins.app`; regenerating the project launches the main app in Simulator and shows build 8.
 - XCUITest confirmed the Simulator Action Button was set to `Без действия`, so pressing it there could not invoke WeeklyWins. The settings carousel exposed only `Без действия`, `Элементы управления`, and `Бесшумный режим`; it did not expose the Shortcut option.
 - Tapping the discovered Shortcuts tile surfaces `Не удается запустить быструю команду приложения` before `perform()`; app-side intent logging does not start.
 - The app bundle's AppIntents metadata contains `ToggleRecordingIntent`, `autoShortcuts`, the `Запись` title, phrase template, and `WeeklyWinsShortcuts` provider metadata. Xcode sometimes reports `No AppShortcuts found - Skipping` in its training phase.
@@ -66,8 +67,8 @@ Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 
 
 1. Avoid further product-code changes to chase the iOS 26.5 Simulator Shortcuts failure unless new device evidence contradicts the Simulator-limitation hypothesis.
 2. In Xcode's scheme selector, choose `WeeklyWins`, not `RecordingActivityExtension`; the shared scheme is fixed to launch the app now.
-3. The user reports the Action Button works while the app is active and the phone is unlocked but fails in background/locked state. Build 6 adds detailed OSLog diagnostics. Xcode CLI still reports no Apple account/profiles for the Personal Team; use the Xcode GUI `WeeklyWins` scheme to install build 6, then compare foreground and locked Action Button runs in the debug console.
-4. Install build 6 on the physical iPhone, grant microphone permission while unlocked, assign `WeeklyWins → Запись` to Action Button, lock the phone, and run two presses. Collect the app's OSLog output (`perform entered`, `audio session activated`, `recorder started`) and confirm one playable file.
+3. The user reports the Action Button works while the app is active and the phone is unlocked but fails in background/locked state. Build 8 adds detailed OSLog diagnostics and returns a Shortcut dialog with the NSError domain/code if `perform()` catches a failure. Xcode CLI still reports no Apple account/profiles for the Personal Team; use the Xcode GUI `WeeklyWins` scheme to install build 8, then compare foreground and locked Action Button runs in the debug console.
+4. Install build 8 on the physical iPhone to surface its recordings list, grant microphone permission while unlocked, assign `WeeklyWins → Запись` to Action Button, lock the phone, and run two presses. Collect the app's OSLog output (`perform entered`, `audio session activated`, `recorder started`) and confirm one playable file.
 5. Task 1 is complete only after two locked-screen presses create one playable recording without unlocking. Continue Tasks 2–5 only after this gate.
 
 ## Tooling boundary

@@ -12,17 +12,24 @@ struct ToggleRecordingIntent: AppIntent {
         do {
             try await RecordingService.shared.toggle()
             Self.logger.info("toggle completed")
+            let isRecording = await RecordingService.shared.isRecording
+            let message = isRecording ? "Запись началась" : "Запись остановлена"
+            return .result(dialog: IntentDialog(stringLiteral: message))
         } catch {
             Self.logger.error("toggle failed: \(Self.errorSummary(error), privacy: .public)")
-            throw error
+            return .result(dialog: Self.failureDialog(for: error))
         }
-        return .result()
     }
 
     private static func errorSummary(_ error: Error) -> String {
         let error = error as NSError
         let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError
         return "domain=\(error.domain) code=\(error.code) underlying=\(underlying.map { "\($0.domain):\($0.code)" } ?? "none")"
+    }
+
+    private static func failureDialog(for error: Error) -> IntentDialog {
+        let error = error as NSError
+        return IntentDialog(stringLiteral: "Запись не запущена: \(error.domain), код \(error.code).")
     }
 }
 

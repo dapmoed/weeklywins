@@ -15,6 +15,7 @@
 		90AC688974A7ECEFFB7AA2FE /* ActionButtonUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */; };
 		A04D12F5DF5D621146799268 /* RecordingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBE7F83EE50C65436741DAD /* RecordingServiceTests.swift */; };
 		BA53E12931082A7230285194 /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE8955B306BCF182658F9B9 /* RecordingService.swift */; };
+		CF353D1212704CD2A8F88B89 /* RecordingLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3833C2886304C113145742 /* RecordingLibrary.swift */; };
 		E5578975E472FD1792D208CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59B92711285D853D853D8E70 /* Assets.xcassets */; };
 		E68A0C06E4BF4840DB75A19F /* RecordingActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5C6DF44DAEDA8ADB95CAC5A4 /* RecordingActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FD3FF7D5FF4A919265B668D8 /* RecordingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */; };
@@ -72,6 +73,7 @@
 		84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonUITests.swift; sourceTree = "<group>"; };
 		9BE8955B306BCF182658F9B9 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		A22A8540FCB9466240EFD6C9 /* WeeklyWinsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyWinsApp.swift; sourceTree = "<group>"; };
+		CE3833C2886304C113145742 /* RecordingLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLibrary.swift; sourceTree = "<group>"; };
 		ED0F166395DD8829E685615D /* WeeklyWinsActionButtonUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WeeklyWinsActionButtonUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -108,6 +110,7 @@
 			children = (
 				57EBB2A914489654CE8F86B6 /* RecordingActivityWidget.swift */,
 				4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */,
+				CE3833C2886304C113145742 /* RecordingLibrary.swift */,
 				9BE8955B306BCF182658F9B9 /* RecordingService.swift */,
 				2428565F608522AB8D17F70F /* RecordingView.swift */,
 				00FA88E6B61147C2153C8BF8 /* ToggleRecordingIntent.swift */,
@@ -282,6 +285,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				889BDCCFFAA5C11766396C81 /* RecordingAttributes.swift in Sources */,
+				CF353D1212704CD2A8F88B89 /* RecordingLibrary.swift in Sources */,
 				BA53E12931082A7230285194 /* RecordingService.swift in Sources */,
 				1821440FF54999D37E5076CE /* RecordingView.swift in Sources */,
 				09D3F9AA497FAB5ECCE01D2E /* ToggleRecordingIntent.swift in Sources */,
@@ -454,7 +458,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -546,7 +550,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

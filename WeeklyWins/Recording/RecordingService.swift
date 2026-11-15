@@ -10,13 +10,21 @@ final class RecordingService: ObservableObject {
 
     @Published private(set) var isRecording = false
     @Published private(set) var status = "Готово к записи"
+    @Published private(set) var recordings: [RecordingSummary] = []
 
     private var recorder: AVAudioRecorder?
     private var activity: Activity<RecordingAttributes>?
     private var stopTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "com.weeklywins.app", category: "RecordingService")
 
-    private init() {}
+    private init() {
+        refreshRecordings()
+    }
+
+    func refreshRecordings() {
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        recordings = RecordingLibrary.scan(directory: directory)
+    }
 
     func toggle() async throws {
         if isRecording {
@@ -100,6 +108,7 @@ final class RecordingService: ObservableObject {
         recorder = nil
         isRecording = false
         status = "Запись сохранена"
+        refreshRecordings()
         if let activity {
             Task { await activity.end(nil, dismissalPolicy: .immediate) }
             self.activity = nil
