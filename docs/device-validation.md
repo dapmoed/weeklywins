@@ -1,39 +1,44 @@
-# Action Button prototype check
+# Action Button validation
 
-## Device
+Updated: 2026-11-15
 
-- iPhone 16 Pro (iPhone17,1), iOS 27.2 (build 24B119), Developer Mode enabled.
-- Xcode 26.6 is installed; command line builds require `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+## Devices and builds
 
-## Prototype so far
+- Physical iPhone 16 Pro (iPhone17,1), iOS 27.2 (24B119), Developer Mode enabled.
+- iOS Simulator iPhone 17 Pro, iOS 26.5, UDID `01FDA22D-80AB-4612-B93C-C63DFD9ABBAB`.
+- Xcode 26.6; CLI requires `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+- Latest app version/build: `0.1.0 (build 6)`.
 
-- SwiftUI app with a Shortcuts App Intent conforming to `AudioRecordingIntent`.
-- Background audio capture with `AVAudioRecorder`, a 5-minute stop, and an ActivityKit Live Activity / widget extension.
-- iOS Simulator build succeeded.
-- No install or Action Button behavior has been tested on the iPhone yet.
-- Screenshot of the lock-screen failure is saved as `shots/action-button-session-activation-failed.jpeg`.
+## Current implementation
 
-## Failure seen on the phone
+- Start/stop recording through a regular background `AppIntent` and an `AppShortcutsProvider` shortcut titled `Запись`.
+- Microphone permission is requested before activating `AVAudioSession`.
+- The recording screen displays version/build; capture writes AAC to the app container, has a 5-minute cap, and updates a Live Activity.
+- App Intent and session activation emit OSLog messages. Build 6 logs the execution mode/PID, permission result, category activation, recorder start, Live Activity start, and NSError domain/code/underlying code.
+- XcodeGen source is `project.yml`; regenerate with `xcodegen generate`.
+- The shared `WeeklyWins` scheme now explicitly runs and profiles `WeeklyWins.app`; the RecordingActivityExtension remains embedded, not launched directly.
 
-- The Action Button shortcut notification reports `Session activation failed` on both presses.
-- Source inspection found the prototype activated `AVAudioSession` before checking/requesting microphone permission. The order is corrected in source to request microphone permission first, then configure and activate the session.
-- The corrected source builds for the simulator. The corrected build has not been installed on the phone because Xcode still has no development provisioning profiles and no signed-in team account.
-- The permission-order change did not resolve the phone error. Sol assessed a possible interaction between the system handling of `AudioRecordingIntent` and app-side `AVAudioSession.setActive(true)`; this remains a hypothesis because the failing phone build does not include diagnostic logging.
-- The Action Button command now uses a regular background `AppIntent`, with explicit logging around `perform()` and session activation. The simulator test invokes the intent twice: recording starts, the session activates, the recorder starts, and the second call stops it; 1 test passed.
-- The simulator cannot emulate the physical Action Button. The iPhone result for this revised intent remains unverified until the new build is installed.
-- The recording screen now displays the app version and build number; simulator screenshot verified `0.1.0 (build 2)`.
+## Evidence
 
-## Blocker
+- In-app recording in Simulator starts an AAC input queue and an ActivityKit Live Activity.
+- The direct in-process test invokes the intent twice and verifies recording starts then stops: 1 test passed.
+- The Shortcuts app displays the `WeeklyWins → Запись` tile. Tapping it in the iOS 26.5 Simulator shows `Не удается запустить быструю команду приложения`; `RecordingIntent.perform()` does not log `perform entered`.
+- XCUITest confirmed the Simulator Action Button setting currently reads `Без действия`; the Action Button was not assigned in that simulator test.
+- Repeated XCUITest swipes reached only `Без действия`, `Элементы управления`, and `Бесшумный режим`; the simulator settings did not expose `Команда` in that run.
+- An XCUITest pressing `XCUIDevice.shared.press(.action)` does not launch the intent while the button is unassigned.
+- The physical iPhone previously showed `Session activation failed` on the first and second press. The user now reports Action Button recording works only while WeeklyWins is active and the screen is unlocked; background/locked execution still fails. Build 6 has not yet been installed.
+- The latest Xcode screenshot showed the selected run action trying to launch `RecordingActivityExtension.appex` directly (`Failed to show Widget`). The scheme now launches the containing `WeeklyWins.app`; Simulator launch shows the recording screen and version `0.1.0 (сборка 6)`.
+- Simulator app metadata contains `ToggleRecordingIntent`, `autoShortcuts`, and provider name `WeeklyWinsShortcuts`. Xcode's training processor sometimes logs `No AppShortcuts found - Skipping`; runtime linkd update calls also failed in Simulator. These diagnostics have not established a project-side provider bug.
+- A recent Apple Developer Forums report says Shortcuts and App Intents fail in iOS 26/27 simulators (FB23342158). This is a developer report, not an Apple-confirmed release-note issue. It supports treating the Simulator failure as a likely platform limitation, not a proven app defect.
 
-Device signing cannot proceed because Xcode has no signed-in Apple developer account and no provisioning profiles for the app or extension bundle identifiers. Automatic signing with the team ID currently present in the local signing certificate fails with `No Account for Team`.
+## Test result
 
-## Advice from Sol
+`xcodebuild test` on iOS 26.5 Simulator passes the direct recording test; two App Shortcut / Action Button UI tests are explicitly skipped on iOS 26/27 Simulator because system shortcut dispatch is unreliable there. Build 6 tests: 1 passed, 2 skipped, 0 failures. The skipped tests are intended to run on a physical iPhone.
 
-- A successful simulator build does not establish that Action Button launches the intent or that microphone capture continues while locked.
-- The singleton's in-memory recording state could be lost if the process is relaunched between the start and stop presses. Check persistent/system recording state before treating the toggle as reliable.
-- Minimum next check after signing is configured: install on the phone, assign the App Shortcut to Action Button, pre-grant microphone permission, lock the phone, then test start, visible recording state, file creation, and second-press stop.
-- No system prohibition was identified from the supplied evidence; lock-screen intent launch, microphone access, and process lifetime remain device questions.
+## Sol consultation
 
-## Next action
+Sol assessed the simulator evidence as consistent with a failure before `perform()`. The direct recording test establishes that the local capture path works; it does not establish App Shortcut registration or locked-screen execution. The Action Button assignment in Simulator was not set (Settings showed `Без действия`).
 
-Sign the app and extension with an Apple account configured in Xcode, install on the connected phone, and run the locked-screen test matrix. Do not mark Task 1 complete until the two-press flow creates one playable recording without unlocking.
+## Next step / blocker
+
+No more product changes are justified until the physical-device path is diagnosed. Xcode CLI device signing still reports `No Account for Team 9U44QT57YP` and missing profiles, despite a screenshot showing the Personal Team selected in Xcode's signing UI. Build 5 is installed; build 6 with additional logs must be installed through Xcode GUI. Run the `WeeklyWins` scheme (not the extension), then use Xcode's debug console to compare recording from the app UI with Action Button presses while unlocked and locked. Look for `perform entered`, `audio session activated`, and `recorder started`. Task 1 remains incomplete until two locked-screen presses create one playable recording without unlocking.

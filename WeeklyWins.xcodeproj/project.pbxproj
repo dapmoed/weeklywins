@@ -12,6 +12,7 @@
 		3FD94E8DDE579EA697ABD850 /* WeeklyWinsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22A8540FCB9466240EFD6C9 /* WeeklyWinsApp.swift */; };
 		86C927AF44FBDB7881B359BD /* RecordingActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57EBB2A914489654CE8F86B6 /* RecordingActivityWidget.swift */; };
 		889BDCCFFAA5C11766396C81 /* RecordingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */; };
+		90AC688974A7ECEFFB7AA2FE /* ActionButtonUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */; };
 		A04D12F5DF5D621146799268 /* RecordingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBE7F83EE50C65436741DAD /* RecordingServiceTests.swift */; };
 		BA53E12931082A7230285194 /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE8955B306BCF182658F9B9 /* RecordingService.swift */; };
 		E5578975E472FD1792D208CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59B92711285D853D853D8E70 /* Assets.xcassets */; };
@@ -20,6 +21,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		22850E319A8C578575D78304 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 413EEFEB6FECA45E7D30BEEC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA9DA706430937515371170E;
+			remoteInfo = WeeklyWins;
+		};
 		C0A2C2DF8BD11EF18AE065FA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 413EEFEB6FECA45E7D30BEEC /* Project object */;
@@ -61,8 +69,10 @@
 		57EBB2A914489654CE8F86B6 /* RecordingActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingActivityWidget.swift; sourceTree = "<group>"; };
 		59B92711285D853D853D8E70 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5C6DF44DAEDA8ADB95CAC5A4 /* RecordingActivityExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RecordingActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonUITests.swift; sourceTree = "<group>"; };
 		9BE8955B306BCF182658F9B9 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		A22A8540FCB9466240EFD6C9 /* WeeklyWinsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyWinsApp.swift; sourceTree = "<group>"; };
+		ED0F166395DD8829E685615D /* WeeklyWinsActionButtonUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WeeklyWinsActionButtonUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -85,6 +95,14 @@
 			path = WeeklyWins;
 			sourceTree = "<group>";
 		};
+		5BDC8C260573B2358484B12F /* WeeklyWinsActionButtonUITests */ = {
+			isa = PBXGroup;
+			children = (
+				84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */,
+			);
+			path = WeeklyWinsActionButtonUITests;
+			sourceTree = "<group>";
+		};
 		A7BF4C7BCBCA5EBDA4942F02 /* Recording */ = {
 			isa = PBXGroup;
 			children = (
@@ -102,6 +120,7 @@
 			children = (
 				5C6DF44DAEDA8ADB95CAC5A4 /* RecordingActivityExtension.appex */,
 				3B71C083F25FB4ABA461B1A2 /* WeeklyWins.app */,
+				ED0F166395DD8829E685615D /* WeeklyWinsActionButtonUITests.xctest */,
 				06E9D635478ED1127E1E58DF /* WeeklyWinsTests.xctest */,
 			);
 			name = Products;
@@ -111,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				5996B102524D0D54F4ADA3F2 /* WeeklyWins */,
+				5BDC8C260573B2358484B12F /* WeeklyWinsActionButtonUITests */,
 				15A17C1B6B20950A674E28B2 /* WeeklyWinsTests */,
 				F10ABE2091BBB996513EF4BD /* Products */,
 			);
@@ -135,6 +155,24 @@
 			productName = RecordingActivityExtension;
 			productReference = 5C6DF44DAEDA8ADB95CAC5A4 /* RecordingActivityExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		2FD32051C8BE1993FCC3C052 /* WeeklyWinsActionButtonUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 789FEA60F47BB66B3FEB7D69 /* Build configuration list for PBXNativeTarget "WeeklyWinsActionButtonUITests" */;
+			buildPhases = (
+				4E1F416C6BBA8DF457F4CF1A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				69673A5CECFF7EDFEE58CC73 /* PBXTargetDependency */,
+			);
+			name = WeeklyWinsActionButtonUITests;
+			packageProductDependencies = (
+			);
+			productName = WeeklyWinsActionButtonUITests;
+			productReference = ED0F166395DD8829E685615D /* WeeklyWinsActionButtonUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		D52AFD936CC9FA809C3E0549 /* WeeklyWinsTests */ = {
 			isa = PBXNativeTarget;
@@ -183,6 +221,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					2FD32051C8BE1993FCC3C052 = {
+						TestTargetID = DA9DA706430937515371170E;
+					};
 				};
 			};
 			buildConfigurationList = 5A25D97EBFC16BA48683D725 /* Build configuration list for PBXProject "WeeklyWins" */;
@@ -202,6 +243,7 @@
 				DA9DA706430937515371170E /* WeeklyWins */,
 				04834AB1491F2B06A4903893 /* RecordingActivityExtension */,
 				D52AFD936CC9FA809C3E0549 /* WeeklyWinsTests */,
+				2FD32051C8BE1993FCC3C052 /* WeeklyWinsActionButtonUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -218,6 +260,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		4E1F416C6BBA8DF457F4CF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90AC688974A7ECEFFB7AA2FE /* ActionButtonUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		86FBEF9616DE346015759D3E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -260,6 +310,11 @@
 			target = 04834AB1491F2B06A4903893 /* RecordingActivityExtension */;
 			targetProxy = DFF4DF405E02F36ADF26A359 /* PBXContainerItemProxy */;
 		};
+		69673A5CECFF7EDFEE58CC73 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA9DA706430937515371170E /* WeeklyWins */;
+			targetProxy = 22850E319A8C578575D78304 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -297,6 +352,23 @@
 			};
 			name = Release;
 		};
+		3408A7AE5E6C7B50D4EC7900 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.weeklywins.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = WeeklyWins;
+			};
+			name = Debug;
+		};
 		3AC9E47732FEFDB0CA1CF099 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -314,10 +386,28 @@
 			};
 			name = Debug;
 		};
+		5B710C25B1288AE93E16DF50 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.weeklywins.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = WeeklyWins;
+			};
+			name = Release;
+		};
 		5D6B113BD2E90FE85B89568C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -364,7 +454,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -392,6 +482,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -455,7 +546,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -512,6 +603,15 @@
 			buildConfigurations = (
 				5D6B113BD2E90FE85B89568C /* Debug */,
 				80AF65BD89313D3988720F21 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		789FEA60F47BB66B3FEB7D69 /* Build configuration list for PBXNativeTarget "WeeklyWinsActionButtonUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3408A7AE5E6C7B50D4EC7900 /* Debug */,
+				5B710C25B1288AE93E16DF50 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

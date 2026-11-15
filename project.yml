@@ -7,7 +7,7 @@ settings:
     SWIFT_VERSION: "5.0"
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "3"
+    CURRENT_PROJECT_VERSION: "6"
 targets:
   WeeklyWins:
     type: application
@@ -59,3 +59,32 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.weeklywins.app.tests
+        GENERATE_INFOPLIST_FILE: true
+  WeeklyWinsActionButtonUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [WeeklyWinsActionButtonUITests]
+    dependencies:
+      - target: WeeklyWins
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.weeklywins.app.uitests
+        GENERATE_INFOPLIST_FILE: true
+schemes:
+  WeeklyWins:
+    build:
+      targets:
+        WeeklyWins: all
+        RecordingActivityExtension: all
+    run:
+      config: Debug
+      executable: WeeklyWins
+    profile:
+      config: Release
+      executable: WeeklyWins
+    test:
+      config: Debug
+      macroExpansion: WeeklyWins
+      targets:
+        - WeeklyWinsTests
+        - WeeklyWinsActionButtonUITests

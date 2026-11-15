@@ -34,17 +34,24 @@ final class RecordingService: ObservableObject {
         guard !isRecording else { return }
         logger.info("requesting microphone permission")
         let granted = await AVAudioApplication.requestRecordPermission()
+        logger.info("microphone permission granted=\(granted)")
         guard granted else {
             status = "Нет доступа к микрофону"
             throw RecordingError.permissionDenied
         }
 
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .default, options: [])
+        do {
+            try session.setCategory(.record, mode: .default, options: [])
+            logger.info("audio session category configured")
+        } catch {
+            logger.error("audio session category failed: \(Self.errorSummary(error), privacy: .public)")
+            throw error
+        }
         do {
             try session.setActive(true)
         } catch {
-            logger.error("audio session activation failed: \(String(describing: error), privacy: .public)")
+            logger.error("audio session activation failed: \(Self.errorSummary(error), privacy: .public)")
             throw error
         }
         logger.info("audio session activated")
@@ -58,16 +65,25 @@ final class RecordingService: ObservableObject {
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         let newRecorder = try AVAudioRecorder(url: url, settings: settings)
-        newRecorder.record(forDuration: 300)
+        guard newRecorder.prepareToRecord(), newRecorder.record(forDuration: 300) else {
+            let error = RecordingError.recorderStartFailed
+            logger.error("audio recorder failed to start: \(Self.errorSummary(error), privacy: .public)")
+            throw error
+        }
         logger.info("recorder started")
         recorder = newRecorder
         isRecording = true
         status = "Запись идёт"
         let attributes = RecordingAttributes()
-        activity = try? Activity.request(
-            attributes: attributes,
-            content: .init(state: .init(startedAt: .now), staleDate: .now.addingTimeInterval(300))
-        )
+        do {
+            activity = try Activity.request(
+                attributes: attributes,
+                content: .init(state: .init(startedAt: .now), staleDate: .now.addingTimeInterval(300))
+            )
+            logger.info("recording Live Activity started")
+        } catch {
+            logger.error("Live Activity start failed: \(Self.errorSummary(error), privacy: .public)")
+        }
         stopTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(300))
             guard !Task.isCancelled else { return }
@@ -77,6 +93,7 @@ final class RecordingService: ObservableObject {
 
     func stop() {
         guard isRecording else { return }
+        logger.info("stopping recorder")
         stopTask?.cancel()
         stopTask = nil
         recorder?.stop()
@@ -89,8 +106,15 @@ final class RecordingService: ObservableObject {
         }
         try? AVAudioSession.sharedInstance().setActive(false)
     }
+
+    private static func errorSummary(_ error: Error) -> String {
+        let error = error as NSError
+        let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        return "domain=\(error.domain) code=\(error.code) underlying=\(underlying.map { "\($0.domain):\($0.code)" } ?? "none")"
+    }
 }
 
 enum RecordingError: Error {
     case permissionDenied
+    case recorderStartFailed
 }
