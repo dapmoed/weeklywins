@@ -89,3 +89,29 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 ```
 
 The final full suite passed 76 tests, skipped 3 and failed 0, with 79 total tests in the xcresult summary at `/tmp/weeklywins-derived/Logs/Test/Test-WeeklyWins-2026.11.17_17-31-59-+0500.xcresult`. The log is `/private/tmp/weeklywins-simulator-shortcuts-identity-final.log`. Remaining skips cover the direct App Shortcut card, populated-installation onboarding and the unavailable-ASR case on a runtime advertising legacy recognition support. Sol reviewed the final diff and found no remaining substantial issues.
+
+## Build 18 automatic-stop presentation
+
+The full recorder now closes after a successful saved capture, including the native duration limit and an external stop. RecordingService publishes completedRecordingID after successful saved-state finalization and clears it before a new capture. The view observes this typed outcome. A finalization error keeps the recorder visible with its error message and preserved partial audio. The stop control delegates to the service. The root opens the recorder after a successful start, including the onboarding trial path.
+
+A hosted UIKit/SwiftUI test reproduced the stuck recorder after an injected short duration before the change. A second regression verifies the finalization-conflict error and partial-file retention, including a previous successful capture followed by a new one. The reset assertion was observed failing when the reset was removed. Unit tests use a scripted transcriber to isolate recorder presentation. Focused evidence is in /private/tmp/weeklywins-recorder-dismiss-red-confirmed.log, /private/tmp/weeklywins-recorder-stale-completion-red.log and /private/tmp/weeklywins-recorder-dismiss-unit-final.log.
+
+The real five-minute UI check ran with the production 300-second limit. It passed in 310.874 seconds and returned to the timeline automatically. Recording AD5F4E35-0FE5-4985-81D4-D83F684D0522 is saved, with duration 299.9 seconds in the manifest. Its AAC 16 kHz mono container has duration 300.032 seconds and decodes fully through ffmpeg. Native Simulator ASR reported its existing backend failure and retained the audio. This capture supplies duration, finalization, presentation and audio-retention evidence. Russian recognition quality and airplane-mode acceptance still require the device corpus.
+
+The full run including this long check passed 79 tests, skipped 3 and failed 0, total 82, at /private/tmp/weeklywins-recorder-five-minute-full.log, xcresult Test-WeeklyWins-2026.11.17_17-48-06-+0500. After the final A05 visual corrections and the largest-text regression, the final ordinary suite passed 79 tests, skipped 4 and failed 0, total 83, at /private/tmp/weeklywins-recorder-build18-clean-final.log, xcresult Test-WeeklyWins-2026.11.17_18-12-48-+0500. The ordinary run skips the opt-in five-minute case, direct App Shortcut card, populated-install onboarding and the unavailable-ASR case on a runtime advertising legacy support.
+
+Enable the long check explicitly when repeating wall-clock acceptance.
+
+```sh
+TEST_RUNNER_RUN_LONG_CAPTURE_TEST=1 \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
+  -project WeeklyWins.xcodeproj -scheme WeeklyWins \
+  -destination 'platform=iOS Simulator,id=31B6F161-6E54-4D66-8709-B7C790547F52' \
+  -derivedDataPath /private/tmp/weeklywins-derived \
+  CODE_SIGNING_ALLOWED=YES -parallel-testing-enabled NO \
+  -only-testing:WeeklyWinsActionButtonUITests/ActionButtonUITests/testFiveMinuteAutomaticStopReturnsToTimeline test
+```
+
+The largest-text UI case supplies the UIKit accessibility XXXL category as a process argument, asserts its actual effect on text geometry and verifies reachable collapse/stop controls. The following tests launch with their ordinary arguments. Screenshots and visual-comparison notes are in docs/design/verification/README.md. Sol reviewed the implementation and both actual A05 screenshots and found no substantial issues.
+
+Before the final ordinary run, generated recordings on WeeklyWins Shortcuts QA were backed up to /private/tmp/weeklywins-qa18-before-final-regression and its Documents directory was reset. This backup includes the measured five-minute file and manifest. The other Simulator data and the physical phone were preserved. WeeklyWins Shortcuts QA is the only booted Simulator. No physical build was installed in this stage.

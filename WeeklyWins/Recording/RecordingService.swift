@@ -18,6 +18,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     @Published private(set) var playbackPosition: TimeInterval = 0
     @Published private(set) var playbackDuration: TimeInterval = 0
     @Published private(set) var recordingStartedAt: Date?
+    @Published private(set) var completedRecordingID: UUID?
     @Published private(set) var isRecording = false
     @Published private(set) var isStarting = false
     @Published private(set) var status = "Готово к записи"
@@ -267,6 +268,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     func start() async throws {
         guard !isRecording, !isStarting else { return }
         stopPlayback()
+        completedRecordingID = nil
         isStarting = true
         status = "Запись запускается"
         defer { isStarting = false }
@@ -401,6 +403,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             )
             status = statusMessage
             refreshRecordings()
+            if finalState == .saved { completedRecordingID = activeRecordingID }
         } catch {
             status = "Запись завершена, но не удалось сохранить состояние: \(error.localizedDescription)"
             logger.error("recording finalization failed: \(Self.errorSummary(error), privacy: .public)")

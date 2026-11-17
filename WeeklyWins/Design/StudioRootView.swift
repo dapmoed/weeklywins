@@ -16,9 +16,11 @@ struct StudioRootView: View {
                 OnboardingView { startRecording in
                     hasCompletedOnboarding = true
                     if startRecording {
-                        showRecorder = true
                         Task {
-                            do { try await service.start() }
+                            do {
+                                try await service.start()
+                                showRecorder = service.isRecording
+                            }
                             catch { self.error = error.localizedDescription }
                         }
                     }
@@ -77,9 +79,15 @@ struct StudioRootView: View {
     private var recordingBar: some View {
         HStack(spacing: 14) {
             Button {
-                showRecorder = true
-                if !service.isRecording {
-                    Task { do { try await service.start() } catch { self.error = error.localizedDescription } }
+                if service.isRecording {
+                    showRecorder = true
+                } else {
+                    Task {
+                        do {
+                            try await service.start()
+                            showRecorder = service.isRecording
+                        } catch { self.error = error.localizedDescription }
+                    }
                 }
             } label: {
                 HStack {
@@ -118,41 +126,54 @@ struct StudioRecorderView: View {
                 Spacer()
             }.frame(minHeight: 44)
             Spacer()
-            Label(service.status, systemImage: "circle.fill")
-                .font(.headline).foregroundStyle(StudioTheme.coral)
-            if let start = service.recordingStartedAt {
-                Text(start, style: .timer).font(.system(size: 72, weight: .light, design: .monospaced))
-            } else {
-                Text("00:00").font(.system(size: 72, weight: .light, design: .monospaced))
+            HStack(spacing: 10) {
+                Circle().fill(StudioTheme.coral).frame(width: 12, height: 12)
+                Text(service.isRecording ? "Идёт запись" : service.status)
+                    .font(.headline)
+                    .foregroundStyle(service.isRecording ? StudioTheme.text : StudioTheme.coral)
+                    .accessibilityIdentifier("recorder-status")
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let elapsed = max(0, Int(context.date.timeIntervalSince(service.recordingStartedAt ?? context.date)))
+                Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60))
+                    .font(.system(size: 72, weight: .light)).monospacedDigit()
+                    .accessibilityIdentifier("recorder-timer")
             }
             StudioWaveform(service: service).frame(height: 140)
             Spacer()
             Button {
                 service.stop()
-                dismiss()
             } label: {
                 VStack(spacing: 14) {
                     Image(systemName: "stop.fill").font(.system(size: 32))
-                        .frame(width: 94, height: 94)
+                        .foregroundStyle(StudioTheme.coral)
+                        .frame(width: 100, height: 100)
                         .overlay(Circle().stroke(StudioTheme.coral, lineWidth: 3))
-                    Text("Остановить").font(.title3.weight(.semibold))
-                }.foregroundStyle(StudioTheme.coral)
+                    Text("Остановить").font(.title3.weight(.semibold)).foregroundStyle(StudioTheme.text)
+                }
             }.disabled(!service.isRecording)
             .accessibilityIdentifier("recorder-stop")
             Text("До 5 минут").font(.footnote).foregroundStyle(StudioTheme.secondary)
         }
         .padding(28).padding(.bottom, 35)
         .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
+        .onAppear { dismissAfterSuccessfulSave() }
+        .onChange(of: service.completedRecordingID) { _, _ in dismissAfterSuccessfulSave() }
+    }
+
+    private func dismissAfterSuccessfulSave() {
+        guard service.completedRecordingID != nil, !service.isRecording, !service.isStarting else { return }
+        dismiss()
     }
 }
 
 private struct StudioWaveform: View {
     @ObservedObject var service: RecordingService
-    @State private var levels = Array(repeating: Float(0), count: 36)
+    @State private var levels = Array(repeating: Float(0), count: 48)
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.08)) { context in
             GeometryReader { geometry in
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     ForEach(levels.indices, id: \.self) { index in
                         Capsule().fill(StudioTheme.coral)
                             .frame(height: max(4, CGFloat(levels[index]) * geometry.size.height))

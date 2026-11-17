@@ -1,7 +1,81 @@
 import XCTest
 import Speech
+import UIKit
 
 final class ActionButtonUITests: XCTestCase {
+    @MainActor
+    func testRecorderControlsRemainReachableAtLargestTextSize() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["recorder-stop"]
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        app.buttons["Записать"].tap()
+        let stop = app.buttons["recorder-stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 10), app.debugDescription)
+        let status = app.staticTexts["recorder-status"]
+        XCTAssertGreaterThan(status.frame.height, 30, "The app must use the requested accessibility text size.")
+        XCTAssertTrue(app.buttons["Свернуть"].isHittable)
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "A05-largest-text-initial"
+        initial.lifetime = .keepAlways
+        add(initial)
+        for _ in 0..<4 {
+            if stop.isHittable && app.frame.contains(stop.frame) { break }
+            let scroll = app.scrollViews.firstMatch
+            XCTAssertTrue(scroll.exists, app.debugDescription)
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(stop.isHittable)
+        XCTAssertTrue(app.frame.contains(stop.frame))
+        let controls = XCTAttachment(screenshot: app.screenshot())
+        controls.name = "A05-largest-text-stop"
+        controls.lifetime = .keepAlways
+        add(controls)
+        stop.tap()
+        XCTAssertTrue(app.buttons["Записать"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testFiveMinuteAutomaticStopReturnsToTimeline() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_LONG_CAPTURE_TEST"] == "1",
+                          "Enable TEST_RUNNER_RUN_LONG_CAPTURE_TEST=1 for the five-minute wall-clock check.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["recorder-stop"]
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.buttons["recorder-stop"].waitForExistence(timeout: 10))
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "A05-five-minute-recording"
+        capture.lifetime = .keepAlways
+        add(capture)
+        let returned = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == true"), object: app.buttons["Записать"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 320), .completed, app.debugDescription)
+        XCTAssertFalse(app.buttons["recorder-stop"].exists)
+        let finished = XCTAttachment(screenshot: app.screenshot())
+        finished.name = "A06-after-five-minute-stop"
+        finished.lifetime = .keepAlways
+        add(finished)
+        app.buttons["studio-tab-1"].tap()
+        let row = app.buttons.matching(identifier: "recording-row").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(row.label.contains("Аудио · 5:00"), row.label)
+    }
+
     @MainActor
     func testSavedTranscriptionFailureCanOpenAudioSource() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
@@ -32,7 +106,7 @@ final class ActionButtonUITests: XCTestCase {
             app.buttons["Начать"].tap()
             app.buttons["Сделать пробную запись"].tap()
         } else { app.buttons["Записать"].tap() }
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
         let failure = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ошибка расшифровки")).firstMatch
         XCTAssertTrue(failure.waitForExistence(timeout: 10), app.debugDescription)
@@ -54,7 +128,7 @@ final class ActionButtonUITests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         app.buttons["Записать"].tap()
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
@@ -124,7 +198,7 @@ final class ActionButtonUITests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         app.buttons["Записать"].tap()
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
@@ -163,7 +237,7 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Начните с голоса"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Сделать пробную запись"].waitForExistence(timeout: 5), "Microphone must be granted by the clean Simulator setup.")
         app.buttons["Сделать пробную запись"].tap()
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
         app.terminate()
         app.launch()
@@ -176,7 +250,7 @@ final class ActionButtonUITests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         app.buttons["Записать"].tap()
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
@@ -231,12 +305,26 @@ final class ActionButtonUITests: XCTestCase {
         #if targetEnvironment(simulator)
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["recorder-stop"]
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
 
         let startRecording = app.buttons["Записать"]
         XCTAssertTrue(startRecording.waitForExistence(timeout: 10), app.debugDescription)
         startRecording.tap()
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 10), app.debugDescription)
 
+        let status = app.staticTexts["recorder-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(status.label, "Идёт запись")
+        let timer = app.staticTexts["recorder-timer"]
+        XCTAssertNotNil(timer.label.range(of: #"^\d{2}:\d{2}$"#, options: .regularExpression))
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "A05-recording-controls"
+        capture.lifetime = .keepAlways
+        add(capture)
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
 

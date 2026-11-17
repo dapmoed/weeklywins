@@ -1,8 +1,83 @@
 import AVFoundation
+import SwiftUI
+import UIKit
 import XCTest
 @testable import WeeklyWins
 
 final class RecordingTests: XCTestCase {
+    @MainActor
+    func testAutomaticStopDismissesRecorderAfterSaving() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = RecordingService(
+            recordingDirectory: directory, maxRecordingDuration: 0.4,
+            transcriber: RecorderScreenTranscriber()
+        )
+        defer { service.stop() }
+        let presenter = try await presentRecorder(service: service)
+        try await service.start()
+        try await Task.sleep(for: .milliseconds(800))
+
+        XCTAssertFalse(service.isRecording)
+        XCTAssertEqual(service.recordings.first?.state, .saved)
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            presenter.presentedViewController == nil
+        }, object: nil)
+        await fulfillment(of: [dismissed], timeout: 2)
+    }
+
+    @MainActor
+    func testFinalizationFailureKeepsRecorderErrorVisible() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = RecordingService(
+            recordingDirectory: directory, maxRecordingDuration: 1,
+            transcriber: RecorderScreenTranscriber()
+        )
+        defer { service.stop() }
+        try await service.start()
+        try await Task.sleep(for: .milliseconds(100))
+        service.stop()
+        XCTAssertNotNil(service.completedRecordingID)
+        try await service.start()
+        XCTAssertNil(service.completedRecordingID)
+        let presenter = try await presentRecorder(service: service)
+        let partialFile = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: nil
+        ).first { $0.lastPathComponent.hasSuffix(".partial.m4a") })
+        let finalFile = directory.appendingPathComponent(
+            partialFile.lastPathComponent.replacingOccurrences(of: ".partial.m4a", with: ".m4a")
+        )
+        try Data([1, 2, 3]).write(to: finalFile)
+        try await Task.sleep(for: .milliseconds(1300))
+
+        XCTAssertFalse(service.isRecording)
+        XCTAssertTrue(service.status.contains("не удалось сохранить состояние"))
+        XCTAssertNotNil(presenter.presentedViewController)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: partialFile.path))
+    }
+
+    @MainActor
+    private func presentRecorder(service: RecordingService) async throws -> UIViewController {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previousWindow = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        let presenter = UIViewController()
+        window.rootViewController = presenter
+        window.makeKeyAndVisible()
+        let recorder = UIHostingController(rootView: StudioRecorderView(service: service))
+        recorder.modalPresentationStyle = .fullScreen
+        let presented = expectation(description: "Recorder is presented")
+        presenter.present(recorder, animated: false) { presented.fulfill() }
+        await fulfillment(of: [presented], timeout: 2)
+        addTeardownBlock { @MainActor in
+            presenter.dismiss(animated: false)
+            window.isHidden = true
+            previousWindow?.makeKeyAndVisible()
+        }
+        return presenter
+    }
+
     @MainActor
     func testSavedRecordingCanBePlayedAndRecordingStopsPlayback() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -188,5 +263,11 @@ final class RecordingTests: XCTestCase {
         XCTAssertEqual(service.recordings.count, 1)
         XCTAssertEqual(service.recordings.first?.state, .interrupted)
         XCTAssertEqual(service.status, "Запись прервана и сохранена")
+    }
+}
+
+private struct RecorderScreenTranscriber: Transcriber {
+    func transcribe(audioFileURL: URL, locale: Locale) async throws -> String {
+        "Проверил запись."
     }
 }
