@@ -63,6 +63,7 @@ struct OnDeviceSpeechTranscriber: Transcriber {
         }
     }
 
+    @MainActor
     private func transcribeWithLegacyOnDeviceRecognizer(audioFileURL: URL, locale: Locale) async throws -> String {
         guard let recognizer = SFSpeechRecognizer(locale: locale) else {
             throw TranscriptionError.unsupportedLocale(locale.identifier)
@@ -74,24 +75,17 @@ struct OnDeviceSpeechTranscriber: Transcriber {
 
         let request = SFSpeechURLRecognitionRequest(url: audioFileURL)
         request.requiresOnDeviceRecognition = true
-        return try await withCheckedThrowingContinuation { continuation in
-            var didFinish = false
+        return try await SpeechRecognitionSession().run { finish in
             let task = recognizer.recognitionTask(with: request) { result, error in
-                guard !didFinish else { return }
                 if let error {
-                    didFinish = true
-                    continuation.resume(throwing: error)
+                    finish(.failure(error))
                 } else if let result, result.isFinal {
-                    didFinish = true
                     let text = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if text.isEmpty {
-                        continuation.resume(throwing: TranscriptionError.noSpeechRecognized)
-                    } else {
-                        continuation.resume(returning: text)
-                    }
+                    if text.isEmpty { finish(.failure(TranscriptionError.noSpeechRecognized)) }
+                    else { finish(.success(text)) }
                 }
             }
-            _ = task
+            return { task.cancel() }
         }
     }
 

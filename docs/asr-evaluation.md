@@ -27,3 +27,13 @@ No final ASR provider or bundled model has been selected. The current Simulator 
 On the connected iPhone 16 Pro running iOS 27.2, the runtime probe on 2026-11-16 returned no equivalent Russian locale for SpeechTranscriber. SFSpeechRecognizer(ru-RU) exists and reports supportsOnDeviceRecognition=true. The provider selects this fallback with requiresOnDeviceRecognition=true. Actual Russian accuracy and five-minute offline processing still need measurement.
 
 The user confirmed that transcription of a spoken recording works on the physical iPhone with build 14. The five-minute airplane-mode comparison, measured word errors, storage, and battery evaluation remain open.
+
+## Cancellation prerequisite, 2026-11-17
+
+Legacy on-device recognition now uses a one-shot MainActor SpeechRecognitionSession. It retains the recognition task through a cancellation closure, completes its checked continuation once and cancels recognition before releasing the waiting caller. Late and duplicate callbacks are ignored after completion. The session is retained through its async lifetime.
+
+Three deterministic tests exercise cancellation before engine start, cancellation during recognition with a late result, and duplicate completion callbacks. The full unit-test target passed 57 tests with 0 failures at /private/tmp/weeklywins-speech-cancel-final.log. These tests verify callback ownership/cancellation using an injected recognizer starter. Physical native-engine cancellation and long-recording quality require device verification.
+
+Automatic processing is the next implementation slice. The design uses persisted intent before recording finalization, a serial worker and cancellable execution sessions. Foreground user-initiated processing will request BGContinuedProcessingTask execution, while a locked/background stop can use a bounded UIKit background task after speech permission has been granted. Pending work will resume after foreground/relaunch, preserving current text and user drafts.
+
+Apple documents foreground user initiation, progress reporting and expiration for [continued processing](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados). UIKit's [background execution extension](https://developer.apple.com/documentation/uikit/extending-your-app-s-background-execution-time) grants limited execution time and requires balancing every task identifier.
