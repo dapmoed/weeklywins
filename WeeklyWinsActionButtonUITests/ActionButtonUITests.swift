@@ -2,6 +2,23 @@ import XCTest
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testFreshInstallOnboardingStartsTrialRecordingAndDoesNotRepeat() throws {
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        try XCTSkipUnless(app.staticTexts["Вспомнить свой день"].waitForExistence(timeout: 3), "Run this case on a clean Simulator installation.")
+        app.buttons["Начать"].tap()
+        XCTAssertTrue(app.staticTexts["Начните с голоса"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Сделать пробную запись"].waitForExistence(timeout: 5), "Microphone must be granted by the clean Simulator setup.")
+        app.buttons["Сделать пробную запись"].tap()
+        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        app.buttons["recorder-stop"].tap()
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["Записать"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Вспомнить свой день"].exists)
+    }
+
+    @MainActor
     func testTranscriptDraftSurvivesAppRelaunchAndCanBeDiscarded() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()

@@ -98,5 +98,6 @@ struct ActionButtonGuideView: View {
         }
         .scrollContentBackground(.hidden).background(StudioTheme.background)
         .navigationTitle("Кнопка действия").navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 }

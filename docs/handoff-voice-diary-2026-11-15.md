@@ -103,3 +103,11 @@ Added pause/resume, live playback position/duration and bounded seeking to the o
 Review found old ASR completion deleting newer drafts and implicit save during Events navigation. Fixed with shared service-level ASR ownership, disabled editing in reopened views while the job runs, conditional draft cleanup by owned text version, and explicit Events navigation choices. Deletion cleanup now removes transcript drafts both immediately and during startup retry. Playback polling exits when service disappears.
 
 Simulator unit tests verify pause/seek/start behavior, persisted empty/nonempty drafts and old-job/new-draft ownership. UI test terminates/relaunches with a draft, verifies restoration, discards it through close confirmation, and verifies it is absent afterward. Full Simulator suite passed at /private/tmp/weeklywins-audio-draft-final.log. No physical install for this stage. Remaining work includes onboarding, multi-event review draft handling, report interactions, further UI fidelity and device long/offline acceptance.
+
+## First-launch stage, 2026-11-17
+
+Added approved A01 onboarding with Voice Studio palette, voice-to-two-events example, microphone permission/status and Settings recovery, Action Button guide link, optional trial capture and skip-to-diary actions. StudioRootView persists completion in UserDefaults. Existing visible recordings and an ongoing capture/start bypass onboarding so first-foreground use after an Action Button recording preserves the recorder.
+
+Read-only review found no important issues. A dedicated clean iPhone16Pro iOS26.5 Simulator was created, app installed and microphone granted using simctl, then the onboarding UI test passed: welcome→microphone step→trial recording→stop→app terminate/relaunch→no repeated onboarding. The clean QA simulator was then shut down and deleted. First-request/denied system prompt branches still require a dedicated permission-state check.
+
+Main Simulator regression suite passed at /private/tmp/weeklywins-onboarding-regression.log. Its fresh-install-only test skips on the populated simulator; it passed separately at /private/tmp/weeklywins-onboarding-fresh.log. Two OS Action Button/Shortcut dispatch tests remain skipped as previously documented. No physical device install in this stage.

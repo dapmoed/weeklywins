@@ -5,8 +5,28 @@ struct StudioRootView: View {
     @State private var showRecorder = false
     @State private var error: String?
     @State private var selectedTab = 0
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some View {
+        Group {
+            if hasCompletedOnboarding || !service.recordings.isEmpty || service.isRecording || service.isStarting {
+                mainInterface.onAppear { hasCompletedOnboarding = true }
+            } else {
+                OnboardingView { startRecording in
+                    hasCompletedOnboarding = true
+                    if startRecording {
+                        showRecorder = true
+                        Task {
+                            do { try await service.start() }
+                            catch { self.error = error.localizedDescription }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var mainInterface: some View {
         ZStack {
             ReportView(isToday: true).opacity(selectedTab == 0 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 0).accessibilityHidden(selectedTab != 0)
