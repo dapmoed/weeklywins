@@ -20,11 +20,15 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Запись голосовых заметок о делах в течение дня.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Расшифровка голосовых заметок на устройстве.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
 </dict>
 </plist>

@@ -1,47 +1,46 @@
 # Handoff: WeeklyWins voice diary
 
-Updated: 2026-11-15
+Updated: 2026-11-16
 
-## User goal and agreed behavior
+## User goal
 
-Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 1–5 minute chunks. The Action Button starts and stops recording on alternating presses, including while the phone is locked. The app stores recordings and timestamps, extracts every mentioned task (large or small), lets the user label tasks `работа` / `дом`, and shows day/week/month reports. Processing is local by default; cloud text processing through a proxy is an optional fallback only if local extraction proves inadequate. The recording screen displays app version/build.
+Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 1–5 minute chunks. The Action Button should start and stop recording on alternating presses, including while locked. The app stores recordings and timestamps, extracts mentioned tasks, supports `работа` / `дом` labels, and provides daily, weekly, and monthly reports. Processing is local by default; optional cloud text processing through a proxy requires a later quality decision and explicit opt-in. The recording screen displays app version/build.
 
-## Current workspace
+## Workspace and signing
 
-- Work in the repository root: `/Users/konstantin.brikalov/Projects/Обучение/AI/weeklywins` on branch `main`.
-- The design/plan commit is `9815fb6 docs: plan offline iPhone voice daily log`.
-- The base commit is `ea25b9f feat: add voice diary recording prototype`; current build-8 / UI-test updates are uncommitted in the main checkout. Preserve them; do not reset or overwrite.
-- `project.yml` is the XcodeGen source. XcodeGen is installed. Generate with `xcodegen generate`.
-- The shared `WeeklyWins` scheme now explicitly launches `WeeklyWins.app`; do not launch `RecordingActivityExtension.appex` directly.
-- Xcode 26.6 is installed, but the active developer directory is Command Line Tools. Prefix Xcode commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
-- Simulator device: iPhone 17 Pro, iOS 26.5, UDID `01FDA22D-80AB-4612-B93C-C63DFD9ABBAB`.
-- Connected physical iPhone: iPhone 16 Pro, iOS 27.2, UDID `540CA7E2-ACAE-5E2D-9D47-1E4AF7762E68`.
-- The phone currently has app version `0.1.0`, build `5` installed; user reports the Action Button error persists.
-- Current app version is `0.1.0 (build 8)`.
+- Repository: `/Users/konstantin.brikalov/Projects/Обучение/AI/weeklywins`, branch `main`. Keep changes in this folder and preserve unrelated local edits.
+- Design: `docs/superpowers/specs/2026-11-15-voice-daily-log-design.md`.
+- Plan: `docs/superpowers/plans/2026-11-15-voice-daily-log.md`.
+- `project.yml` is the XcodeGen source and now stores build `10`, `CODE_SIGN_STYLE: Automatic`, and the development team. `xcodegen generate` keeps signing settings.
+- Xcode 26.6 requires `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` for CLI commands.
+- A signed `generic/platform=iOS` build 10 succeeded after regeneration. The phone was disconnected, so build 10 is not installed; the phone still has build 9.
+- Simulator: iPhone 17 Pro, iOS 26.5, UDID `01FDA22D-80AB-4612-B93C-C63DFD9ABBAB`.
+- iPhone: iPhone 16 Pro, iOS 27.2, UDID `540CA7E2-ACAE-5E2D-9D47-1E4AF7762E68`, currently disconnected.
 
-## Relevant files
+## Task 1: Action Button feasibility
 
-- `docs/superpowers/specs/2026-11-15-voice-daily-log-design.md` — approved product design.
-- `docs/superpowers/plans/2026-11-15-voice-daily-log.md` — implementation plan; Task 1 remains incomplete.
-- `docs/device-validation.md` — current device and Simulator findings.
-- `WeeklyWins/Recording/RecordingService.swift` — audio permission, AVAudioSession, AVAudioRecorder, Live Activity.
-- `WeeklyWins/Recording/ToggleRecordingIntent.swift` — background AppIntent and AppShortcutsProvider.
-- `WeeklyWins/WeeklyWinsApp.swift` — SwiftUI entry point.
-- `WeeklyWinsTests/RecordingServiceTests.swift` — one test invokes the intent twice in-process.
-- `WeeklyWinsActionButtonUITests/ActionButtonUITests.swift` — physical-device integration tests; the two system-shortcut tests explicitly skip on iOS Simulator 26/27.
-- `shots/action-button-session-activation-failed.jpeg` — first physical-phone failure.
-- `shots/Снимок экрана — 2026-11-15 в 20.14.19.png` — later Simulator error.
+- `ToggleRecordingIntent` conforms to `AudioRecordingIntent`; the app publishes the `Запись` shortcut.
+- A build-8 Console log on the physical iPhone showed `AVAudioSession.setActive(true)` failing in the background with `NSOSStatusErrorDomain` code `560557684` (`cannotInterruptOthers`) before recorder start. This led to the `AudioRecordingIntent` experiment; build 9 was installed but not physically retested.
+- Simulator Settings exposes the Action Button and `Быстрая команда`; its picker lists `WeeklyWins → Запись`. Invoking the system shortcut produces `Не удается запустить быструю команду приложения`, and the simulated button did not start the app recording. Screenshot: `shots/action-button-simulator-shortcut-dispatch-failed.png`.
+- Simulator does verify the in-process intent and recording behavior, but not the OS-level Action Button dispatch. The actual locked-screen acceptance remains open until a connected iPhone succeeds.
 
-## What has been verified
+## Task 2: recording and persistence
 
-- The in-app Start/Stop button works in Simulator. Unified logs showed audio session activation, AAC input queue start, and ActivityKit accepted/activated the Live Activity.
-- The physical app Documents container contained 11 `recording-*.m4a` files; only filenames and file metadata were inspected, not audio contents. Build 8 displays local recordings with date/time and duration; the phone still has build 7.
-- Full `xcodebuild test` on Simulator passes: one in-process recording test passes; two App Shortcut/Action Button integration tests are skipped by design on iOS Simulator 26/27. The passing test does **not** exercise Shortcuts' out-of-process provider lookup or Action Button dispatch.
-- Version/build are visible on the recording screen; current build is `0.1.0 (сборка 8)`.
-- Build/test command:
+- `Recording` stores UUID, start timestamp, duration, filename, capture state, processing state, and error.
+- `RecordingStore` persists JSON atomically, imports recordings from build 8, writes active audio to a partial filename, finalizes by renaming after recorder stop, and preserves partial files as interrupted records after relaunch.
+- `RecordingService` uses the same store from UI and intent, guards concurrent starts, makes stop idempotent, stops at the configured duration, handles audio interruption notifications, and surfaces interrupted/error state in the recordings list.
+- Task 2 focused Simulator tests: 7 passed. Full Simulator suite on build 10: **13 passed, 2 skipped, 0 failed**. The two skips are OS-level Shortcut/Action Button dispatch tests.
+- Sol reviewed Task 2: no definite critical flaw; specifically checked pending-manifest-before-capture, partial-file preservation on rename failure, and recovery if the manifest write fails after media rename.
+- Physical locked/background recording validation is still pending because the phone is disconnected.
+
+## Current simulator test boundary
+
+- `RecordingServiceTests` covers intent conformance, direct in-process intent start/stop, and legacy library ordering.
+- `RecordingTests` covers migration, interruption finalization, recovery without deleting audio, finalization conflicts, maximum duration, duplicate stop, and concurrent start requests.
+- `ActionButtonUITests` covers the app's in-app recording flow and Action Button/shortcut discoverability. System dispatch tests skip on Simulator because the system returns the observed generic error.
+- Test command:
 
   ```sh
-  xcodegen generate
   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
     xcodebuild -project WeeklyWins.xcodeproj -scheme WeeklyWins \
     -destination 'platform=iOS Simulator,id=01FDA22D-80AB-4612-B93C-C63DFD9ABBAB' \
@@ -49,32 +48,32 @@ Build an iPhone 16 Pro app for Russian voice notes, recorded through the day in 
     CODE_SIGNING_ALLOWED=NO test
   ```
 
-## Current failing path and evidence
+## Next plan work
 
-- First iPhone screenshot showed `Session activation failed` on both Action Button presses.
-- Reordered permission request ahead of AVAudioSession activation. This was not enough to resolve the installed-phone failure.
-- Changed the Action Button command from `AudioRecordingIntent` to a regular background `AppIntent`; Sol thought the special recording protocol might be activating/preparing the session before `perform()`, but this was a hypothesis.
-- Simulator Shortcuts UI discovers `WeeklyWins → Запись`; when tapped it reports `Не удается запустить быструю команду приложения`. No `perform()` log appears.
-- The latest Xcode screenshot showed Run targeting `RecordingActivityExtension.appex` and reporting `Failed to show Widget`. The generated `WeeklyWins` scheme had its LaunchAction and ProfileAction pointed at the extension. `project.yml` now pins Run/Profile and Test macro expansion to `WeeklyWins.app`; regenerating the project launches the main app in Simulator and shows build 8.
-- XCUITest confirmed the Simulator Action Button was set to `Без действия`, so pressing it there could not invoke WeeklyWins. The settings carousel exposed only `Без действия`, `Элементы управления`, and `Бесшумный режим`; it did not expose the Shortcut option.
-- Tapping the discovered Shortcuts tile surfaces `Не удается запустить быструю команду приложения` before `perform()`; app-side intent logging does not start.
-- The app bundle's AppIntents metadata contains `ToggleRecordingIntent`, `autoShortcuts`, the `Запись` title, phrase template, and `WeeklyWinsShortcuts` provider metadata. Xcode sometimes reports `No AppShortcuts found - Skipping` in its training phase.
-- A current Apple Developer Forums report says App Shortcuts do not run on iOS 26/27 simulators (FB23342158). This is a developer report, not an Apple-confirmed release-note issue, but it matches the observed Simulator failure. Treat the Simulator system-dispatch error as a likely platform limitation; physical-device behavior remains untested.
-- `updateAppShortcutParameters()` was tried at app init, then removed because linkd returned `Couldn’t communicate with a helper application` and it did not improve the Simulator path.
-- Device build still fails in Xcode CLI with `No Account for Team 9U44QT57YP` and missing profiles. A screenshot showed Personal Team in Xcode's signing UI; GUI selection alone did not make CLI signing work.
+Continue Task 3 with Simulator-supported checks: probe `SpeechTranscriber`/Russian availability and build a replaceable offline transcription interface, while recording that Russian accuracy, throughput, and battery still need physical-device measurements. Then proceed through event extraction and reporting using fixtures and Simulator tests. Do not claim Task 1's locked-screen acceptance complete without a physical iPhone run.
 
-## Next steps
+## Latest physical progress, build 14
 
-1. Avoid further product-code changes to chase the iOS 26.5 Simulator Shortcuts failure unless new device evidence contradicts the Simulator-limitation hypothesis.
-2. In Xcode's scheme selector, choose `WeeklyWins`, not `RecordingActivityExtension`; the shared scheme is fixed to launch the app now.
-3. The user reports the Action Button works while the app is active and the phone is unlocked but fails in background/locked state. Build 8 adds detailed OSLog diagnostics and returns a Shortcut dialog with the NSError domain/code if `perform()` catches a failure. Xcode CLI still reports no Apple account/profiles for the Personal Team; use the Xcode GUI `WeeklyWins` scheme to install build 8, then compare foreground and locked Action Button runs in the debug console.
-4. Install build 8 on the physical iPhone to surface its recordings list, grant microphone permission while unlocked, assign `WeeklyWins → Запись` to Action Button, lock the phone, and run two presses. Collect the app's OSLog output (`perform entered`, `audio session activated`, `recorder started`) and confirm one playable file.
-5. Task 1 is complete only after two locked-screen presses create one playable recording without unlocking. Continue Tasks 2–5 only after this gate.
+The iPhone is connected. Locked Action Button start/stop succeeded on build 14 and the user confirmed it works. Diagnostics show PID 8166 starting recorder and Live Activity at 22:44:33, then stopping from the second intent at 22:44:44. Manifest contains saved recording 14C0BDB3-EE95-4912-9248-C36DD224283F with duration 10.528125 seconds and no error. Audio playback, five-minute run, restart/force-quit/call cases still require acceptance.
 
-## Tooling boundary
+Working changes include `.playAndRecord` with `.mixWithOthers`, conformance to both `AudioRecordingIntent` and `LiveActivityIntent`, and `some IntentResult & ProvidesDialog`. Prior build 13 activated audio and started recording, but Live Activity failed with authorization code 7 in background, then AppIntents asserted. Build 14 started Live Activity successfully. Durable metadata-only diagnostics live in Documents/recording-diagnostics.log.
 
-The current tool set does not expose `mcp__cua_repl`, so no further GUI interaction was possible even though the user is now outside terminal Codex. Continue with `xcodebuild`, `simctl`, Simulator logs, and XCUITest; use Xcode GUI only for Apple Account signing setup if needed.
+Physical Speech probe succeeded after correcting an invalid test assumption that Russian must be offered by SpeechTranscriber. On iPhone 16 Pro iOS 27.2, SpeechTranscriber has no equivalent Russian locale, while SFSpeechRecognizer supportsOnDeviceRecognition=true for ru-RU. Existing provider falls back to SFSpeechRecognizer with requiresOnDeviceRecognition=true. User was asked to select a spoken recording and tap Расшифровать. Await this actual transcription result while continuing other plan work. Do not reinstall or start device tests while the user performs that manual check.
 
-## Sol consultation
+The user confirmed Russian transcription works on the iPhone. Next implement Tasks 4–5 through the normal transcript editing flow. Keep five-minute airplane-mode quality measurement and playback/extended Action Button acceptance open.
 
-Sol's latest review: direct recorder tests pass but this does not prove Action Button delivery; the Simulator Shortcuts call appears to fail before `perform()`. The physical iPhone test is decisive. Check Xcode GUI account/profile setup, then install and verify before making more product changes.
+## Build 15 progress
+
+Build 15 installed on the connected iPhone. Added persisted DiaryEvent values linked to recordings, local extraction after transcription or manual text save, editing of category/completion/time/duration, merge/delete/add, Today and day/week/month reports. Existing transcript records acquire event suggestions when their events field is missing. Existing manual event edits are retained on retranscription. Report durations sum completed events with known duration. Tests for event extraction and report queries pass. Latest full Simulator suite has 20 unit tests plus 2 UI tests passing, 2 system-dispatch UI tests skipped. Physical build succeeded.
+
+Remaining work includes broader extraction fixtures and measured quality, report/edit UI acceptance on device, actual audio playback acceptance, five-minute airplane-mode transcription, extended Action Button restart/interruption tests, stronger persistence error handling and transcription cancellation review. Goal remains active. See docs/event-evaluation.md for current extractor limitations.
+
+## Simulator implementation checkpoint, 2026-11-17
+
+The user approved Voice Studio palette and layout A and requires exact adherence. Authoritative visual target is docs/design/layout-a-approved.png, with docs/design/approved-design.md and the A01–A18 screen specification. The user prefers Simulator verification and installations on iPhone only when technically needed. Commit and push each finished stage.
+
+Implemented shared StudioTheme, StudioRootView with Today/Recordings/Reports navigation and persistent recording action, full-screen recorder with timer and actual microphone meter history, category-filtered timeline and calendar, and report charts. Added UILaunchScreen configuration to eliminate iOS compatibility letterboxing. Russian labels and explicit recording-time captions preserve time semantics. Current primary screen render was inspected with temporary synthetic Simulator-only data, then the original index was restored. Date localization and timeline chronological ordering were corrected afterward. Exact visual matching across all A01–A18 remains in progress, including settings/onboarding, event detail/source access, typography and spacing refinements, draft handling, and advanced report interactions. Do not claim design completion.
+
+Reviewed and corrected recovery importing duplicate UUIDs after media rename, automatic recording finalization via AVAudioRecorderDelegate and finalized-file duration, event refresh after corrected transcript while retaining manual edits, ordinary negations and clock-time/duration confusion, and in-memory rollback for failed begin/transcript writes. Added playback with recording-start stopping playback. SpeechAnalyzer consumer cleanup now cancels on failure. Legacy speech task cancellation and broader ASR/extraction evaluations remain pending.
+
+Full Simulator suite passed at /private/tmp/weeklywins-derived/Logs/Test/Test-WeeklyWins-2026.11.17_09-19-23-+0500.xcresult. Hardware acceptance retains confirmed build14 two-press locked start/stop and user-confirmed Russian transcription. Five-minute airplane-mode transcription, playback and longer interruption/restart cases still need physical acceptance. No new device install in this checkpoint.

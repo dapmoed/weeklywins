@@ -4,7 +4,7 @@ import SwiftUI
 struct WeeklyWinsApp: App {
     var body: some Scene {
         WindowGroup {
-            RecordingView()
+            StudioRootView()
         }
     }
 }

@@ -2,9 +2,56 @@ import XCTest
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testSimulatorCanVerifyRecordingFlowInApp() throws {
+        #if targetEnvironment(simulator)
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let startRecording = app.buttons["Записать"]
+        XCTAssertTrue(startRecording.waitForExistence(timeout: 10), app.debugDescription)
+        startRecording.tap()
+        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 10), app.debugDescription)
+
+        app.buttons["recorder-stop"].tap()
+        app.buttons["studio-tab-1"].tap()
+
+        let recordingRow = app.buttons.matching(identifier: "recording-row").firstMatch
+        XCTAssertTrue(recordingRow.waitForExistence(timeout: 5), app.debugDescription)
+        recordingRow.tap()
+        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.buttons["Расшифровать"].exists)
+        XCTAssertTrue(app.buttons["Сохранить текст"].exists)
+        #else
+        throw XCTSkip("This recorder-flow check is for Simulator; Action Button end-to-end is covered by the device test.")
+        #endif
+    }
+
+    @MainActor
+    func testSimulatorShowsActionButtonAndWeeklyWinsShortcut() throws {
+        #if targetEnvironment(simulator)
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.launch()
+
+        let actionButtonRow = settings.staticTexts["Кнопка действия"]
+        XCTAssertTrue(actionButtonRow.waitForExistence(timeout: 10), settings.debugDescription)
+        XCTAssertTrue(XCUIDevice.shared.hasHardwareButton(.action))
+        let shortcutsApp = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
+        shortcutsApp.launch()
+        let shortcutPicker = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
+        let weeklyWins = shortcutPicker.staticTexts["WeeklyWins"]
+        XCTAssertTrue(weeklyWins.waitForExistence(timeout: 10), shortcutPicker.debugDescription)
+        weeklyWins.tap()
+        XCTAssertTrue(shortcutPicker.staticTexts["Запись"].waitForExistence(timeout: 5), shortcutPicker.debugDescription)
+        XCTAssertTrue(XCUIDevice.shared.hasHardwareButton(.action))
+        #else
+        throw XCTSkip("This setup probe is only for Simulator.")
+        #endif
+    }
+
+    @MainActor
     func testRecordingShortcutStartsRecording() throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("App Shortcuts do not execute reliably in iOS 26/27 Simulator; verify dispatch on iPhone.")
+        throw XCTSkip("iOS 26.5 Simulator shows ‘Не удается запустить быструю команду приложения’ when this App Shortcut is invoked; direct intent behavior is tested in WeeklyWinsTests.")
         #else
         let shortcuts = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
         shortcuts.launch()
@@ -13,11 +60,12 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(appShortcut.waitForExistence(timeout: 10), shortcuts.debugDescription)
         appShortcut.tap()
 
-        let recordingShortcut = shortcuts.buttons["Микрофон"]
+        let recordingShortcut = shortcuts.staticTexts["Запись"]
         XCTAssertTrue(recordingShortcut.waitForExistence(timeout: 5), shortcuts.debugDescription)
         recordingShortcut.tap()
 
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.activate()
         XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 10), app.debugDescription)
         #endif
     }
@@ -25,7 +73,7 @@ final class ActionButtonUITests: XCTestCase {
     @MainActor
     func testActionButtonStartsAndStopsRecording() throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("App Shortcuts do not execute reliably in iOS 26/27 Simulator; verify dispatch on iPhone.")
+        throw XCTSkip("iOS 26.5 Simulator Action Button dispatch shows ‘Не удается запустить быструю команду приложения’; direct intent behavior is tested in WeeklyWinsTests.")
         #else
         let device = XCUIDevice.shared
         try XCTSkipUnless(device.hasHardwareButton(.action), "Simulator has no Action Button")

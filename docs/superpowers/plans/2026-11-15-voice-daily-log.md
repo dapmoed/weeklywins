@@ -47,10 +47,10 @@
 
 **Files:** `WeeklyWins/Recording/Recorder.swift`, `WeeklyWins/Recording/RecordingStore.swift`, `WeeklyWins/Recording/RecordingView.swift`, `WeeklyWins/Recording/Recording.swift`, `WeeklyWinsTests/RecordingTests.swift`.
 
-- [ ] Define one recording identity, start timestamp, duration, file URL, processing state, and error state in local storage.
-- [ ] Add tests for the 5-minute stop, double stop, interruption, and recovery after relaunch; run the focused test target and observe failures.
-- [ ] Implement capture and atomic finalization; make UI and intent call the same recording service; pass focused tests.
-- [ ] Verify recordings on the physical device, including locked screen and background use.
+- [x] Define one recording identity, start timestamp, duration, file URL, processing state, and error state in local storage.
+- [x] Add tests for the 5-minute stop, double stop, interruption, and recovery after relaunch; run the focused test target and observe failures.
+- [x] Implement capture and atomic finalization; make UI and intent call the same recording service; pass focused tests.
+- [ ] Verify recordings on the physical device, including locked screen and background use. Deferred: iPhone is disconnected; simulator covers app-owned recording behavior, not OS Action Button dispatch.
 
 ### Task 3: Offline Russian transcription selection and integration
 

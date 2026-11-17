@@ -2,26 +2,12 @@ import SwiftUI
 
 struct RecordingView: View {
     @ObservedObject private var recorder = RecordingService.shared
+    @State private var selectedRecording: Recording?
 
     var body: some View {
         VStack(spacing: 18) {
-            Group {
-                Image(systemName: recorder.isRecording ? "waveform" : "mic")
-                    .font(.system(size: 48))
-                    .foregroundStyle(recorder.isRecording ? .red : .accentColor)
-                Text(recorder.status).font(.title2)
-                Button(recorder.isRecording ? "Остановить" : "Начать запись") {
-                    Task {
-                        do { try await recorder.toggle() }
-                        catch { recorder.showError(error) }
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                Text(versionLabel)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            Text("Записи").font(.largeTitle.bold()).frame(maxWidth: .infinity, alignment: .leading)
+            Text(versionLabel).font(.caption).foregroundStyle(StudioTheme.secondary)
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
@@ -39,7 +25,13 @@ struct RecordingView: View {
                     ScrollView {
                         LazyVStack(spacing: 8) {
                             ForEach(recorder.recordings) { recording in
-                                RecordingRow(recording: recording)
+                                Button {
+                                    selectedRecording = recording
+                                } label: {
+                                    RecordingRow(recording: recording)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("recording-row")
                             }
                         }
                     }
@@ -47,8 +39,13 @@ struct RecordingView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding()
+        .padding(20)
+        .background(StudioTheme.background)
+        .foregroundStyle(StudioTheme.text)
         .onAppear { recorder.refreshRecordings() }
+        .sheet(item: $selectedRecording) { recording in
+            TranscriptView(recording: recording, recordingService: recorder)
+        }
     }
 
     private var versionLabel: String {
@@ -60,7 +57,7 @@ struct RecordingView: View {
 }
 
 private struct RecordingRow: View {
-    let recording: RecordingSummary
+    let recording: Recording
 
     var body: some View {
         HStack(spacing: 12) {
@@ -72,11 +69,21 @@ private struct RecordingRow: View {
                 Text(durationText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if recording.state != .saved {
+                    Text(recording.state.displayName)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+                if let errorMessage = recording.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private var durationText: String {

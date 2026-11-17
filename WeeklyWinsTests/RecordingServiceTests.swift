@@ -1,7 +1,34 @@
 import XCTest
+import AppIntents
+import AVFoundation
 @testable import WeeklyWins
 
 final class RecordingServiceTests: XCTestCase {
+    func testActionButtonIntentConformsToAudioRecordingIntent() {
+        let _: any AudioRecordingIntent = ToggleRecordingIntent()
+        let _: any LiveActivityIntent = ToggleRecordingIntent()
+    }
+
+    @MainActor
+    func testAudioInterruptionStopsAndSavesActiveRecording() async throws {
+        let service = RecordingService.shared
+        service.stop()
+        let recordingCountBeforeStart = service.recordings.count
+
+        try await service.start()
+        defer { service.stop() }
+
+        XCTAssertTrue(service.isRecording)
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue]
+        )
+
+        XCTAssertFalse(service.isRecording, "An audio interruption must stop the recorder and finalize its file.")
+        XCTAssertEqual(service.recordings.count, recordingCountBeforeStart + 1)
+    }
+
     func testRecordingLibraryListsSavedAudioNewestFirst() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
