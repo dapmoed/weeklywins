@@ -1,17 +1,17 @@
 # Action Button and Simulator validation
 
-Updated: 2026-11-16
+Updated 2026-11-17
 
 ## Devices and builds
 
-- iPhone 16 Pro, iOS 27.2, UDID `540CA7E2-ACAE-5E2D-9D47-1E4AF7762E68`. The phone is currently disconnected; build `0.1.0 (9)` is installed.
-- iPhone 17 Pro Simulator, iOS 26.5, UDID `01FDA22D-80AB-4612-B93C-C63DFD9ABBAB`. Simulator tests build `0.1.0 (10)`.
+- iPhone 16 Pro, iOS 27.2.1, UDID `540CA7E2-ACAE-5E2D-9D47-1E4AF7762E68`. A read-only devicectl check on 2026-11-17 confirmed it is connected/paired and has WeeklyWins `0.1.0 (15)` installed.
+- iPhone 17 Pro Simulator, iOS 26.5, UDID `01FDA22D-80AB-4612-B93C-C63DFD9ABBAB`. Simulator tests build `0.1.0 (16)`.
 - Xcode 26.6; prefix Xcode CLI calls with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 - Build 10 also succeeds for `generic/platform=iOS` with automatic signing. It is available at `/private/tmp/weeklywins-device-derived/Build/Products/Debug-iphoneos/WeeklyWins.app`, but is not installed on the disconnected phone.
 
 ## Current recording implementation
 
-- `ToggleRecordingIntent` conforms to `AudioRecordingIntent`; `WeeklyWinsShortcuts` publishes `Запись`.
+- `ToggleRecordingIntent` conforms to `AudioRecordingIntent` and `LiveActivityIntent`; `WeeklyWinsShortcuts` publishes `Запись`.
 - `Recording` stores a UUID, local recording timestamp, optional duration, audio filename, capture state, processing state, and error.
 - `RecordingStore` writes a JSON manifest atomically. Active captures use `.partial.m4a`; stop closes the recorder, renames the media file, and saves the final state. On relaunch it migrates legacy recordings and recovers unfinished records without deleting their partial audio.
 - UI and intent call the same `RecordingService`. It serializes concurrent starts, makes stop idempotent, enforces the configured maximum duration, and finalizes interruption state.
@@ -50,3 +50,9 @@ Build 13 declares `some IntentResult & ProvidesDialog` for `perform()`, matching
 The user reported success while the phone was locked. Durable diagnostic markers confirm the same process PID 8166 handled start at 22:44:33 local time, started the recorder and Live Activity, returned from the intent, and handled stop at 22:44:44. The persisted recording `14C0BDB3-EE95-4912-9248-C36DD224283F` has state `saved`, duration 10.528125 seconds, and no error. Audio playback and the longer acceptance scenarios remain to be checked.
 
 The working action conforms to both `AudioRecordingIntent` and `LiveActivityIntent`. Audio category is `.playAndRecord` with `.mixWithOthers`, and the result declares `ProvidesDialog`. Build 13 diagnostics showed Live Activity authorization code 7 from background followed by an AppIntents assertion. Adding `LiveActivityIntent` allowed the Live Activity to start and the process to retain the active recording across both invocations. Unit tests passed on build 14.
+
+## Current acceptance summary, 2026-11-17
+
+The short locked two-press recording flow is confirmed by the build 14 evidence above. Source build 16 adds the selected dimensional Echo C icon and later UI/data improvements. The connected physical phone still has build 15, verified through devicectl device info apps filtered to com.weeklywins.app. No physical installation occurred during icon or duration work.
+
+The latest full Simulator regression passed 52 tests, skipped 3 and failed 0 at /private/tmp/weeklywins-duration-final.log. Two skipped cases concern OS Shortcut/Action Button dispatch, and one requires fresh-install onboarding. Long physical recordings, offline ASR accuracy, playback listening, restart/force-quit and call/route interruption acceptance remain open.

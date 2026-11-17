@@ -83,6 +83,58 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertNil(store.recordings.first?.events)
     }
 
+    func testDecimalDurationsAndClockTimesStayInOneEvent() throws {
+        for text in ["Работал 1.5 часа.", "Работал 1,5 часа."] {
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.count, 1, text)
+            XCTAssertEqual(events.first?.duration, 5400, text)
+        }
+        let clock = EventExtractor.extract("Позвонил в 10.30.", recordingID: UUID())
+        XCTAssertEqual(clock.count, 1)
+        XCTAssertNil(clock.first?.duration)
+    }
+
+    func testCompoundAndWordDurationsAreSummedWithinOnePhrase() {
+        let cases: [(String, TimeInterval)] = [
+            ("Работал два часа тридцать пять минут", 9300),
+            ("Работал 2 часа 15 минут", 8100),
+            ("Готовил час и 30 минут", 5400),
+            ("Убирался полтора часа", 5400),
+            ("Проверял отчёт пятнадцать минут", 900),
+            ("Готовил полчаса", 1800),
+            ("Работал сто двадцать пять минут", 7500),
+            ("Работал тридцать\tпять минут", 2100)
+        ]
+        for (text, duration) in cases {
+            XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).first?.duration, duration, text)
+        }
+    }
+
+    func testRelativeAndClockReferencesDoNotBecomeDurations() {
+        for text in [
+            "Два часа назад отправил письмо", "Полчаса назад купил хлеб",
+            "Позвонил час спустя", "Встреча с 10 часов до 12 часов",
+            "Через два часа позвоню", "Позвонил в час дня",
+            "Через два часа 15 минут позвоню", "Позвонил в два часа пятнадцать минут"
+        ] {
+            XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration, text)
+        }
+        XCTAssertEqual(EventExtractor.extract("С 10 до 12 часов работал 30 минут", recordingID: UUID()).first?.duration, 1800)
+    }
+
+    func testAmbiguousOrUnsupportedQuantitiesStayUnknown() {
+        for text in [
+            "Работал двадцать-тридцать минут", "Работал 20–30 минут",
+            "Работал тысячу двести минут", "Работал час-полтора",
+            "Работал два или три часа", "Работал примерно два часа"
+        ] {
+            XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration, text)
+        }
+        for text in ["Работал — два часа", "Работал два часа — проверял документы"] {
+            XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).first?.duration, 7200, text)
+        }
+    }
+
     func testClockTimesAreNotDurationsAndNegativesAreNotCompleted() {
         for text in ["Позвонил в 2 часа", "Через два часа позвоню"] {
             XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration)
