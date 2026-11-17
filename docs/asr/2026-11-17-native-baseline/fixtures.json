@@ -1,0 +1,24 @@
+[
+  {
+    "file": "ru-one-minute.m4a",
+    "reference_file": "ru-one-minute.txt",
+    "voice": "Milena",
+    "speech_rate": 47,
+    "speech_seconds": 56.552381,
+    "container_seconds": 60.0,
+    "reference_words": 89,
+    "sha256": "0319df933e8fe5f18ba91d30da3b339b85008bef43fe4386875d55e6945344a6",
+    "bytes": 359516
+  },
+  {
+    "file": "ru-five-minute.m4a",
+    "reference_file": "ru-five-minute.txt",
+    "voice": "Milena",
+    "speech_rate": 77,
+    "speech_seconds": 295.069751,
+    "container_seconds": 300.0,
+    "reference_words": 478,
+    "sha256": "faa7712283d6c5288479fc35dbc476542fb3ba9352c2d608d464696088607bf6",
+    "bytes": 1887709
+  }
+]

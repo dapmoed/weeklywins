@@ -47,3 +47,30 @@ Each recognition attempt owns its operation and execution session. A short UIKit
 SpeechAnalyzer now explicitly cancels its results consumer and analyzer through a cancellation handler. Legacy SFSpeech uses the previously verified one-shot session. General failures retain audio and present explicit retry through the app.
 
 Nine queue regressions cover stop-triggered ASR dispatch, ordering/concurrency, persisted recovery, expiration, draft protection, terminal failure, resumption during delayed cancellation cleanup and continuation eligibility with older queued work. The full iPhone16Pro Simulator suite passed 74 tests, skipped 4 and failed 0 at /private/tmp/weeklywins-auto-final-ephemeral.log. Successful recognition in queue tests uses a scripted provider. Native background scheduling, native cancellation, five-minute Russian accuracy and airplane-mode acceptance require physical-device verification.
+
+## Controlled native measurements on iPhone 16 Pro, build 18
+
+Measured on iOS 27.2.1 with guarded requiresOnDeviceRecognition. SpeechTranscriber has no equivalent Russian locale on this phone. The adapter selects the legacy recognizer, whose on-device capability is true. Fixtures use the installed local Milena voice, generated from the references in scripts/asr-fixtures. Both AAC files are mono 16 kHz, decode completely and retain all reference speech within their 60s and 300s containers. Their SHA-256 values, raw synthetic transcripts and metrics are in [the baseline reports](asr/2026-11-17-native-baseline/fixtures.json).
+
+| Input and condition | Reference words | Recognized words | Processing | Word error rate |
+| --- | --- | --- | --- | --- |
+| One minute, initial connectivity | 89 | 87 | 1.475 s | 15.73% |
+| One minute, offline | 89 | 87 | 1.510 s | 15.73% |
+| Five minutes, offline | 478 | 90 | 6.267 s | 83.05% |
+
+The offline cases observe an actual NWPathMonitor update with unsatisfied status and no Wi-Fi, cellular or wired interface in use. They run in one already-launched test host. The minute result includes the complete ending. The five-minute result contains the tail of the narrative and loses earlier material, despite the native API returning a final result without an error. The result demonstrates a completeness defect in the current long-file adapter. Its acceptance assertion fails because 90 words fall below the expected complete output. The final marker has a grammatical recognition difference, so the marker check permits inflections and the word-coverage assertion remains the decisive failure.
+
+Word errors use Levenshtein distance after lowercasing, punctuation tokenization and ё/е normalization. Number formatting, SNS/СНС spelling and Wi-Fi variants contribute to the minute score. These are controlled synthetic-speech measurements. The user separately confirmed that their manual offline transcription works. The duration of that manual sample was not supplied.
+
+The phone was charging. Battery readings remained at 70% across the minute request, which supplies coarse observed state. A discharge-based energy comparison remains open. The bundled model comparison and natural-speech accuracy corpus remain open.
+
+A UI-runner attempt to change radio settings lost its remote connection, and offline relaunch of that runner failed developer-certificate trust validation. The user restored the original airplane-off/Wi-Fi-on state. The failed helper was removed. The successful native measurement launches online, waits for a genuine offline path update, and processes both files in the same host. The user controls airplane mode manually. General product testing continues on Simulator.
+
+Run the fixture generator and evaluator locally.
+
+```sh
+python3 scripts/generate-asr-fixtures.py --output /private/tmp/weeklywins-asr-fixtures-18
+python3 scripts/evaluate-asr-reports.py --fixtures /private/tmp/weeklywins-asr-fixtures-18 REPORT.json
+```
+
+Device-hosted cases are explicitly gated by TEST_RUNNER_RUN_DEVICE_ASR_ACCEPTANCE=1. The combined offline case is ASRAcceptanceTests/testNativeRussianOfflineCorpus. Ordinary Simulator runs skip the three physical measurement cases. The final unit run passed 68 cases, skipped 3 and failed 0 at /private/tmp/weeklywins-asr-measurement-unit-final.log. Sol consultation was attempted during the radio-runner issue, and the service returned HTTP403. This measurement stage received author self-review.

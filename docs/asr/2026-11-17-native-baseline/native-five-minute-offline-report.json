@@ -1,0 +1,33 @@
+{
+  "app_build" : "18",
+  "audio_bytes" : 1887709,
+  "audio_seconds" : 300,
+  "battery_after" : 0.94999998807907104,
+  "battery_before" : 0.94999998807907104,
+  "charging_state_after" : 2,
+  "charging_state_before" : 2,
+  "device_model" : "iPhone",
+  "finished_at" : "2026-11-17T14:54:36Z",
+  "fixture" : "ru-five-minute.m4a",
+  "legacy_on_device_supported" : true,
+  "network_before" : {
+    "cellular" : false,
+    "is_offline" : true,
+    "wifi" : false,
+    "wired" : false
+  },
+  "offline_required" : true,
+  "offline_wait_seconds" : 0.0013492083380697295,
+  "processing_seconds" : 6.2672311249989434,
+  "provider" : "OnDeviceSpeechTranscriber",
+  "reference_words" : 478,
+  "sha256" : "faa7712283d6c5288479fc35dbc476542fb3ba9352c2d608d464696088607bf6",
+  "speech_analyzer_locale" : "unavailable",
+  "speech_authorization_before" : 3,
+  "started_at" : "2026-11-17T14:54:30Z",
+  "system_version" : "27.2.1",
+  "thermal_state_after" : 0,
+  "thermal_state_before" : 0,
+  "transcript" : "Их в заметку оплачивать квитанцию сегодня не стал потому что сначала нужно уточнить сумму после уже на немного погулял прогулка заняла 40 минут вернувшись домой подготовил вещи на завтра теперь подведу и итог дня самыми крупными рабочими делами были встреча исправления авторизацией смена паролей кроме них было несколько коротких ответов проверок и уточнений дома успел купить продукты навести порядок и приготовить еду время выполнения некоторых дел известно точно а для других я его не называл такие длительности нужно сохранить неизвестными в конце оставляю контрольную фразу в ежедневнике сохранены последнюю заметки",
+  "transcript_words" : 90
+}

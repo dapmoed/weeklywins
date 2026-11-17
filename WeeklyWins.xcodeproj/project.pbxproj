@@ -26,6 +26,7 @@
 		70FAB38541B74774F997D4FB /* ReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E818CB4D70097FD5334728 /* ReportTests.swift */; };
 		71AFE62DEC6B58A0C357FC07 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9840871008E68E3599510E10 /* TranscriptView.swift */; };
 		786CA6786D9FB181E78705CE /* StudioRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383168A0716586076B98CE0E /* StudioRootView.swift */; };
+		8071ABC07553EFAB8D2F1C75 /* ASRAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E8973F6F0A1B844FA15952A /* ASRAcceptanceTests.swift */; };
 		86C927AF44FBDB7881B359BD /* RecordingActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57EBB2A914489654CE8F86B6 /* RecordingActivityWidget.swift */; };
 		889BDCCFFAA5C11766396C81 /* RecordingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */; };
 		90AC688974A7ECEFFB7AA2FE /* ActionButtonUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */; };
@@ -113,6 +114,7 @@
 		5C04EC83453B9AB49AA9DE7E /* EventExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventExtractor.swift; sourceTree = "<group>"; };
 		5C6DF44DAEDA8ADB95CAC5A4 /* RecordingActivityExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RecordingActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		60767FF285F266E88291C438 /* RecordingSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSearch.swift; sourceTree = "<group>"; };
+		6E8973F6F0A1B844FA15952A /* ASRAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASRAcceptanceTests.swift; sourceTree = "<group>"; };
 		8236D9F275BEFC8025C9F4F8 /* TranscriptionBackgroundSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionBackgroundSession.swift; sourceTree = "<group>"; };
 		842E166A366AB36680849074 /* RecordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTests.swift; sourceTree = "<group>"; };
 		84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonUITests.swift; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 		15A17C1B6B20950A674E28B2 /* WeeklyWinsTests */ = {
 			isa = PBXGroup;
 			children = (
+				6E8973F6F0A1B844FA15952A /* ASRAcceptanceTests.swift */,
 				3F71417F4D1F33857CE68E29 /* AutomaticTranscriptionTests.swift */,
 				3E0DDD9E859A5F61E0029675 /* EventExtractionTests.swift */,
 				430B9FF7A3A9B24C632CCB81 /* RecordingManagementTests.swift */,
@@ -460,6 +463,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8071ABC07553EFAB8D2F1C75 /* ASRAcceptanceTests.swift in Sources */,
 				15E18D06529FC60D56210397 /* AutomaticTranscriptionTests.swift in Sources */,
 				C2D33A7A4E50D2D85D272C37 /* EventExtractionTests.swift in Sources */,
 				1524E860F3080363A19E3403 /* RecordingManagementTests.swift in Sources */,
