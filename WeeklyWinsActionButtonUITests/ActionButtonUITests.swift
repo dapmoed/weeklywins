@@ -292,6 +292,8 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(XCUIDevice.shared.hasHardwareButton(.action))
         let shortcutsApp = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
         shortcutsApp.launch()
+        let back = shortcutsApp.buttons["Назад"].firstMatch
+        if back.exists && back.isHittable { back.tap() }
         let shortcutPicker = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
         let weeklyWins = shortcutPicker.staticTexts["WeeklyWins"]
         XCTAssertTrue(weeklyWins.waitForExistence(timeout: 10), shortcutPicker.debugDescription)
@@ -304,9 +306,42 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testSavedShortcutStartsAndStopsRecording() throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("Saved-shortcut fixture setup runs on a dedicated Russian-language Simulator.")
+        #else
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["Остановить"].firstMatch
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        let shortcuts = prepareSavedRecordingShortcut()
+        let play = shortcuts.buttons["воспроизвести"]
+        let readyToPlay = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == true AND enabled == true"), object: play
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [readyToPlay], timeout: 10), .completed, shortcuts.debugDescription)
+        play.tap()
+        app.activate()
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 10), app.debugDescription)
+        shortcuts.activate()
+        let readyToStop = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == true AND enabled == true"), object: play
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [readyToStop], timeout: 10), .completed, shortcuts.debugDescription)
+        play.tap()
+        app.activate()
+        XCTAssertTrue(app.buttons["Записать"].waitForExistence(timeout: 10), app.debugDescription)
+        #endif
+    }
+
+    @MainActor
     func testRecordingShortcutStartsRecording() throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("iOS 26.5 Simulator shows ‘Не удается запустить быструю команду приложения’ when this App Shortcut is invoked; direct intent behavior is tested in WeeklyWinsTests.")
+        throw XCTSkip("iOS 26.5 Simulator does not deliver the direct App Shortcut card invocation on build 17; testSavedShortcutStartsAndStopsRecording covers the saved single-action shortcut.")
         #else
         let shortcuts = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
         shortcuts.launch()
@@ -321,26 +356,123 @@ final class ActionButtonUITests: XCTestCase {
 
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.activate()
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 10), app.debugDescription)
         #endif
     }
 
     @MainActor
     func testActionButtonStartsAndStopsRecording() throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("iOS 26.5 Simulator Action Button dispatch shows ‘Не удается запустить быструю команду приложения’; direct intent behavior is tested in WeeklyWinsTests.")
-        #else
+        continueAfterFailure = false
         let device = XCUIDevice.shared
-        try XCTSkipUnless(device.hasHardwareButton(.action), "Simulator has no Action Button")
-
-        let app = XCUIApplication()
+        try XCTSkipUnless(device.hasHardwareButton(.action), "Device has no Action Button")
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
-
-        device.press(.action)
-        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
-
-        device.press(.action)
-        XCTAssertTrue(app.staticTexts["Запись сохранена"].waitForExistence(timeout: 5))
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["Остановить"].firstMatch
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        let recordingTitles = app.staticTexts.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@", "recording-title-"
+        ))
+        var previousRecordingID: String?
+        if app.buttons["studio-tab-1"].exists {
+            app.buttons["studio-tab-1"].tap()
+            if app.buttons.matching(identifier: "recording-row").firstMatch.exists {
+                XCTAssertTrue(recordingTitles.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+                previousRecordingID = recordingTitles.firstMatch.identifier
+            }
+        }
+        #if targetEnvironment(simulator)
+        let shortcuts = prepareSavedRecordingShortcut()
+        shortcuts.buttons["Назад"].firstMatch.tap()
+        let saved = shortcuts.buttons.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "Начать или остановить запись"
+        )).firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 10), shortcuts.debugDescription)
+        let shortcutName = saved.label
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.launch()
+        let row = settings.staticTexts["Кнопка действия"]
+        let back = settings.buttons["Настройки"].firstMatch
+        if !row.exists && back.exists { back.tap() }
+        XCTAssertTrue(row.waitForExistence(timeout: 10), settings.debugDescription)
+        row.tap()
+        // The system's 3D carousel transition is not tracked by XCTest idling.
+        Thread.sleep(forTimeInterval: 2)
+        for _ in 0..<3 {
+            if settings.staticTexts["Быстрая команда"].exists { break }
+            settings.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.4)).press(
+                forDuration: 0.1,
+                thenDragTo: settings.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.4)),
+                withVelocity: .slow, thenHoldForDuration: 0.7
+            )
+        }
+        XCTAssertTrue(settings.staticTexts["Быстрая команда"].exists, settings.debugDescription)
+        let choose = settings.buttons.matching(NSPredicate(
+            format: "label == %@ OR label == %@", "Выбрать команду…", shortcutName
+        )).firstMatch
+        XCTAssertTrue(choose.waitForExistence(timeout: 5), settings.debugDescription)
+        choose.tap()
+        let selection = settings.staticTexts[shortcutName].firstMatch
+        XCTAssertTrue(selection.waitForExistence(timeout: 5), settings.debugDescription)
+        selection.tap()
         #endif
+        device.press(.home)
+        device.press(.action)
+        app.activate()
+        XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 10), app.debugDescription)
+        device.press(.home)
+        device.press(.action)
+        app.activate()
+        XCTAssertTrue(app.buttons["Записать"].waitForExistence(timeout: 10), app.debugDescription)
+        app.buttons["studio-tab-1"].tap()
+        XCTAssertTrue(recordingTitles.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let savedRecordingID = recordingTitles.firstMatch.identifier
+        XCTAssertNotEqual(savedRecordingID, previousRecordingID)
+        app.terminate()
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        let persistedRecording = app.staticTexts[savedRecordingID]
+        XCTAssertTrue(persistedRecording.waitForExistence(timeout: 5), app.debugDescription)
+        persistedRecording.tap()
+        let play = app.buttons["Прослушать"]
+        XCTAssertTrue(play.waitForExistence(timeout: 5), app.debugDescription)
+        play.tap()
+        XCTAssertTrue(app.buttons["Пауза"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Пауза"].tap()
+    }
+
+    @MainActor
+    private func prepareSavedRecordingShortcut() -> XCUIApplication {
+        let shortcuts = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
+        shortcuts.launch()
+        let back = shortcuts.buttons["Назад"].firstMatch
+        if back.exists && back.isHittable { back.tap() }
+        let saved = shortcuts.buttons.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "Начать или остановить запись"
+        )).firstMatch
+        if !saved.exists {
+            shortcuts.buttons["Создать быструю команду"].tap()
+            let search = shortcuts.searchFields["Поиск действий"]
+            XCTAssertTrue(search.waitForExistence(timeout: 5), shortcuts.debugDescription)
+            search.tap()
+            search.typeText("WeeklyWins")
+            let action = shortcuts.staticTexts["Начать или остановить запись"].firstMatch
+            XCTAssertTrue(action.waitForExistence(timeout: 30), shortcuts.debugDescription)
+            action.tap()
+            XCTAssertTrue(shortcuts.buttons["воспроизвести"].waitForExistence(timeout: 5))
+        } else {
+            let edit = saved.buttons["Еще"].firstMatch
+            XCTAssertTrue(edit.waitForExistence(timeout: 10), shortcuts.debugDescription)
+            edit.tap()
+        }
+        let showWhenRun = shortcuts.switches["Показать при запуске"]
+        XCTAssertTrue(showWhenRun.waitForExistence(timeout: 5), shortcuts.debugDescription)
+        if showWhenRun.value as? String == "1" {
+            showWhenRun.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(showWhenRun.value as? String, "0", shortcuts.debugDescription)
+        return shortcuts
     }
 }

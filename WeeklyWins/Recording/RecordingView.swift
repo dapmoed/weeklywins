@@ -102,6 +102,7 @@ private struct RecordingRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Запись в \(recording.recordedAt.formatted(.dateTime.hour().minute()))")
                     .font(.headline)
+                    .accessibilityIdentifier("recording-title-\(recording.id.uuidString)")
                 Text("Аудио · \(durationText)").font(.caption).foregroundStyle(StudioTheme.secondary)
                 if let text = recording.transcript, !text.isEmpty {
                     Text(text).lineLimit(2).font(.subheadline).foregroundStyle(StudioTheme.secondary)

@@ -62,3 +62,30 @@ The latest full Simulator regression passed 52 tests, skipped 3 and failed 0 at 
 Full regression on a dedicated iPhone16Pro Simulator, iOS26.5, passed 74 tests with 4 skipped and 0 failures. The skipped cases cover OS Action Button/Shortcut dispatch, fresh-install onboarding on a populated installation, and the unavailable-ASR UI scenario when the runtime advertises legacy on-device support. A separate saved-error UI case verifies that the error row opens the audio/transcript source. The queue, expiration and resumption success paths use deterministic test providers.
 
 Native Simulator recognition currently advertises legacy local support and reports SpeechFramework backend failures in actual attempts. This supplies error-handling evidence. Physical Russian accuracy and long/background acceptance remain open. The OS shortcut-dispatch skips originated during earlier builds, so recheck them against the current AudioRecordingIntent plus LiveActivityIntent implementation before treating that limitation as current.
+
+## Simulator OS dispatch revalidation, build 17
+
+On 2026-11-17, a dedicated iPhone 16 Pro Simulator running iOS 26.5 (`31B6F161-6E54-4D66-8709-B7C790547F52`, named WeeklyWins Shortcuts QA) successfully ran the actual Action Button start/stop path. A saved single-action shortcut invokes WeeklyWins' existing ToggleRecordingIntent. Its action's `Показать при запуске` switch is disabled. Settings assigns this saved shortcut to the Action Button.
+
+With that switch enabled, Shortcuts displays the returned `Запись началась` dialog and waits for Done. The command remains running. A subsequent shortcut-card tap can cancel the running command instead of invoking the recording toggle again. The screenshot at `shots/simulator-shortcuts-result-waits-for-done.png` captures the dialog and the running editor. XCTest's accessibility tree exposes both play and stop during this state, so existence of the play button alone is insufficient. The switch exposes a whole-row frame, and tapping its right-hand control is needed to toggle it reliably. The fixture asserts value `0` before proceeding.
+
+The focused Action Button UI test uses Home before each of two Action Button presses, activating WeeklyWins between them to verify recording state. It then opens the saved audio and verifies playback reaches the Pause state. The run passed at `/private/tmp/weeklywins-action-background-no-dialog.log`. Manifest ID-set comparison before and after this isolated run found exactly one new recording, `CC6ABF8B-9C49-42C6-85CE-D0F88F1E7599`, state `saved`, duration 6.588 seconds. Both intent calls use PID 46191. The durable journal contains start, Live Activity creation, successful intent completion, the second intent entry, and one recorder stop. ffprobe identifies AAC, 16 kHz, mono, container duration 6.72 seconds. ffmpeg decoded the complete file with exit status 0.
+
+A separate saved-shortcut editor regression passed at `/private/tmp/weeklywins-saved-editor-show-off.log`. It runs the action twice through Shortcuts' play control and verifies active and idle app states. Test setup creates the saved shortcut when needed and disables its result dialog. The direct automatic App Shortcut card remains a separate Simulator limitation from the build 17 probes. The system Action Button test now runs on Simulator.
+
+These runs cover foreground observation and background capture through the actual Simulator OS route. Locked-device, restart, call/route interruption, long Russian ASR and airplane-mode acceptance remain governed by the physical-device checks above. No physical-device installation occurred during this stage.
+
+The hardware regression also identifies recordings by UUID through a technical accessibility identifier on the existing recording title. It remembers the previous newest identity, requires a different identity after stop, relaunches WeeklyWins, reopens that exact saved identity and verifies playback. The missing-identifier test failed at `/private/tmp/weeklywins-action-identity-red.log` and passed after adding the identifier at `/private/tmp/weeklywins-action-identity-green.log`. This prevents playback of an older recording from satisfying the check. The isolated manifest comparison above supplies the exact one-new-file count for the measured run.
+
+For local repetition, use the dedicated Russian-language Simulator and normal Simulator ad-hoc signing. The fixture can create its saved shortcut through Shortcuts. Native microphone permission must be granted to WeeklyWins before background use. The fixture explicitly configures the saved action's result switch and the Simulator's Action Button. Its setup is limited to Simulator. The physical Action Button test uses the phone's existing assignment.
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
+  -project WeeklyWins.xcodeproj -scheme WeeklyWins \
+  -destination 'platform=iOS Simulator,id=31B6F161-6E54-4D66-8709-B7C790547F52' \
+  -derivedDataPath /private/tmp/weeklywins-derived \
+  CODE_SIGNING_ALLOWED=YES -parallel-testing-enabled NO \
+  -only-testing:WeeklyWinsActionButtonUITests/ActionButtonUITests/testActionButtonStartsAndStopsRecording test
+```
+
+The final full suite passed 76 tests, skipped 3 and failed 0, with 79 total tests in the xcresult summary at `/tmp/weeklywins-derived/Logs/Test/Test-WeeklyWins-2026.11.17_17-31-59-+0500.xcresult`. The log is `/private/tmp/weeklywins-simulator-shortcuts-identity-final.log`. Remaining skips cover the direct App Shortcut card, populated-installation onboarding and the unavailable-ASR case on a runtime advertising legacy recognition support. Sol reviewed the final diff and found no remaining substantial issues.
