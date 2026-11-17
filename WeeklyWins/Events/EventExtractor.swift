@@ -12,21 +12,58 @@ enum EventExtractor {
             with: ";",
             options: .regularExpression
         ).components(separatedBy: ";")
-        return fragments.compactMap { fragment in
+        var events: [DiaryEvent] = []
+        var conflictingDurations: Set<UUID> = []
+        for fragment in fragments {
             let text = fragment.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return nil }
+            guard !text.isEmpty else { continue }
+            let clarification = durationClarification(in: text)
+            if let clarification,
+               let index = events.lastIndex(where: { describesSubject(clarification.subject, in: $0.text) }) {
+                if let existing = events[index].duration, existing != clarification.duration {
+                    conflictingDurations.insert(events[index].id)
+                }
+                events[index].duration = conflictingDurations.contains(events[index].id) ? nil : clarification.duration
+                events[index].sourceText += ". " + text
+                continue
+            }
             let negative = text.range(
                 of: #"(?i)\b(не\s+\p{L}+|планирую|собираюсь|нужно|надо)\b"#,
                 options: .regularExpression
             ) != nil
-            return DiaryEvent(
+            events.append(DiaryEvent(
                 recordingID: recordingID,
                 sourceText: text,
                 text: text,
                 completion: negative ? .notCompleted : .completed,
-                duration: explicitDuration(in: text)
-            )
+                duration: clarification?.duration ?? explicitDuration(in: text)
+            ))
         }
+        return events
+    }
+
+    private static func describesSubject(_ subject: String, in text: String) -> Bool {
+        let time = "(?:(?:сегодня|вчера|утром|днем|днём|вечером)\\s+)?"
+        let action = "(?:прош(?:[её]л|ла|ло|ли)|пров[её]л|провела|провели|состоял(?:ся|ась|ось|ись)|был(?:а|о|и)?|проводил(?:а|и)?|выполнил(?:а|и)?|сделал(?:а|и)?|завершил(?:а|и)?|планирую|запланировал(?:а|и)?|будет|нужно\\s+(?:провести|назначить|сделать|выполнить))"
+        let adjective = "(?:\\p{L}+(?:ая|ую|ое|ый|ой|ые|ого)\\s+)?"
+        let pattern = "(?i)^\(time)(?:я\\s+)?(?:\(action)\\s+)?\(adjective)\(subject)\\p{L}*\\b"
+        return text.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private static func durationClarification(in text: String) -> (duration: TimeInterval, subject: String)? {
+        let durations: [String: TimeInterval] = [
+            "часов": 3600, "получасов": 1800, "полуторачасов": 5400,
+            "двухчасов": 7200, "трехчасов": 10800, "трёхчасов": 10800,
+            "четырехчасов": 14400, "четырёхчасов": 14400, "пятичасов": 18000
+        ]
+        let adjectives = durations.keys.sorted().joined(separator: "|")
+        let subjects = "встреч|созвон|совещан|обсужден|работ|задач|проверк"
+        let pattern = "(?i)^(\(adjectives))(?:ая|ой|ое|ую)\\s+(\(subjects))\\p{L}*$"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let source = text as NSString
+        guard let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: source.length)),
+              let duration = durations[source.substring(with: match.range(at: 1)).lowercased()] else { return nil }
+        return (duration, source.substring(with: match.range(at: 2)).lowercased())
     }
 
     private static let numberValues: [String: Double] = [

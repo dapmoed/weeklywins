@@ -2,6 +2,112 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    func testUserMeetingLinksDurationClarificationAndRetainsPendingFollowUp() throws {
+        let transcript = "Прошла встреча по микросервису вай Фай  аторизация. Решили что нужно ответить в инфосеке. Часовая встреча"
+        let events = EventExtractor.extract(transcript, recordingID: UUID())
+        XCTAssertEqual(events.count, 2)
+        let meeting = try XCTUnwrap(events.first)
+        XCTAssertEqual(meeting.text, "Прошла встреча по микросервису вай Фай  аторизация")
+        XCTAssertEqual(meeting.completion, .completed)
+        XCTAssertEqual(meeting.duration, 3600)
+        XCTAssertTrue(meeting.sourceText.contains("Часовая встреча"))
+        let followUp = try XCTUnwrap(events.last)
+        XCTAssertEqual(followUp.text, "Решили что нужно ответить в инфосеке")
+        XCTAssertEqual(followUp.completion, .notCompleted)
+        XCTAssertNil(followUp.duration)
+    }
+
+    func testUserServiceNotesKeepUnknownDurationAndOriginalWording() throws {
+        for text in [
+            "Починил сервис по вай фай авторизации была проблема с паролем",
+            "Поменя пароли в сервисе снс паблишер"
+        ] {
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.count, 1)
+            let event = try XCTUnwrap(events.first)
+            XCTAssertEqual(event.text, text)
+            XCTAssertEqual(event.sourceText, text)
+            XCTAssertEqual(event.completion, .completed)
+            XCTAssertNil(event.duration)
+            XCTAssertNil(event.occurredAt)
+        }
+    }
+
+    func testClarificationTargetsMatchingMeetingAndPreservesOtherTask() {
+        let text = "Прошла встреча по проекту. Починил сервис. Часовая встреча"
+        let events = EventExtractor.extract(text, recordingID: UUID())
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events.first?.duration, 3600)
+        XCTAssertEqual(events.last?.text, "Починил сервис")
+        XCTAssertNil(events.last?.duration)
+    }
+
+    func testKnownOrConflictingDurationClarificationKeepsOneEvent() {
+        let same = EventExtractor.extract("Встреча длилась час. Часовая встреча", recordingID: UUID())
+        XCTAssertEqual(same.count, 1)
+        XCTAssertEqual(same.first?.duration, 3600)
+        let conflicting = EventExtractor.extract("Встреча длилась два часа. Часовая встреча", recordingID: UUID())
+        XCTAssertEqual(conflicting.count, 1)
+        XCTAssertNil(conflicting.first?.duration)
+        XCTAssertTrue(conflicting.first?.sourceText.contains("два часа. Часовая встреча") == true)
+    }
+
+    func testIncidentalFollowUpMentionDoesNotReceiveMeetingDuration() {
+        let events = EventExtractor.extract(
+            "Прошла встреча. Нужно отправить протокол встречи. Часовая встреча",
+            recordingID: UUID()
+        )
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events.first?.duration, 3600)
+        XCTAssertEqual(events.last?.completion, .notCompleted)
+        XCTAssertNil(events.last?.duration)
+    }
+
+    func testRepeatedClarificationKeepsDurationConflictUnknown() {
+        let events = EventExtractor.extract(
+            "Встреча длилась два часа. Часовая встреча. Часовая встреча",
+            recordingID: UUID()
+        )
+        XCTAssertEqual(events.count, 1)
+        XCTAssertNil(events.first?.duration)
+    }
+
+    func testStandaloneDurationDescriptionCreatesAnEvent() {
+        for (text, duration) in [("Часовая встреча", 3600.0), ("Получасовой созвон", 1800.0), ("Двухчасовое обсуждение", 7200.0)] {
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.count, 1)
+            XCTAssertEqual(events.first?.duration, duration)
+        }
+    }
+
+    func testPluralMeetingDescriptionKeepsTotalDurationUnknown() {
+        let events = EventExtractor.extract("Встречи проходили весь день. Часовые встречи", recordingID: UUID())
+        XCTAssertTrue(events.allSatisfy { $0.duration == nil })
+    }
+
+    @MainActor
+    func testUserNotesPersistAndReportOneCompletedMeetingHour() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        for text in [
+            "Прошла встреча по микросервису вай Фай  аторизация. Решили что нужно ответить в инфосеке. Часовая встреча",
+            "Починил сервис по вай фай авторизации была проблема с паролем",
+            "Поменя пароли в сервисе снс паблишер"
+        ] {
+            let recording = try store.beginRecording()
+            try Data([1, 2, 3]).write(to: store.fileURL(for: recording))
+            try store.finalizeRecording(id: recording.id, duration: 1)
+            try store.updateTranscription(recordingID: recording.id, transcript: text, processingState: .completed, errorMessage: nil)
+        }
+        let restored = RecordingStore(directory: directory)
+        let entries = ReportQuery.events(in: restored.recordings, period: .day, date: .now)
+        XCTAssertEqual(entries.count, 4)
+        XCTAssertEqual(entries.filter { $0.event.completion == .completed }.count, 3)
+        XCTAssertEqual(ReportQuery.knownDuration(entries), 3600)
+        XCTAssertTrue(entries.allSatisfy { $0.event.occurredAt == nil })
+    }
+
     func testReviewDraftPreservesAnEmptyListAndItsBaseline() throws {
         let suite = "review-drafts-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
