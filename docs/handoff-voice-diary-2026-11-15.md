@@ -129,3 +129,9 @@ Independent static review found baseline lifetime and stale individual-draft iss
 Remaining acceptance includes A01–A18 visual comparison on iPhone 16 Pro, large Dynamic Type and keyboard states, system permission states, Russian extraction quality and long offline physical-device recording. The current review screenshots use the iPhone 17 Pro Simulator. Broader goal remains active.
 
 Visual inspection covers compact A10 cards and the merge preview after relaunch. Screenshots are saved locally at shots/A10-event-review.png and shots/A10-merge-confirmation.png. Compared against the A10 specification and the shared palette, native typography and rounded card treatment of the approved direction. Corrected mint-button text contrast, shared surface colors and the truncated merge title by placing confirmation at the bottom. Large Dynamic Type, keyboard screenshots and complete A01–A18 fidelity remain pending.
+
+## App icon integration, 2026-11-17
+
+User selected Echo C and requested volume. Added its opaque 1024px artwork to the app's AppIcon asset catalog, configured the target in project.yml, regenerated Xcode project and increased build number to 16. Settings and the full in-app recording/source flow UI tests passed at /private/tmp/weeklywins-icon-integration.log. Built Info.plist reports build 16 and AppIcon; Assets.car is present. Static review found no important issues.
+
+Updated the existing Simulator app installation and visually verified its actual home-screen icon at docs/design/icons/weeklywins-build-16-home-screen.png. Removed the five temporary icon-preview applications from Simulator. Physical iPhone installation remains build 15 from the earlier transcription stage. Current source build 16 has not been installed on physical hardware.
