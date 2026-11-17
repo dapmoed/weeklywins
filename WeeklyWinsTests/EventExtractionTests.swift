@@ -2,6 +2,62 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    func testReviewDraftPreservesAnEmptyListAndItsBaseline() throws {
+        let suite = "review-drafts-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let id = UUID()
+        let original = DiaryEvent(recordingID: id, sourceText: "Купил хлеб", text: "Купил хлеб")
+        let draft = EventReviewDraft(baseline: [original], events: [])
+        let store = EventReviewDraftStore(defaults: defaults)
+        try store.save(draft, recordingID: id)
+        XCTAssertEqual(store.load(recordingID: id), draft)
+        var mergeDraft = draft
+        mergeDraft.mergeProposal = original
+        mergeDraft.mergingEventID = original.id
+        try store.save(mergeDraft, recordingID: id)
+        XCTAssertEqual(store.load(recordingID: id), mergeDraft)
+        XCTAssertNil(store.load(recordingID: UUID()))
+        store.remove(recordingID: id)
+        XCTAssertNil(store.load(recordingID: id))
+    }
+
+    @MainActor
+    func testStaleReviewCannotOverwriteNewerEventChanges() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let recording = try store.beginRecording()
+        let original = DiaryEvent(recordingID: recording.id, sourceText: "Текст", text: "Дело")
+        try store.saveEvents(recordingID: recording.id, events: [original])
+        let individualDrafts = EventDraftStore()
+        defer { individualDrafts.remove(id: original.id) }
+        try individualDrafts.save(original)
+        var updated = original
+        updated.category = .home
+        try store.saveEvents(recordingID: recording.id, events: [updated])
+        XCTAssertNil(individualDrafts.load(for: updated))
+        XCTAssertThrowsError(try store.saveEvents(recordingID: recording.id, events: [], expectedEvents: [original]))
+        XCTAssertEqual(store.recordings.first?.events, [updated])
+        try store.saveEvents(recordingID: recording.id, events: [], expectedEvents: [updated])
+        XCTAssertEqual(store.recordings.first?.events, [])
+    }
+
+    func testIndividualDraftOnlyRestoresAgainstItsOriginalBaseline() throws {
+        let suite = "event-baseline-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let original = DiaryEvent(recordingID: UUID(), sourceText: "Текст", text: "Исходное дело")
+        var edited = original
+        edited.text = "Черновик"
+        let store = EventDraftStore(defaults: defaults)
+        try store.save(edited, baseline: original)
+        XCTAssertEqual(store.load(for: original), edited)
+        var newer = original
+        newer.category = .home
+        XCTAssertNil(store.load(for: newer))
+    }
+
     func testEventDraftSurvivesReopeningAndCanBeDiscarded() throws {
         let suite = "event-drafts-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

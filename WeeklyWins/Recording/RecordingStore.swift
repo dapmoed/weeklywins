@@ -85,7 +85,7 @@ final class RecordingStore {
         catch { recordings[index] = previous; throw error }
     }
 
-    func saveEvents(recordingID: UUID, events: [DiaryEvent]) throws {
+    func saveEvents(recordingID: UUID, events: [DiaryEvent], expectedEvents: [DiaryEvent]? = nil) throws {
         try validateReady()
         guard events.allSatisfy({ !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
             throw EventEditingError.emptyTitle
@@ -94,6 +94,9 @@ final class RecordingStore {
               events.allSatisfy({ $0.recordingID == recordingID }) else {
             throw RecordingStoreError.recordingNotFound
         }
+        if let expectedEvents, (recordings[index].events ?? []) != expectedEvents {
+            throw EventEditingError.conflictingChanges
+        }
         let previous = recordings[index]
         recordings[index].events = events
         recordings[index].eventsManuallyEdited = true
@@ -101,6 +104,9 @@ final class RecordingStore {
         catch {
             recordings[index] = previous
             throw error
+        }
+        for event in previous.events ?? [] where events.first(where: { $0.id == event.id }) != event {
+            EventDraftStore().remove(id: event.id)
         }
     }
 
@@ -160,6 +166,7 @@ final class RecordingStore {
         catch { recordings[index] = previous; throw error }
         for eventID in eventIDs { EventDraftStore().remove(id: eventID) }
         TranscriptDraftStore().remove(recordingID: id)
+        EventReviewDraftStore().remove(recordingID: id)
         let url = fileURL(for: previous)
         if fileManager.fileExists(atPath: url.path) {
             do { try fileManager.removeItem(at: url) }
@@ -170,6 +177,7 @@ final class RecordingStore {
     private func purgeDeletedAudio() {
         for recording in recordings where recording.deletedAt != nil {
             TranscriptDraftStore().remove(recordingID: recording.id)
+            EventReviewDraftStore().remove(recordingID: recording.id)
             for id in recording.deletedEventIDs ?? [] { EventDraftStore().remove(id: id) }
             let url = fileURL(for: recording)
             if fileManager.fileExists(atPath: url.path) { try? fileManager.removeItem(at: url) }

@@ -12,12 +12,16 @@ final class RecordingManagementTests: XCTestCase {
         let drafts = EventDraftStore()
         defer { drafts.remove(id: event.id) }
         try drafts.save(event)
+        let reviewDrafts = EventReviewDraftStore()
+        defer { reviewDrafts.remove(recordingID: id) }
+        try reviewDrafts.save(EventReviewDraft(baseline: [event], events: []), recordingID: id)
         var tombstone = Recording(id: id, recordedAt: .now, fileName: "deleted.m4a", state: .saved)
         tombstone.deletedAt = .now
         tombstone.deletedEventIDs = [event.id]
         try JSONEncoder().encode([tombstone]).write(to: directory.appendingPathComponent("recordings.json"))
         _ = RecordingStore(directory: directory)
         XCTAssertNil(drafts.load(for: event))
+        XCTAssertNil(reviewDrafts.load(recordingID: id))
     }
 
     @MainActor

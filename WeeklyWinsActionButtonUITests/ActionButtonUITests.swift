@@ -2,6 +2,77 @@ import XCTest
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testEventReviewDraftRestoresAndMergeRequiresConfirmation() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        app.buttons["recorder-stop"].tap()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let transcript = app.textViews["transcriptEditor"]
+        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        transcript.tap()
+        transcript.typeText("Подготовил отчёт. Купил хлеб.")
+        app.buttons["Сохранить текст"].tap()
+        app.buttons["События"].tap()
+        app.buttons["Подготовил отчёт, Без категории"].tap()
+        let title = app.textFields["review-event-text"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+        title.tap()
+        title.typeText("Уточнил ")
+        let editedTitle = try XCTUnwrap(title.value as? String)
+        app.terminate()
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["События"].tap()
+        XCTAssertTrue(app.staticTexts[editedTitle].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Назад"].tap()
+        XCTAssertTrue(app.buttons["Сохранить и закрыть"].waitForExistence(timeout: 5))
+        app.buttons["Сохранить и закрыть"].tap()
+        app.buttons["События"].tap()
+        let compact = XCTAttachment(screenshot: app.screenshot())
+        compact.name = "A10-event-review"
+        compact.lifetime = .keepAlways
+        add(compact)
+        app.buttons["Купил хлеб, Без категории"].tap()
+        let merge = app.buttons["Объединить с предыдущим"]
+        if !merge.isHittable { app.swipeUp() }
+        merge.tap()
+        XCTAssertTrue(app.navigationBars["Объединить дела"].waitForExistence(timeout: 5))
+        let proposalText = try XCTUnwrap(app.textFields.matching(identifier: "review-event-text")
+            .allElementsBoundByIndex.first(where: { $0.isHittable }))
+        proposalText.tap()
+        proposalText.typeText("Проверил ")
+        let mergeText = try XCTUnwrap(proposalText.value as? String)
+        app.terminate()
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["События"].tap()
+        XCTAssertTrue(app.navigationBars["Объединить дела"].waitForExistence(timeout: 5))
+        let restoredProposal = try XCTUnwrap(app.textFields.matching(identifier: "review-event-text")
+            .allElementsBoundByIndex.first(where: { $0.isHittable }))
+        XCTAssertEqual(restoredProposal.value as? String, mergeText)
+        let preview = XCTAttachment(screenshot: app.screenshot())
+        preview.name = "A10-merge-confirmation"
+        preview.lifetime = .keepAlways
+        add(preview)
+        app.buttons["Отмена"].tap()
+        XCTAssertTrue(app.staticTexts["Купил хлеб"].exists)
+        app.buttons["Купил хлеб, Без категории"].tap()
+        if !merge.isHittable { app.swipeUp() }
+        merge.tap()
+        app.buttons["Объединить"].tap()
+        app.buttons["Готово"].tap()
+        app.buttons["События"].tap()
+        XCTAssertTrue(app.staticTexts[editedTitle + ". Купил хлеб"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Купил хлеб, Без категории"].exists)
+    }
+
+    @MainActor
     func testReportChartOpensDayAndReturnsToWeek() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()

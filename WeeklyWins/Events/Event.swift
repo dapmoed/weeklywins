@@ -32,5 +32,12 @@ struct DiaryEvent: Identifiable, Codable, Equatable {
 
 enum EventEditingError: LocalizedError {
     case emptyTitle
-    var errorDescription: String? { "Укажите название дела." }
+    case conflictingChanges
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyTitle: return "Укажите название дела."
+        case .conflictingChanges: return "Список событий изменился. Черновик сохранён. Закройте редактор и откройте актуальный список, отбросив черновик."
+        }
+    }
 }

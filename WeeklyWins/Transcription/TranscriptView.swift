@@ -70,9 +70,11 @@ struct TranscriptView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Готово") {
-                        if hasChanges { confirmClose = true }
-                        else { dismiss() }
+                    if !showEvents {
+                        Button("Готово") {
+                            if hasChanges { confirmClose = true }
+                            else { dismiss() }
+                        }
                     }
                 }
             }

@@ -75,16 +75,18 @@ struct EventDetailView: View {
 }
 
 private struct EventEditorView: View {
-    @State var event: DiaryEvent
+    @State private var event: DiaryEvent
     @ObservedObject var service: RecordingService
     @State private var error: String?
     @State private var confirmDiscard = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     private let drafts = EventDraftStore()
+    @State private var baseline: DiaryEvent
 
     init(event: DiaryEvent, service: RecordingService) {
         self.service = service
+        _baseline = State(initialValue: event)
         _event = State(initialValue: EventDraftStore().load(for: event) ?? event)
     }
 
@@ -122,7 +124,7 @@ private struct EventEditorView: View {
             .interactiveDismissDisabled()
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background {
-                    do { try drafts.save(event) }
+                    do { try drafts.save(event, baseline: baseline) }
                     catch { self.error = error.localizedDescription }
                 }
             }
@@ -138,6 +140,7 @@ private struct EventEditorView: View {
             guard let recording = service.recordings.first(where: { $0.id == event.recordingID }),
                   let index = recording.events?.firstIndex(where: { $0.id == event.id }) else { throw RecordingStoreError.recordingNotFound }
             var events = recording.events ?? []
+            guard events[index] == baseline else { throw EventEditingError.conflictingChanges }
             events[index] = event
             try service.saveEvents(recordingID: event.recordingID, events: events)
             drafts.remove(id: event.id)

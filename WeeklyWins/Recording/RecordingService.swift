@@ -84,8 +84,8 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         refreshRecordings()
     }
 
-    func saveEvents(recordingID: UUID, events: [DiaryEvent]) throws {
-        try store.saveEvents(recordingID: recordingID, events: events)
+    func saveEvents(recordingID: UUID, events: [DiaryEvent], expectedEvents: [DiaryEvent]? = nil) throws {
+        try store.saveEvents(recordingID: recordingID, events: events, expectedEvents: expectedEvents)
         refreshRecordings()
     }
 
