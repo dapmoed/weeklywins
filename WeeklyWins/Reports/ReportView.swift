@@ -8,6 +8,10 @@ struct ReportView: View {
     @State private var category: EventCategory?
     @State private var showCalendar = false
     @State private var selectedEntry: ReportEntry?
+    @State private var followsToday = true
+    @State private var selectedTimeZone = TimeZone.current
+    @State private var parentReport: (period: ReportPeriod, date: Date)?
+    @Environment(\.scenePhase) private var scenePhase
     let isToday: Bool
 
     private var entries: [ReportEntry] {
@@ -21,27 +25,47 @@ struct ReportView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack {
-                        Text(isToday ? "Сегодня" : "Отчёты").font(.largeTitle.bold())
+                        Text(isToday ? Calendar.current.isDateInToday(date) ? "Сегодня" : "День" : "Отчёты").font(.largeTitle.bold())
                         Spacer()
                         SettingsButton()
                     }
                     if isToday {
-                        Button { showCalendar = true } label: {
-                            Text(date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "ru_RU"))))
-                                .foregroundStyle(StudioTheme.secondary)
-                        }.buttonStyle(.plain)
+                        HStack {
+                            Button { showCalendar = true } label: {
+                                Text(ReportQuery.periodTitle(period: .day, date: date)).foregroundStyle(StudioTheme.secondary)
+                            }.buttonStyle(.plain).accessibilityLabel("Выбрать день")
+                            Spacer()
+                            if !Calendar.current.isDateInToday(date) {
+                                Button("Сегодня") { followsToday = true; date = .now }
+                            }
+                        }
                     }
                     CategoryFilter(category: $category)
                     if !isToday {
-                        Picker("Период", selection: $period) {
+                        Picker("Период", selection: Binding(get: { period }, set: {
+                            parentReport = nil
+                            period = $0
+                        })) {
                             ForEach(ReportPeriod.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.segmented)
                         HStack {
                             Button { moveDate(-1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                                .accessibilityLabel("Предыдущий период")
                             Spacer()
-                            DatePicker("Дата отчёта", selection: $date, displayedComponents: .date).labelsHidden()
+                            Button { showCalendar = true } label: {
+                                Text(ReportQuery.periodTitle(period: period, date: date)).font(.headline)
+                            }.accessibilityLabel("Выбрать период")
+                                .accessibilityValue(ReportQuery.periodTitle(period: period, date: date))
                             Spacer()
                             Button { moveDate(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                                .accessibilityLabel("Следующий период")
+                        }
+                        if let parentReport {
+                            Button("Вернуться к отчёту за \(parentReport.period == .week ? "неделю" : "месяц")") {
+                                period = parentReport.period
+                                date = parentReport.date
+                                self.parentReport = nil
+                            }
                         }
                         if !entries.isEmpty { durationChart.frame(height: 170) }
                         Text("Известная длительность").font(.title2.bold())
@@ -100,10 +124,19 @@ struct ReportView: View {
             }
             .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
             .toolbar(.hidden, for: .navigationBar)
-            .onAppear { service.refreshRecordings() }
+            .onAppear { service.refreshRecordings(); refreshCalendarContext() }
+            .onChange(of: scenePhase) { _, phase in if phase == .active { refreshCalendarContext() } }
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshFollowingToday() }
+            .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+                refreshCalendarContext()
+                service.refreshRecordings()
+            }
             .sheet(isPresented: $showCalendar) {
                 NavigationStack {
-                    DatePicker("Дата", selection: $date, displayedComponents: .date)
+                    DatePicker("Дата", selection: Binding(get: { date }, set: {
+                        date = $0
+                        if isToday { followsToday = Calendar.current.isDateInToday($0) }
+                    }), displayedComponents: .date)
                         .datePickerStyle(.graphical).padding()
                         .toolbar { Button("Готово") { showCalendar = false } }
                 }.presentationDetents([.medium])
@@ -116,22 +149,56 @@ struct ReportView: View {
     }
 
     private var durationChart: some View {
-        let calendar = Calendar.current
-        let interval = calendar.dateInterval(of: period.component, for: date)
-        let start = interval?.start ?? calendar.startOfDay(for: date)
-        let count = period == .month ? (calendar.range(of: .day, in: .month, for: date)?.count ?? 30) : period == .week ? 7 : 1
+        let calendar = ReportQuery.calendar
+        let days = ReportQuery.days(period: period, date: date, calendar: calendar)
         return Chart {
-            ForEach(0..<count, id: \.self) { offset in
-                let day = calendar.date(byAdding: .day, value: offset, to: start) ?? start
+            ForEach(days, id: \.self) { day in
                 let dayEntries = entries.filter { calendar.isDate($0.date, inSameDayAs: day) }
                 BarMark(x: .value("День", day, unit: .day), y: .value("Часы", ReportQuery.knownDuration(dayEntries) / 3600))
                     .foregroundStyle(StudioTheme.mint).cornerRadius(4)
             }
         }
+        .accessibilityIdentifier("report-chart")
         .chartYAxisLabel("ч")
+        .chartOverlay { proxy in
+            GeometryReader { geometry in
+                Color.clear.contentShape(Rectangle()).accessibilityHidden(true)
+                    .onTapGesture { location in
+                        guard period != .day, let plotFrame = proxy.plotFrame else { return }
+                        let frame = geometry[plotFrame]
+                        guard frame.contains(location),
+                              let selected = proxy.value(atX: location.x - frame.minX, as: Date.self) else { return }
+                        parentReport = (period, date)
+                        date = calendar.startOfDay(for: selected)
+                        period = .day
+                    }
+            }
+        }
+    }
+
+    private func refreshCalendarContext() {
+        let newZone = TimeZone.current
+        if selectedTimeZone != newZone {
+            var previous = ReportQuery.calendar
+            previous.timeZone = selectedTimeZone
+            let current = ReportQuery.calendar
+            if !(isToday && followsToday) {
+                date = ReportQuery.preservingCalendarDate(date, from: previous, to: current) ?? date
+            }
+            if let parentReport {
+                self.parentReport = (parentReport.period,
+                    ReportQuery.preservingCalendarDate(parentReport.date, from: previous, to: current) ?? parentReport.date)
+            }
+            selectedTimeZone = newZone
+        }
+        refreshFollowingToday()
+    }
+
+    private func refreshFollowingToday() {
+        if isToday && followsToday { date = .now }
     }
 
     private func moveDate(_ direction: Int) {
-        date = Calendar.current.date(byAdding: period.component, value: direction, to: date) ?? date
+        date = ReportQuery.shiftedDate(date, period: period, offset: direction) ?? date
     }
 }

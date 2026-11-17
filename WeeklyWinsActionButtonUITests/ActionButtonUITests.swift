@@ -2,6 +2,38 @@ import XCTest
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testReportChartOpensDayAndReturnsToWeek() throws {
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        app.buttons["recorder-stop"].tap()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let editor = app.textViews["transcriptEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        editor.typeText("Работал два часа.")
+        app.buttons["Сохранить текст"].tap()
+        app.buttons["Готово"].tap()
+        app.buttons["studio-tab-2"].tap()
+        app.buttons["Неделя"].tap()
+        let period = app.buttons["Выбрать период"]
+        let original = period.value as? String
+        app.buttons["Следующий период"].tap()
+        XCTAssertNotEqual(period.value as? String, original)
+        app.buttons["Предыдущий период"].tap()
+        XCTAssertEqual(period.value as? String, original)
+        let chart = app.otherElements["report-chart"].firstMatch
+        XCTAssertTrue(chart.waitForExistence(timeout: 5), app.debugDescription)
+        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).tap()
+        let back = app.buttons["Вернуться к отчёту за неделю"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        back.tap()
+        XCTAssertEqual(period.value as? String, original)
+    }
+
+    @MainActor
     func testFreshInstallOnboardingStartsTrialRecordingAndDoesNotRepeat() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
