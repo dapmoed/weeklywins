@@ -12,4 +12,4 @@
 
 Визуальный ориентир для дневника и хронологии — [Apple Journal](https://www.apple.com/newsroom/2023/12/apple-launches-journal-app-a-new-app-for-reflecting-on-everyday-moments/). Варианты подготовлены для текущего SwiftUI-приложения с записью через Action Button, локальной расшифровкой и категориями «Работа» и «Дом».
 
-Выбор пользователя ожидается.
+Пользователь утвердил палитру «Голосовая студия» и композицию A «Лента дня». Разработка следует [утверждённому дизайну](approved-design.md) и [макету](layout-a-approved.png). Полная спецификация экранов A01–A18 находится в [layout-options.md](layout-options.md).
