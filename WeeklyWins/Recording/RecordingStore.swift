@@ -21,10 +21,11 @@ final class RecordingStore {
                 let data = try Data(contentsOf: manifestURL)
                 recordings = try JSONDecoder().decode([Recording].self, from: data)
             }
+            purgeDeletedAudio()
             try recoverIncompleteRecordings()
             try importLegacyAudioFiles()
             var importedEvents = false
-            for index in recordings.indices where recordings[index].events == nil {
+            for index in recordings.indices where recordings[index].events == nil && recordings[index].deletedAt == nil {
                 if let transcript = recordings[index].transcript {
                     recordings[index].events = EventExtractor.extract(transcript, recordingID: recordings[index].id)
                     recordings[index].eventsManuallyEdited = false
@@ -66,7 +67,7 @@ final class RecordingStore {
         errorMessage: String?
     ) throws {
         try validateReady()
-        guard let index = recordings.firstIndex(where: { $0.id == recordingID }) else {
+        guard let index = recordings.firstIndex(where: { $0.id == recordingID && $0.deletedAt == nil }) else {
             throw RecordingStoreError.recordingNotFound
         }
 
@@ -89,7 +90,7 @@ final class RecordingStore {
         guard events.allSatisfy({ !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
             throw EventEditingError.emptyTitle
         }
-        guard let index = recordings.firstIndex(where: { $0.id == recordingID }),
+        guard let index = recordings.firstIndex(where: { $0.id == recordingID && $0.deletedAt == nil }),
               events.allSatisfy({ $0.recordingID == recordingID }) else {
             throw RecordingStoreError.recordingNotFound
         }
@@ -139,6 +140,40 @@ final class RecordingStore {
         return recording
     }
 
+    func deleteRecording(id: UUID) throws {
+        try validateReady()
+        guard let index = recordings.firstIndex(where: { $0.id == id }) else {
+            throw RecordingStoreError.recordingNotFound
+        }
+        guard recordings[index].state != .recording, recordings[index].processingState != .processing else {
+            throw RecordingManagementError.busy
+        }
+        let previous = recordings[index]
+        let eventIDs = Array(Set((previous.events ?? []).map(\.id) + (previous.deletedEventIDs ?? [])))
+        recordings[index].deletedAt = .now
+        recordings[index].deletedEventIDs = eventIDs
+        recordings[index].transcript = nil
+        recordings[index].transcriptUpdatedAt = nil
+        recordings[index].events = []
+        recordings[index].errorMessage = nil
+        do { try persist() }
+        catch { recordings[index] = previous; throw error }
+        for eventID in eventIDs { EventDraftStore().remove(id: eventID) }
+        let url = fileURL(for: previous)
+        if fileManager.fileExists(atPath: url.path) {
+            do { try fileManager.removeItem(at: url) }
+            catch { throw RecordingManagementError.audioDeletionPending }
+        }
+    }
+
+    private func purgeDeletedAudio() {
+        for recording in recordings where recording.deletedAt != nil {
+            for id in recording.deletedEventIDs ?? [] { EventDraftStore().remove(id: id) }
+            let url = fileURL(for: recording)
+            if fileManager.fileExists(atPath: url.path) { try? fileManager.removeItem(at: url) }
+        }
+    }
+
     private func validateReady() throws {
         if let initializationError {
             throw RecordingStoreError.storageUnavailable(initializationError.localizedDescription)
@@ -176,7 +211,7 @@ final class RecordingStore {
 
     private func recoverIncompleteRecordings() throws {
         var didChange = false
-        for index in recordings.indices where recordings[index].state == .recording {
+        for index in recordings.indices where recordings[index].state == .recording && recordings[index].deletedAt == nil {
             let recording = recordings[index]
             let partialURL = fileURL(for: recording)
             let finalURL = directory.appendingPathComponent(Self.finalFileName(for: recording.id))
@@ -196,6 +231,11 @@ final class RecordingStore {
             didChange = true
         }
 
+        for index in recordings.indices where recordings[index].processingState == .processing && recordings[index].deletedAt == nil {
+            recordings[index].processingState = .failed
+            recordings[index].errorMessage = "Расшифровка прервана. Можно повторить обработку."
+            didChange = true
+        }
         if didChange {
             try persist()
         }

@@ -12,7 +12,7 @@ final class TranscriptionService {
     }
 
     func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU")) async throws -> String {
-        guard let recording = store.recordings.first(where: { $0.id == recordingID }) else {
+        guard let recording = store.recordings.first(where: { $0.id == recordingID && $0.deletedAt == nil }) else {
             throw TranscriptionError.recordingNotFound
         }
         guard recording.state != .recording else { throw TranscriptionError.recordingStillActive }

@@ -87,3 +87,11 @@ Added SettingsView and ActionButtonGuideView in the approved dark palette. Entry
 Static review identified empty-title save through the close dialog and missing persisted drafts. Both were fixed and regression tests added. Simulator UI tests exercised record→manual transcript→Today event→source transcript and settings→Action Button guide. Full Simulator suite passed at /private/tmp/weeklywins-source-settings-final.log. No physical-device installation in this stage.
 
 Remaining approved UI work includes initial onboarding, all editor draft/close flows, search and recording deletion, playback scrubbing, detailed report day navigation, and exact spacing/screenshot comparison across A01–A18. Broader Russian extraction quality and hardware long-recording/airplane-mode acceptance remain open.
+
+## Recording library stage, 2026-11-17
+
+Added text/date search with Russian case/diacritic folding, grouping by local calendar day, explicit audio-duration labels, transcript snippets, processing states, and per-recording menus. Deleting requires confirmation that audio, transcript and linked events will be removed. Store persists a deletion marker and related draft IDs before deleting audio and drafts. Startup retries cleanup, so orphan audio cannot be reimported after interrupted deletion. Visible service collections, report queries, playback and transcription exclude deleted records. Recordings with active capture/processing cannot be deleted.
+
+Review identified stale persisted .processing after termination and orphaned drafts when deletion is interrupted. Added startup recovery of abandoned processing to failed/retryable state and persisted deletion draft IDs for cleanup retry. Tests cover these cases, deletion/relaunch, busy capture, Russian text/date search. UI test records, saves a unique transcript, searches it and confirms deletion. Full Simulator suite passed at /private/tmp/weeklywins-management-final.log. No physical-device installation for this stage.
+
+The deletion marker retains recording identity/file metadata plus draft UUIDs to avoid resurrection and support cleanup; audio, transcript, source events and error text are removed. The goal remains active with onboarding, transcript/multi-event draft flows, playback scrubber, report interactions, visual acceptance and long offline/hardware scenarios pending.

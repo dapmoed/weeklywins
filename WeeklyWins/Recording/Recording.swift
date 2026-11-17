@@ -35,6 +35,8 @@ struct Recording: Identifiable, Codable, Equatable {
     var transcriptUpdatedAt: Date?
     var events: [DiaryEvent]?
     var eventsManuallyEdited: Bool?
+    var deletedAt: Date?
+    var deletedEventIDs: [UUID]?
 
     init(
         id: UUID,

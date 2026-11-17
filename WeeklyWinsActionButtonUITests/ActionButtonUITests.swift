@@ -2,6 +2,33 @@ import XCTest
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testRecordingSearchAndConfirmedDeletion() throws {
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        let marker = "Проверка удаления \(UUID().uuidString)"
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.buttons["recorder-stop"].waitForExistence(timeout: 5))
+        app.buttons["recorder-stop"].tap()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let editor = app.textViews["transcriptEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        editor.typeText(marker)
+        app.buttons["Сохранить текст"].tap()
+        app.buttons["Готово"].tap()
+        let search = app.textFields["recording-search"]
+        search.tap()
+        search.typeText(marker)
+        XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 1)
+        app.buttons["Действия записи"].firstMatch.tap()
+        app.buttons["Удалить запись"].tap()
+        app.buttons["Удалить запись"].tap()
+        XCTAssertTrue(app.staticTexts["Ничего не найдено"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 0)
+    }
+
+    @MainActor
     func testSimulatorCanVerifyRecordingFlowInApp() throws {
         #if targetEnvironment(simulator)
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")

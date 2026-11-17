@@ -29,7 +29,7 @@ struct ReportEntry: Identifiable {
 enum ReportQuery {
     static func events(in recordings: [Recording], period: ReportPeriod, date: Date, calendar: Calendar = .current) -> [ReportEntry] {
         guard let interval = calendar.dateInterval(of: period.component, for: date) else { return [] }
-        return recordings.flatMap { recording in
+        return recordings.filter { $0.deletedAt == nil }.flatMap { recording in
             (recording.events ?? []).map { ReportEntry(event: $0, recording: recording) }
         }
         .filter { $0.date >= interval.start && $0.date < interval.end }

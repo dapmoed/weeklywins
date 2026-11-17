@@ -58,7 +58,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     }
 
     func refreshRecordings() {
-        recordings = store.recordings
+        recordings = store.recordings.filter { $0.deletedAt == nil }
     }
 
     func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU")) async throws -> String {
@@ -82,10 +82,16 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         refreshRecordings()
     }
 
+    func deleteRecording(id: UUID) throws {
+        if playingRecordingID == id { stopPlayback() }
+        defer { refreshRecordings() }
+        try store.deleteRecording(id: id)
+    }
+
     func playRecording(id: UUID) throws {
         guard !isRecording, !isStarting else { return }
         stopPlayback()
-        guard let recording = store.recordings.first(where: { $0.id == id }) else {
+        guard let recording = store.recordings.first(where: { $0.id == id && $0.deletedAt == nil }) else {
             throw RecordingStoreError.recordingNotFound
         }
         let session = AVAudioSession.sharedInstance()
