@@ -1,6 +1,53 @@
 import XCTest
+import Speech
 
 final class ActionButtonUITests: XCTestCase {
+    @MainActor
+    func testSavedTranscriptionFailureCanOpenAudioSource() throws {
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        let failure = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ошибка расшифровки")).firstMatch
+        try XCTSkipUnless(failure.waitForExistence(timeout: 3), "This case requires a saved failed-recording fixture.")
+        failure.tap()
+        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Прослушать"].exists)
+    }
+
+    @MainActor
+    func testAutomaticTranscriptionFailureShowsSourceAndRetry() async throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("This case exercises unavailable Russian ASR on Simulator.")
+        #else
+        if let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ru-RU")) {
+            let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
+            let status = await AssetInventory.status(forModules: [transcriber])
+            try XCTSkipUnless(status == .unsupported, "This case requires unavailable on-device Russian ASR.")
+        }
+        try XCTSkipIf(SFSpeechRecognizer(locale: Locale(identifier: "ru-RU"))?.supportsOnDeviceRecognition == true,
+                      "This case requires unavailable on-device Russian ASR.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        if app.staticTexts["Вспомнить свой день"].exists {
+            app.buttons["Начать"].tap()
+            app.buttons["Сделать пробную запись"].tap()
+        } else { app.buttons["Записать"].tap() }
+        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        app.buttons["recorder-stop"].tap()
+        let failure = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ошибка расшифровки")).firstMatch
+        XCTAssertTrue(failure.waitForExistence(timeout: 10), app.debugDescription)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "A06-automatic-transcription-error"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        app.buttons["Повторить расшифровку"].firstMatch.tap()
+        XCTAssertTrue(failure.waitForExistence(timeout: 10))
+        failure.tap()
+        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Прослушать"].exists)
+        #endif
+    }
+
     @MainActor
     func testEventReviewDraftRestoresAndMergeRequiresConfirmation() throws {
         continueAfterFailure = false
@@ -94,6 +141,9 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Следующий период"].tap()
         XCTAssertNotEqual(period.value as? String, original)
         app.buttons["Предыдущий период"].tap()
+        XCTAssertEqual(period.value as? String, original)
+        app.buttons["studio-tab-0"].tap()
+        app.buttons["studio-tab-2"].tap()
         XCTAssertEqual(period.value as? String, original)
         let chart = app.otherElements["report-chart"].firstMatch
         XCTAssertTrue(chart.waitForExistence(timeout: 5), app.debugDescription)
@@ -198,12 +248,18 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Сохранить текст"].exists)
         let editor = app.textViews["transcriptEditor"]
         editor.tap()
-        editor.typeText("Проверил отчёт.")
+        let eventTitle = "Проверил отчёт \(UUID().uuidString.prefix(6))"
+        editor.typeText(eventTitle + ".")
         app.buttons["Сохранить текст"].tap()
         app.buttons["Готово"].tap()
         app.buttons["studio-tab-0"].tap()
-        let event = app.staticTexts["Проверил отчёт"].firstMatch
-        XCTAssertTrue(event.waitForExistence(timeout: 5), app.debugDescription)
+        let event = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", eventTitle)).firstMatch
+        for _ in 0..<32 {
+            if event.isHittable, event.frame.maxY < startRecording.frame.minY - 12 { break }
+            app.scrollViews.firstMatch.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(event.isHittable, app.debugDescription)
+        XCTAssertLessThan(event.frame.maxY, startRecording.frame.minY - 12)
         event.tap()
         XCTAssertTrue(app.buttons["edit-event"].waitForExistence(timeout: 5))
         app.buttons["Открыть аудиозапись и текст"].tap()

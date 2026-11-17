@@ -11,7 +11,13 @@ final class TranscriptionService {
         self.transcriber = transcriber
     }
 
-    func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU")) async throws -> String {
+    func transcribe(
+        recordingID: UUID,
+        locale: Locale = Locale(identifier: "ru-RU"),
+        onStarted: () -> Void = {},
+        reportProgress: @escaping @Sendable (Double) -> Void = { _ in }
+    ) async throws -> String {
+        try Task.checkCancellation()
         guard let recording = store.recordings.first(where: { $0.id == recordingID && $0.deletedAt == nil }) else {
             throw TranscriptionError.recordingNotFound
         }
@@ -19,7 +25,6 @@ final class TranscriptionService {
         guard !processingIDs.contains(recordingID) else { throw TranscriptionError.alreadyProcessing }
 
         let audioURL = store.fileURL(for: recording)
-        guard FileManager.default.fileExists(atPath: audioURL.path) else { throw TranscriptionError.audioFileMissing }
 
         processingIDs.insert(recordingID)
         defer { processingIDs.remove(recordingID) }
@@ -29,9 +34,12 @@ final class TranscriptionService {
             processingState: .processing,
             errorMessage: nil
         )
+        onStarted()
 
         do {
-            let transcript = try await transcriber.transcribe(audioFileURL: audioURL, locale: locale)
+            guard FileManager.default.fileExists(atPath: audioURL.path) else { throw TranscriptionError.audioFileMissing }
+            let transcript = try await transcriber.transcribe(audioFileURL: audioURL, locale: locale, reportProgress: reportProgress)
+            try Task.checkCancellation()
             guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 throw TranscriptionError.noSpeechRecognized
             }
@@ -43,11 +51,13 @@ final class TranscriptionService {
             )
             return transcript
         } catch {
+            let shouldResume = recording.automaticTranscriptionPending == true
+                && (error is CancellationError || error as? TranscriptionError == .speechAuthorizationRequired)
             try? store.updateTranscription(
                 recordingID: recordingID,
                 transcript: recording.transcript,
-                processingState: .failed,
-                errorMessage: error.localizedDescription
+                processingState: shouldResume ? .pending : .failed,
+                errorMessage: shouldResume ? "Расшифровка приостановлена; продолжится при открытии приложения." : error.localizedDescription
             )
             throw error
         }

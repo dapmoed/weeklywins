@@ -73,7 +73,11 @@ struct TranscriptView: View {
                     if !showEvents {
                         Button("Готово") {
                             if hasChanges { confirmClose = true }
-                            else { dismiss() }
+                            else {
+                                drafts.remove(recordingID: recording.id, matching: transcript)
+                                recordingService.resumeAutomaticTranscription()
+                                dismiss()
+                            }
                         }
                     }
                 }
@@ -93,6 +97,7 @@ struct TranscriptView: View {
                 Button("Сохранить и закрыть") { if saveTranscript() { dismiss() } }
                 Button("Отбросить изменения", role: .destructive) {
                     drafts.remove(recordingID: recording.id)
+                    recordingService.resumeAutomaticTranscription()
                     dismiss()
                 }
             }

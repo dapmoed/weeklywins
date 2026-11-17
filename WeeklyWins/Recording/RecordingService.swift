@@ -3,6 +3,7 @@ import ActivityKit
 import Combine
 import Foundation
 import OSLog
+import UIKit
 
 @MainActor
 final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegate {
@@ -25,6 +26,11 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     private let store: RecordingStore
     private let maxRecordingDuration: TimeInterval
     private let transcriptionService: TranscriptionService
+    private let transcriber: any Transcriber
+    private let backgroundSessionFactory: @MainActor () -> any TranscriptionExecutionSession
+    private let isApplicationActive: @MainActor () -> Bool
+    private var automaticTranscriptionTask: Task<Void, Never>?
+    private var automaticResumeRequested = false
     private var player: AVAudioPlayer?
     private var playbackTask: Task<Void, Never>?
     private var recorder: AVAudioRecorder?
@@ -37,10 +43,15 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     init(
         recordingDirectory: URL,
         maxRecordingDuration: TimeInterval = 300,
-        transcriber: any Transcriber = OnDeviceSpeechTranscriber()
+        transcriber: any Transcriber = OnDeviceSpeechTranscriber(),
+        backgroundSessionFactory: @escaping @MainActor () -> any TranscriptionExecutionSession = { TranscriptionBackgroundSession() },
+        isApplicationActive: @escaping @MainActor () -> Bool = { UIApplication.shared.applicationState == .active }
     ) {
         store = RecordingStore(directory: recordingDirectory)
         self.maxRecordingDuration = maxRecordingDuration
+        self.transcriber = transcriber
+        self.backgroundSessionFactory = backgroundSessionFactory
+        self.isApplicationActive = isApplicationActive
         transcriptionService = TranscriptionService(store: store, transcriber: transcriber)
         super.init()
         refreshRecordings()
@@ -59,27 +70,51 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
                 )
             }
         }
+        resumeAutomaticTranscription()
     }
 
     func refreshRecordings() {
         recordings = store.recordings.filter { $0.deletedAt == nil }
     }
 
-    func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU")) async throws -> String {
-        guard !transcribingRecordingIDs.contains(recordingID) else { throw TranscriptionError.alreadyProcessing }
+    func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU"), userInitiated: Bool = true) async throws -> String {
+        guard transcribingRecordingIDs.isEmpty else { throw TranscriptionError.alreadyProcessing }
+        try Task.checkCancellation()
         transcribingRecordingIDs.insert(recordingID)
-        defer { transcribingRecordingIDs.remove(recordingID) }
+        let background = backgroundSessionFactory()
+        var success = false
+        var shouldResumeQueue = true
+        let operation = Task {
+            try await transcriptionService.transcribe(
+                recordingID: recordingID, locale: locale,
+                onStarted: { [weak self] in self?.refreshRecordings() },
+                reportProgress: { [weak background] fraction in
+                    Task { @MainActor in background?.reportProgress(fraction) }
+                }
+            )
+        }
+        background.begin(allowContinuedProcessing: userInitiated) { operation.cancel() }
+        defer {
+            background.finish(success: success)
+            transcribingRecordingIDs.remove(recordingID)
+            if shouldResumeQueue { scheduleAutomaticTranscription() }
+        }
         do {
-            let transcript = try await transcriptionService.transcribe(recordingID: recordingID, locale: locale)
+            let transcript = try await withTaskCancellationHandler {
+                try await operation.value
+            } onCancel: { operation.cancel() }
+            success = true
             refreshRecordings()
             return transcript
         } catch {
+            shouldResumeQueue = !(error is CancellationError || error as? TranscriptionError == .speechAuthorizationRequired)
             refreshRecordings()
             throw error
         }
     }
 
     func saveEditedTranscript(recordingID: UUID, text: String) throws {
+        guard !transcribingRecordingIDs.contains(recordingID) else { throw TranscriptionError.alreadyProcessing }
         try transcriptionService.saveEditedTranscript(recordingID: recordingID, text: text)
         refreshRecordings()
     }
@@ -90,9 +125,55 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     }
 
     func deleteRecording(id: UUID) throws {
+        guard !transcribingRecordingIDs.contains(id) else { throw RecordingManagementError.busy }
         if playingRecordingID == id { stopPlayback() }
         defer { refreshRecordings() }
         try store.deleteRecording(id: id)
+    }
+
+    func resumeAutomaticTranscription(userInitiatedRecordingID: UUID? = nil) {
+        if automaticTranscriptionTask != nil {
+            automaticResumeRequested = true
+            return
+        }
+        scheduleAutomaticTranscription(userInitiatedRecordingID: userInitiatedRecordingID)
+    }
+
+    private func scheduleAutomaticTranscription(userInitiatedRecordingID: UUID? = nil) {
+        guard automaticTranscriptionTask == nil, transcribingRecordingIDs.isEmpty,
+              !isRecording, !isStarting, let next = nextAutomaticRecording,
+              isApplicationActive() || transcriber.canTranscribeWithoutAuthorizationPrompt else { return }
+        let eligibleRecordingID = isApplicationActive() && next.id == userInitiatedRecordingID ? next.id : nil
+        automaticTranscriptionTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.automaticTranscriptionTask = nil
+                if self.automaticResumeRequested {
+                    self.automaticResumeRequested = false
+                    self.scheduleAutomaticTranscription()
+                }
+            }
+            var attempted: Set<UUID> = []
+            var continuationEligibility = eligibleRecordingID
+            while !Task.isCancelled, !self.isRecording, !self.isStarting,
+                  let recording = self.nextAutomaticRecording, attempted.insert(recording.id).inserted {
+                let userInitiated = continuationEligibility == recording.id
+                continuationEligibility = nil
+                do { _ = try await self.transcribe(recordingID: recording.id, userInitiated: userInitiated) }
+                catch {
+                    if error is CancellationError || error as? TranscriptionError == .speechAuthorizationRequired { return }
+                }
+            }
+        }
+    }
+
+    private var nextAutomaticRecording: Recording? {
+        store.recordings.reversed().first {
+            $0.deletedAt == nil && $0.automaticTranscriptionPending == true
+                && $0.processingState == .pending && $0.transcript == nil
+                && ($0.state == .saved || $0.state == .interrupted)
+                && TranscriptDraftStore().load(recordingID: $0.id) == nil
+        }
     }
 
     func playRecording(id: UUID) throws {
@@ -226,7 +307,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
 
         let recording: Recording
         do {
-            recording = try store.beginRecording(startedAt: .now)
+            recording = try store.beginRecording(startedAt: .now, automaticTranscriptionPending: true)
         } catch {
             try? session.setActive(false)
             throw error
@@ -276,26 +357,28 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         } catch {
             RecordingDiagnostics.write("Live Activity failed \(Self.errorSummary(error))")
             logger.error("Live Activity start failed: \(Self.errorSummary(error), privacy: .public)")
-            stop()
+            stop(statusMessage: "Запись сохранена", finalState: .saved)
             throw error
         }
         stopTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(self?.maxRecordingDuration ?? 300))
             guard !Task.isCancelled else { return }
-            self?.stop()
+            self?.stop(statusMessage: "Запись сохранена", finalState: .saved)
         }
     }
 
     func stop() {
-        stop(statusMessage: "Запись сохранена", finalState: .saved)
+        stop(statusMessage: "Запись сохранена", finalState: .saved, userInitiated: true)
     }
 
     private func stop(
         statusMessage: String,
         finalState: RecordingState,
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        userInitiated: Bool = false
     ) {
         guard isRecording, let activeRecordingID else { return }
+        let userInitiatedRecordingID = userInitiated && isApplicationActive() ? activeRecordingID : nil
         RecordingDiagnostics.write("stopping recorder")
         logger.info("stopping recorder")
         stopTask?.cancel()
@@ -327,6 +410,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             self.activity = nil
         }
         try? AVAudioSession.sharedInstance().setActive(false)
+        resumeAutomaticTranscription(userInitiatedRecordingID: userInitiatedRecordingID)
     }
 
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {

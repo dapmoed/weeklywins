@@ -8,6 +8,7 @@ struct ReportView: View {
     @State private var category: EventCategory?
     @State private var showCalendar = false
     @State private var selectedEntry: ReportEntry?
+    @State private var selectedRecording: Recording?
     @State private var followsToday = true
     @State private var selectedTimeZone = TimeZone.current
     @State private var parentReport: (period: ReportPeriod, date: Date)?
@@ -41,6 +42,7 @@ struct ReportView: View {
                         }
                     }
                     CategoryFilter(category: $category)
+                    if isToday { processingRecordings }
                     if !isToday {
                         Picker("Период", selection: Binding(get: { period }, set: {
                             parentReport = nil
@@ -145,6 +147,49 @@ struct ReportView: View {
                 NavigationStack { EventDetailView(entry: entry, service: service) }
                     .preferredColorScheme(.dark).tint(StudioTheme.mint)
             }
+            .sheet(item: $selectedRecording) { recording in
+                TranscriptView(recording: recording, recordingService: service)
+            }
+        }
+    }
+
+    private var processingRecordings: some View {
+        let recordings = service.recordings.filter {
+            Calendar.current.isDate($0.recordedAt, inSameDayAs: date)
+                && ($0.automaticTranscriptionPending == true || $0.processingState == .processing || $0.processingState == .failed)
+                && $0.state != .recording && $0.state != .failed
+        }
+        return ForEach(recordings) { recording in
+            HStack(alignment: .top, spacing: 12) {
+                Button { selectedRecording = recording } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(processingTitle(for: recording)) \(recording.recordedAt.formatted(.dateTime.hour().minute()))")
+                            .font(.subheadline.weight(.semibold))
+                        if let message = recording.errorMessage {
+                            Text(message).font(.footnote).multilineTextAlignment(.leading)
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }.buttonStyle(.plain)
+                if recording.processingState == .failed {
+                    Button {
+                        Task { _ = try? await service.transcribe(recordingID: recording.id) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Повторить расшифровку")
+                    .disabled(!service.transcribingRecordingIDs.isEmpty)
+                }
+            }
+            .foregroundStyle(recording.processingState == .failed ? StudioTheme.coral : StudioTheme.mint)
+            .padding(14).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        }
+    }
+
+    private func processingTitle(for recording: Recording) -> String {
+        switch recording.processingState {
+        case .processing: return "Расшифровывается запись"
+        case .failed: return "Ошибка расшифровки"
+        case .pending, .completed: return "Ожидает расшифровки"
         }
     }
 

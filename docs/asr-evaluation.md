@@ -1,6 +1,6 @@
 # Offline Russian transcription evaluation
 
-Updated: 2026-11-16
+Updated 2026-11-17
 
 ## Simulator probe
 
@@ -20,7 +20,7 @@ Environment: iPhone 17 Pro Simulator, iOS 26.5, Xcode 26.6.
 
 ## Selection status and next measurement
 
-No final ASR provider or bundled model has been selected. The current Simulator cannot run either Russian on-device engine, and the iPhone 16 Pro is disconnected. When the device is available, compare installed `SpeechTranscriber` assets against one bundled offline model using the same Russian recordings in airplane mode. Record word error rate, processing time, model size, and battery impact before selecting the provider. If no offline engine is supported, keep transcription unavailable with an explicit error rather than sending audio or text to a network service.
+No final ASR provider or bundled model has been selected. The initial Simulator probe reported unavailable on-device Russian engines. Later runtime probes advertise legacy on-device support, while native recognition in this Simulator reports backend failures. Physical short-note transcription is confirmed below. When the device is available, compare installed `SpeechTranscriber` assets against one bundled offline model using the same Russian recordings in airplane mode. Record word error rate, processing time, model size, and battery impact before selecting the provider. If no offline engine is supported, keep transcription unavailable with an explicit error rather than sending audio or text to a network service.
 
 ## Physical iPhone probe, build 14
 
@@ -37,3 +37,13 @@ Three deterministic tests exercise cancellation before engine start, cancellatio
 Automatic processing is the next implementation slice. The design uses persisted intent before recording finalization, a serial worker and cancellable execution sessions. Foreground user-initiated processing will request BGContinuedProcessingTask execution, while a locked/background stop can use a bounded UIKit background task after speech permission has been granted. Pending work will resume after foreground/relaunch, preserving current text and user drafts.
 
 Apple documents foreground user initiation, progress reporting and expiration for [continued processing](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados). UIKit's [background execution extension](https://developer.apple.com/documentation/uikit/extending-your-app-s-background-execution-time) grants limited execution time and requires balancing every task identifier.
+
+## Automatic processing in build 17
+
+New captures persist automaticTranscriptionPending before audio recording starts. After finalization, RecordingService drains ready jobs serially, oldest first. Launch and foreground activation resume pending work. Interrupted automatic processing returns to pending during recovery. Completed text, manual text and unsaved transcript drafts retain their ownership. A draft postpones automatic processing until it is discarded or saved.
+
+Each recognition attempt owns its operation and execution session. A short UIKit background task protects execution. A continued-processing request is eligible only for an immediate foreground user stop or an explicit manual transcribe action. Recovery, queued backlog, timer and interruption paths use the short lease. Background expiration cancels recognition and preserves genuine automatic work as pending. Foreground requests arriving during cancellation cleanup are latched until the old attempt releases ownership. Native progress uses actual analyzer ranges or recognized-word timestamps. Task completion follows the transcript/events commit.
+
+SpeechAnalyzer now explicitly cancels its results consumer and analyzer through a cancellation handler. Legacy SFSpeech uses the previously verified one-shot session. General failures retain audio and present explicit retry through the app.
+
+Nine queue regressions cover stop-triggered ASR dispatch, ordering/concurrency, persisted recovery, expiration, draft protection, terminal failure, resumption during delayed cancellation cleanup and continuation eligibility with older queued work. The full iPhone16Pro Simulator suite passed 74 tests, skipped 4 and failed 0 at /private/tmp/weeklywins-auto-final-ephemeral.log. Successful recognition in queue tests uses a scripted provider. Native background scheduling, native cancellation, five-minute Russian accuracy and airplane-mode acceptance require physical-device verification.

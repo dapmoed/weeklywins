@@ -39,15 +39,16 @@ final class RecordingStore {
         sortRecordings()
     }
 
-    func beginRecording(startedAt: Date = .now) throws -> Recording {
+    func beginRecording(startedAt: Date = .now, automaticTranscriptionPending: Bool = false) throws -> Recording {
         try validateReady()
         let id = UUID()
-        let recording = Recording(
+        var recording = Recording(
             id: id,
             recordedAt: startedAt,
             fileName: Self.partialFileName(for: id),
             state: .recording
         )
+        recording.automaticTranscriptionPending = automaticTranscriptionPending
         let previous = recordings
         recordings.append(recording)
         sortRecordings()
@@ -80,6 +81,9 @@ final class RecordingStore {
         recordings[index].transcript = transcript
         recordings[index].transcriptUpdatedAt = transcript == nil ? nil : .now
         recordings[index].processingState = processingState
+        if processingState == .completed || processingState == .failed {
+            recordings[index].automaticTranscriptionPending = false
+        }
         recordings[index].errorMessage = errorMessage
         do { try persist() }
         catch { recordings[index] = previous; throw error }
@@ -139,6 +143,7 @@ final class RecordingStore {
 
         recording.duration = duration
         recording.state = state
+        if state == .failed { recording.automaticTranscriptionPending = false }
         recording.errorMessage = errorMessage
         recordings[index] = recording
         sortRecordings()
@@ -236,14 +241,18 @@ final class RecordingStore {
                 recordings[index].errorMessage = "Запись была прервана; исходный аудиофайл сохранён."
             } else {
                 recordings[index].state = .failed
+                recordings[index].automaticTranscriptionPending = false
                 recordings[index].errorMessage = "Файл записи не найден после перезапуска."
             }
             didChange = true
         }
 
         for index in recordings.indices where recordings[index].processingState == .processing && recordings[index].deletedAt == nil {
-            recordings[index].processingState = .failed
-            recordings[index].errorMessage = "Расшифровка прервана. Можно повторить обработку."
+            let automatic = recordings[index].automaticTranscriptionPending == true
+            recordings[index].processingState = automatic ? .pending : .failed
+            recordings[index].errorMessage = automatic
+                ? "Расшифровка будет продолжена."
+                : "Расшифровка прервана. Можно повторить обработку."
             didChange = true
         }
         if didChange {

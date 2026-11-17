@@ -124,7 +124,7 @@ private struct RecordingRow: View {
         if let error = recording.errorMessage { return error }
         if recording.state != .saved { return recording.state.displayName }
         switch recording.processingState {
-        case .pending: return "Готова к расшифровке"
+        case .pending: return recording.automaticTranscriptionPending == true ? "Ожидает расшифровки" : "Готова к расшифровке"
         case .processing: return "Расшифровывается"
         case .completed: return "Расшифрована · \(recording.events?.count ?? 0) событий"
         case .failed: return "Не удалось расшифровать"

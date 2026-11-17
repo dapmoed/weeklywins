@@ -37,6 +37,7 @@ struct Recording: Identifiable, Codable, Equatable {
     var eventsManuallyEdited: Bool?
     var deletedAt: Date?
     var deletedEventIDs: [UUID]?
+    var automaticTranscriptionPending: Bool?
 
     init(
         id: UUID,

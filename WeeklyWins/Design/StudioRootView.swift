@@ -6,6 +6,7 @@ struct StudioRootView: View {
     @State private var error: String?
     @State private var selectedTab = 0
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -24,18 +25,19 @@ struct StudioRootView: View {
                 }
             }
         }
+        .task { service.resumeAutomaticTranscription() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { service.refreshRecordings(); service.resumeAutomaticTranscription() }
+        }
     }
 
     private var mainInterface: some View {
-        ZStack {
-            ReportView(isToday: true).opacity(selectedTab == 0 ? 1 : 0)
-                .allowsHitTesting(selectedTab == 0).accessibilityHidden(selectedTab != 0)
-            RecordingView().opacity(selectedTab == 1 ? 1 : 0)
-                .allowsHitTesting(selectedTab == 1).accessibilityHidden(selectedTab != 1)
-            ReportView(isToday: false).opacity(selectedTab == 2 ? 1 : 0)
-                .allowsHitTesting(selectedTab == 2).accessibilityHidden(selectedTab != 2)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        VStack(spacing: 0) {
+            TabView(selection: $selectedTab) {
+                ReportView(isToday: true).tag(0).toolbar(.hidden, for: .tabBar)
+                RecordingView().tag(1).toolbar(.hidden, for: .tabBar)
+                ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
+            }
             VStack(spacing: 0) {
                 bottomBar
                 Divider().overlay(StudioTheme.surface)
@@ -46,6 +48,7 @@ struct StudioRootView: View {
                 }.padding(.top, 12).padding(.bottom, 5)
             }.background(StudioTheme.background)
         }
+        .background(StudioTheme.background.ignoresSafeArea())
         .tint(StudioTheme.mint)
         .preferredColorScheme(.dark)
         .environment(\.locale, Locale(identifier: "ru_RU"))
