@@ -28,6 +28,35 @@ private struct ScriptedTranscriber: Transcriber {
 }
 
 final class TranscriptionTests: XCTestCase {
+    func testOldTranscriptionCompletionCannotRemoveNewerDraft() throws {
+        let suite = "draft-ownership-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let id = UUID()
+        let store = TranscriptDraftStore(defaults: defaults)
+        store.save(recordingID: id, text: "Первый черновик")
+        let original = try XCTUnwrap(store.load(recordingID: id))
+        store.save(recordingID: id, text: "Новая правка")
+        store.remove(recordingID: id, matching: original)
+        XCTAssertEqual(store.load(recordingID: id), "Новая правка")
+        store.remove(recordingID: id, matching: "Новая правка")
+        XCTAssertNil(store.load(recordingID: id))
+    }
+
+    func testTranscriptDraftRestoresEmptyAndNonemptyEditsAndCanBeCleared() throws {
+        let suite = "transcript-draft-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let id = UUID()
+        let store = TranscriptDraftStore(defaults: defaults)
+        store.save(recordingID: id, text: "Исправленный текст")
+        XCTAssertEqual(TranscriptDraftStore(defaults: defaults).load(recordingID: id), "Исправленный текст")
+        store.save(recordingID: id, text: "")
+        XCTAssertEqual(store.load(recordingID: id), "")
+        store.remove(recordingID: id)
+        XCTAssertNil(store.load(recordingID: id))
+    }
+
     @available(iOS 26.0, *)
     func testSpeechTranscriberSupportsRussianAndReportsAssetStatus() async throws {
         let requestedLocale = Locale(identifier: "ru-RU")

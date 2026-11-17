@@ -11,7 +11,11 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         maxRecordingDuration: 300
     )
 
+    @Published private(set) var transcribingRecordingIDs: Set<UUID> = []
     @Published private(set) var playingRecordingID: UUID?
+    @Published private(set) var isAudioPlaying = false
+    @Published private(set) var playbackPosition: TimeInterval = 0
+    @Published private(set) var playbackDuration: TimeInterval = 0
     @Published private(set) var recordingStartedAt: Date?
     @Published private(set) var isRecording = false
     @Published private(set) var isStarting = false
@@ -62,6 +66,9 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     }
 
     func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU")) async throws -> String {
+        guard !transcribingRecordingIDs.contains(recordingID) else { throw TranscriptionError.alreadyProcessing }
+        transcribingRecordingIDs.insert(recordingID)
+        defer { transcribingRecordingIDs.remove(recordingID) }
         do {
             let transcript = try await transcriptionService.transcribe(recordingID: recordingID, locale: locale)
             refreshRecordings()
@@ -102,12 +109,18 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             guard newPlayer.play() else { throw RecordingError.playbackFailed }
             player = newPlayer
             playingRecordingID = id
+            isAudioPlaying = true
+            playbackPosition = 0
+            playbackDuration = newPlayer.duration
             playbackTask = Task { [weak self] in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(200))
                     guard !Task.isCancelled else { return }
-                    guard self?.player?.isPlaying == true else {
-                        self?.stopPlayback()
+                    guard let self else { return }
+                    guard self.isAudioPlaying else { continue }
+                    self.playbackPosition = self.player?.currentTime ?? 0
+                    guard self.player?.isPlaying == true else {
+                        self.stopPlayback()
                         return
                     }
                 }
@@ -118,6 +131,26 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         }
     }
 
+    func togglePlayback(id: UUID) throws {
+        guard !isRecording, !isStarting else { return }
+        if playingRecordingID == id, let player {
+            if isAudioPlaying {
+                player.pause()
+                playbackPosition = player.currentTime
+                isAudioPlaying = false
+            } else {
+                guard player.play() else { throw RecordingError.playbackFailed }
+                isAudioPlaying = true
+            }
+        } else { try playRecording(id: id) }
+    }
+
+    func seekPlayback(to time: TimeInterval) {
+        guard time.isFinite, let player else { return }
+        player.currentTime = min(max(0, time), player.duration)
+        playbackPosition = player.currentTime
+    }
+
     func stopPlayback() {
         guard player != nil else { return }
         playbackTask?.cancel()
@@ -125,6 +158,9 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         player?.stop()
         player = nil
         playingRecordingID = nil
+        isAudioPlaying = false
+        playbackPosition = 0
+        playbackDuration = 0
         try? AVAudioSession.sharedInstance().setActive(false)
     }
 

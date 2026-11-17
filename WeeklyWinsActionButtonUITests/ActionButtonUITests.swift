@@ -2,6 +2,34 @@ import XCTest
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testTranscriptDraftSurvivesAppRelaunchAndCanBeDiscarded() throws {
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.staticTexts["Запись идёт"].waitForExistence(timeout: 5))
+        app.buttons["recorder-stop"].tap()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let editor = app.textViews["transcriptEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        let marker = "Черновик после перезапуска"
+        editor.typeText(marker)
+        XCTAssertTrue(app.staticTexts["Черновик сохранён"].waitForExistence(timeout: 5))
+        app.terminate()
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertEqual(editor.value as? String, marker)
+        app.buttons["Готово"].tap()
+        app.buttons["Отбросить изменения"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(editor.value as? String, marker)
+    }
+
+    @MainActor
     func testRecordingSearchAndConfirmedDeletion() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()

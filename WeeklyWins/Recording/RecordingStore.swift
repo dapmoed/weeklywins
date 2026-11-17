@@ -159,6 +159,7 @@ final class RecordingStore {
         do { try persist() }
         catch { recordings[index] = previous; throw error }
         for eventID in eventIDs { EventDraftStore().remove(id: eventID) }
+        TranscriptDraftStore().remove(recordingID: id)
         let url = fileURL(for: previous)
         if fileManager.fileExists(atPath: url.path) {
             do { try fileManager.removeItem(at: url) }
@@ -168,6 +169,7 @@ final class RecordingStore {
 
     private func purgeDeletedAudio() {
         for recording in recordings where recording.deletedAt != nil {
+            TranscriptDraftStore().remove(recordingID: recording.id)
             for id in recording.deletedEventIDs ?? [] { EventDraftStore().remove(id: id) }
             let url = fileURL(for: recording)
             if fileManager.fileExists(atPath: url.path) { try? fileManager.removeItem(at: url) }

@@ -12,6 +12,7 @@
 		1821440FF54999D37E5076CE /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2428565F608522AB8D17F70F /* RecordingView.swift */; };
 		1AB7752C0BC8EADC6A8D28B7 /* Event.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E2346B601698823F3803A57 /* Event.swift */; };
 		1D17C71F35BCF24E082FF404 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE5367230E943B0D9CED569 /* SettingsView.swift */; };
+		309F284A21A26CCDE4A33C07 /* TranscriptDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8035E07F91D9A7FD96739C /* TranscriptDraftStore.swift */; };
 		3A31164B0E61C983530575CF /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95CF5286D64FEA6FDBA927AE /* ReportView.swift */; };
 		3FD94E8DDE579EA697ABD850 /* WeeklyWinsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22A8540FCB9466240EFD6C9 /* WeeklyWinsApp.swift */; };
 		401A3E92D7B4D72B4A8996DD /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B7C4617FE9030FE05242D6 /* RecordingStore.swift */; };
@@ -108,6 +109,7 @@
 		842E166A366AB36680849074 /* RecordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTests.swift; sourceTree = "<group>"; };
 		84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonUITests.swift; sourceTree = "<group>"; };
 		8E2346B601698823F3803A57 /* Event.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Event.swift; sourceTree = "<group>"; };
+		8E8035E07F91D9A7FD96739C /* TranscriptDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDraftStore.swift; sourceTree = "<group>"; };
 		95CF5286D64FEA6FDBA927AE /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
 		9840871008E68E3599510E10 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptView.swift; sourceTree = "<group>"; };
 		9BE8955B306BCF182658F9B9 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
@@ -190,6 +192,7 @@
 			isa = PBXGroup;
 			children = (
 				50F502298901B4C79C171B12 /* Transcriber.swift */,
+				8E8035E07F91D9A7FD96739C /* TranscriptDraftStore.swift */,
 				08BD30CB1E63ACDC433A9BBD /* TranscriptionService.swift */,
 				9840871008E68E3599510E10 /* TranscriptView.swift */,
 			);
@@ -420,6 +423,7 @@
 				90B25D631C6681C2DFC96BBB /* StudioTheme.swift in Sources */,
 				09D3F9AA497FAB5ECCE01D2E /* ToggleRecordingIntent.swift in Sources */,
 				CA56C1D353DF1B505D46AF81 /* Transcriber.swift in Sources */,
+				309F284A21A26CCDE4A33C07 /* TranscriptDraftStore.swift in Sources */,
 				71AFE62DEC6B58A0C357FC07 /* TranscriptView.swift in Sources */,
 				BA4BE0852BAD28667AFF3AA3 /* TranscriptionService.swift in Sources */,
 				3FD94E8DDE579EA697ABD850 /* WeeklyWinsApp.swift in Sources */,
