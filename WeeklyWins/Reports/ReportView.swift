@@ -7,7 +7,7 @@ struct ReportView: View {
     @State private var date = Date.now
     @State private var category: EventCategory?
     @State private var showCalendar = false
-    @State private var selectedRecording: Recording?
+    @State private var selectedEntry: ReportEntry?
     let isToday: Bool
 
     private var entries: [ReportEntry] {
@@ -20,7 +20,11 @@ struct ReportView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    Text(isToday ? "Сегодня" : "Отчёты").font(.largeTitle.bold())
+                    HStack {
+                        Text(isToday ? "Сегодня" : "Отчёты").font(.largeTitle.bold())
+                        Spacer()
+                        SettingsButton()
+                    }
                     if isToday {
                         Button { showCalendar = true } label: {
                             Text(date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "ru_RU"))))
@@ -71,7 +75,7 @@ struct ReportView: View {
                                     Text(entry.date.formatted(.dateTime.hour().minute())).font(.caption.monospacedDigit())
                                 }.foregroundStyle(StudioTheme.secondary).frame(width: 60, alignment: .leading)
                                 Circle().fill(StudioTheme.categoryColor(entry.event.category)).frame(width: 8, height: 8).padding(.top, 6)
-                                Button { selectedRecording = entry.recording } label: {
+                                Button { selectedEntry = entry } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: entry.event.category == .home ? "house" : "briefcase")
                                             .font(.title2).foregroundStyle(StudioTheme.categoryColor(entry.event.category))
@@ -104,8 +108,8 @@ struct ReportView: View {
                         .toolbar { Button("Готово") { showCalendar = false } }
                 }.presentationDetents([.medium])
             }
-            .sheet(item: $selectedRecording) { recording in
-                NavigationStack { EventReviewView(recording: recording, service: service) }
+            .sheet(item: $selectedEntry) { entry in
+                NavigationStack { EventDetailView(entry: entry, service: service) }
                     .preferredColorScheme(.dark).tint(StudioTheme.mint)
             }
         }

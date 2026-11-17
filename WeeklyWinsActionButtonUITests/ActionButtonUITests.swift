@@ -21,9 +21,33 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["Расшифровать"].exists)
         XCTAssertTrue(app.buttons["Сохранить текст"].exists)
+        let editor = app.textViews["transcriptEditor"]
+        editor.tap()
+        editor.typeText("Проверил отчёт.")
+        app.buttons["Сохранить текст"].tap()
+        app.buttons["Готово"].tap()
+        app.buttons["studio-tab-0"].tap()
+        let event = app.staticTexts["Проверил отчёт"].firstMatch
+        XCTAssertTrue(event.waitForExistence(timeout: 5), app.debugDescription)
+        event.tap()
+        XCTAssertTrue(app.buttons["edit-event"].waitForExistence(timeout: 5))
+        app.buttons["Открыть аудиозапись и текст"].tap()
+        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
         #else
         throw XCTSkip("This recorder-flow check is for Simulator; Action Button end-to-end is covered by the device test.")
         #endif
+    }
+
+    @MainActor
+    func testSettingsShowsVersionAndActionButtonGuide() throws {
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        let settings = app.buttons["settings-button"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.tap()
+        XCTAssertTrue(app.staticTexts["Сборка"].waitForExistence(timeout: 5))
+        app.buttons["Настроить кнопку действия"].tap()
+        XCTAssertTrue(app.staticTexts["Первоначальная настройка"].waitForExistence(timeout: 5))
     }
 
     @MainActor

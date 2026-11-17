@@ -6,7 +6,11 @@ struct RecordingView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Text("Записи").font(.largeTitle.bold()).frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text("Записи").font(.largeTitle.bold())
+                Spacer()
+                SettingsButton()
+            }
             Text(versionLabel).font(.caption).foregroundStyle(StudioTheme.secondary)
 
             VStack(alignment: .leading, spacing: 10) {

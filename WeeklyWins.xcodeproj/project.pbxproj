@@ -10,6 +10,7 @@
 		09D3F9AA497FAB5ECCE01D2E /* ToggleRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00FA88E6B61147C2153C8BF8 /* ToggleRecordingIntent.swift */; };
 		1821440FF54999D37E5076CE /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2428565F608522AB8D17F70F /* RecordingView.swift */; };
 		1AB7752C0BC8EADC6A8D28B7 /* Event.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E2346B601698823F3803A57 /* Event.swift */; };
+		1D17C71F35BCF24E082FF404 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE5367230E943B0D9CED569 /* SettingsView.swift */; };
 		3A31164B0E61C983530575CF /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95CF5286D64FEA6FDBA927AE /* ReportView.swift */; };
 		3FD94E8DDE579EA697ABD850 /* WeeklyWinsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22A8540FCB9466240EFD6C9 /* WeeklyWinsApp.swift */; };
 		401A3E92D7B4D72B4A8996DD /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B7C4617FE9030FE05242D6 /* RecordingStore.swift */; };
@@ -25,6 +26,7 @@
 		90B25D631C6681C2DFC96BBB /* StudioTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45D65F801F7051B4386BEABC /* StudioTheme.swift */; };
 		A04D12F5DF5D621146799268 /* RecordingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBE7F83EE50C65436741DAD /* RecordingServiceTests.swift */; };
 		B5A340F31D86FE474D3C7E46 /* Recording.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C55114DEB902418A4F146F /* Recording.swift */; };
+		B7282A343125FEA177D0AD39 /* EventDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F492CC51EDACCAC0BDAB6BB3 /* EventDraftStore.swift */; };
 		BA4BE0852BAD28667AFF3AA3 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BD30CB1E63ACDC433A9BBD /* TranscriptionService.swift */; };
 		BA53E12931082A7230285194 /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE8955B306BCF182658F9B9 /* RecordingService.swift */; };
 		BFA139E75FAC31F87B1A41CE /* EventExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C04EC83453B9AB49AA9DE7E /* EventExtractor.swift */; };
@@ -32,6 +34,7 @@
 		C4FEBD47219FAE5DEBAD4D84 /* TranscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD26E219926EAEF3B0047BC /* TranscriptionTests.swift */; };
 		CA56C1D353DF1B505D46AF81 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F502298901B4C79C171B12 /* Transcriber.swift */; };
 		CF353D1212704CD2A8F88B89 /* RecordingLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3833C2886304C113145742 /* RecordingLibrary.swift */; };
+		D19BE596F4D00345B807D6E0 /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162C0FF1037DDF0EA12E27C4 /* EventDetailView.swift */; };
 		E5578975E472FD1792D208CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59B92711285D853D853D8E70 /* Assets.xcassets */; };
 		E68A0C06E4BF4840DB75A19F /* RecordingActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5C6DF44DAEDA8ADB95CAC5A4 /* RecordingActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FD3FF7D5FF4A919265B668D8 /* RecordingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */; };
@@ -81,7 +84,9 @@
 		0862D38D717E515E5C7779E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		08BD30CB1E63ACDC433A9BBD /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
 		0D32F7959F317070BF0DCC68 /* ReportQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportQuery.swift; sourceTree = "<group>"; };
+		162C0FF1037DDF0EA12E27C4 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		2428565F608522AB8D17F70F /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		2FE5367230E943B0D9CED569 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		30E203B86F33DFC4FC122410 /* EventReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventReviewView.swift; sourceTree = "<group>"; };
 		383168A0716586076B98CE0E /* StudioRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioRootView.swift; sourceTree = "<group>"; };
 		38E818CB4D70097FD5334728 /* ReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportTests.swift; sourceTree = "<group>"; };
@@ -107,6 +112,7 @@
 		CE3833C2886304C113145742 /* RecordingLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLibrary.swift; sourceTree = "<group>"; };
 		ED0F166395DD8829E685615D /* WeeklyWinsActionButtonUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WeeklyWinsActionButtonUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2C55114DEB902418A4F146F /* Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recording.swift; sourceTree = "<group>"; };
+		F492CC51EDACCAC0BDAB6BB3 /* EventDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDraftStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -132,6 +138,7 @@
 				96CED9121BEE7B9064BCC2C9 /* Events */,
 				A7BF4C7BCBCA5EBDA4942F02 /* Recording */,
 				682A6369A70033D6F63E4F86 /* Reports */,
+				915820EEC68616D91BD9D0DE /* Settings */,
 				9C3F77630F5FEDEADA45C28E /* Transcription */,
 			);
 			path = WeeklyWins;
@@ -154,10 +161,20 @@
 			path = Reports;
 			sourceTree = "<group>";
 		};
+		915820EEC68616D91BD9D0DE /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				2FE5367230E943B0D9CED569 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		96CED9121BEE7B9064BCC2C9 /* Events */ = {
 			isa = PBXGroup;
 			children = (
 				8E2346B601698823F3803A57 /* Event.swift */,
+				162C0FF1037DDF0EA12E27C4 /* EventDetailView.swift */,
+				F492CC51EDACCAC0BDAB6BB3 /* EventDraftStore.swift */,
 				5C04EC83453B9AB49AA9DE7E /* EventExtractor.swift */,
 				30E203B86F33DFC4FC122410 /* EventReviewView.swift */,
 			);
@@ -379,6 +396,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1AB7752C0BC8EADC6A8D28B7 /* Event.swift in Sources */,
+				D19BE596F4D00345B807D6E0 /* EventDetailView.swift in Sources */,
+				B7282A343125FEA177D0AD39 /* EventDraftStore.swift in Sources */,
 				BFA139E75FAC31F87B1A41CE /* EventExtractor.swift in Sources */,
 				470F32EA05E4D4B081AC6B16 /* EventReviewView.swift in Sources */,
 				B5A340F31D86FE474D3C7E46 /* Recording.swift in Sources */,
@@ -389,6 +408,7 @@
 				1821440FF54999D37E5076CE /* RecordingView.swift in Sources */,
 				4F77900B6BB01E41FE997910 /* ReportQuery.swift in Sources */,
 				3A31164B0E61C983530575CF /* ReportView.swift in Sources */,
+				1D17C71F35BCF24E082FF404 /* SettingsView.swift in Sources */,
 				786CA6786D9FB181E78705CE /* StudioRootView.swift in Sources */,
 				90B25D631C6681C2DFC96BBB /* StudioTheme.swift in Sources */,
 				09D3F9AA497FAB5ECCE01D2E /* ToggleRecordingIntent.swift in Sources */,

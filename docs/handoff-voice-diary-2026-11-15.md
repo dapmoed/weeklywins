@@ -77,3 +77,13 @@ Implemented shared StudioTheme, StudioRootView with Today/Recordings/Reports nav
 Reviewed and corrected recovery importing duplicate UUIDs after media rename, automatic recording finalization via AVAudioRecorderDelegate and finalized-file duration, event refresh after corrected transcript while retaining manual edits, ordinary negations and clock-time/duration confusion, and in-memory rollback for failed begin/transcript writes. Added playback with recording-start stopping playback. SpeechAnalyzer consumer cleanup now cancels on failure. Legacy speech task cancellation and broader ASR/extraction evaluations remain pending.
 
 Full Simulator suite passed at /private/tmp/weeklywins-derived/Logs/Test/Test-WeeklyWins-2026.11.17_09-19-23-+0500.xcresult. Hardware acceptance retains confirmed build14 two-press locked start/stop and user-confirmed Russian transcription. Five-minute airplane-mode transcription, playback and longer interruption/restart cases still need physical acceptance. No new device install in this checkpoint.
+
+## Event details and settings stage, 2026-11-17
+
+Added EventDetailView with a live event lookup, source excerpt, original recording date, and navigation into audio/transcript. A dedicated editor changes one event against the latest recording snapshot, with shared store-level rejection of empty titles. Event deletion offers undo. EventDraftStore saves the editor draft on background transition and restores it when reopening; saving or explicit discard clears it.
+
+Added SettingsView and ActionButtonGuideView in the approved dark palette. Entry buttons appear on Today, recordings and reports. Settings displays actual microphone/Speech authorization, Russian on-device engine availability, app version/build, system settings link, and Action Button assignment/testing instructions. Runtime capability is refreshed after returning from system Settings.
+
+Static review identified empty-title save through the close dialog and missing persisted drafts. Both were fixed and regression tests added. Simulator UI tests exercised record→manual transcript→Today event→source transcript and settings→Action Button guide. Full Simulator suite passed at /private/tmp/weeklywins-source-settings-final.log. No physical-device installation in this stage.
+
+Remaining approved UI work includes initial onboarding, all editor draft/close flows, search and recording deletion, playback scrubbing, detailed report day navigation, and exact spacing/screenshot comparison across A01–A18. Broader Russian extraction quality and hardware long-recording/airplane-mode acceptance remain open.

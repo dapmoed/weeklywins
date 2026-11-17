@@ -2,6 +2,31 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    func testEventDraftSurvivesReopeningAndCanBeDiscarded() throws {
+        let suite = "event-drafts-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let original = DiaryEvent(recordingID: UUID(), sourceText: "Купил хлеб", text: "Купил хлеб")
+        var edited = original
+        edited.text = "Купил хлеб и молоко"
+        try EventDraftStore(defaults: defaults).save(edited)
+        let restoredStore = EventDraftStore(defaults: defaults)
+        XCTAssertEqual(restoredStore.load(for: original)?.text, edited.text)
+        restoredStore.remove(id: original.id)
+        XCTAssertNil(restoredStore.load(for: original))
+    }
+
+    @MainActor
+    func testAllSavePathsRejectEmptyEventTitle() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let recording = try store.beginRecording()
+        let event = DiaryEvent(recordingID: recording.id, sourceText: "Текст", text: "  \n  ")
+        XCTAssertThrowsError(try store.saveEvents(recordingID: recording.id, events: [event]))
+        XCTAssertNil(store.recordings.first?.events)
+    }
+
     func testClockTimesAreNotDurationsAndNegativesAreNotCompleted() {
         for text in ["Позвонил в 2 часа", "Через два часа позвоню"] {
             XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration)

@@ -28,3 +28,9 @@ struct DiaryEvent: Identifiable, Codable, Equatable {
     var occurredAt: Date?
     var duration: TimeInterval?
 }
+
+
+enum EventEditingError: LocalizedError {
+    case emptyTitle
+    var errorDescription: String? { "Укажите название дела." }
+}

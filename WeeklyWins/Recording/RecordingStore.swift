@@ -86,6 +86,9 @@ final class RecordingStore {
 
     func saveEvents(recordingID: UUID, events: [DiaryEvent]) throws {
         try validateReady()
+        guard events.allSatisfy({ !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
+            throw EventEditingError.emptyTitle
+        }
         guard let index = recordings.firstIndex(where: { $0.id == recordingID }),
               events.allSatisfy({ $0.recordingID == recordingID }) else {
             throw RecordingStoreError.recordingNotFound
