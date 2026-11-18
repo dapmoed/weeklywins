@@ -54,9 +54,9 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 - [x] Read the fixture folder from Application Support/ASRAcceptance. Ordinary test runs skip this device-only measurement.
 - [x] Call OnDeviceSpeechTranscriber.transcribe(audioFileURL:locale:) with ru-RU and record a report on success or failure.
 - [x] Record processing time, audio duration, selected native availability, reference/transcript word counts, complete transcript, terminal error, battery/charging and thermal state.
-- [ ] Stage fixtures on the phone and run the one-minute and five-minute cases. Inspect the ending and compute word error rate against the controlled reference.
+- [x] Stage fixtures on the phone and run the one-minute and five-minute cases. Inspect the ending and compute word error rate against the controlled reference.
 - [ ] Verify wired transport before airplane-mode acceptance and restore connectivity to its prior state after the measurement.
-- [ ] Preserve measured reports locally and summarize evidence in docs/asr-evaluation.md. Seek Sol review and commit/push the completed stage.
+- [x] Preserve measured reports locally and summarize evidence in docs/asr-evaluation.md. Seek Sol review and commit/push the completed stage.
 
 ## Task 3 — Duration or lifecycle fixes when established by evidence
 
@@ -66,10 +66,10 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 
 ## Task 4 — Bundled candidate comparison and selection
 
-- [ ] Choose one maintained multilingual offline model implementation from primary documentation and record its version, license and artifact hash.
-- [ ] Compare the same fixture bytes on the device, recording quality, processing time, storage footprint and the available energy observations with their resolution and charging state.
+- [x] Choose one maintained multilingual offline model implementation from primary documentation and record its version, license and artifact hash.
+- [x] Compare the same fixture bytes on the device, recording quality, processing time, storage footprint and the available energy observations with their resolution and charging state.
 - [ ] Use natural user speech for an additional accuracy check with an explicit reference.
-- [ ] Document the selected provider and any remaining measurement limits. Update the original Task 3 checkboxes only for requirements with matching evidence.
+- [x] Document the selected provider and any remaining measurement limits. Update the original Task 3 checkboxes only for requirements with matching evidence.
 
 ## Measurement status
 
@@ -78,3 +78,5 @@ The native measurements are documented in docs/asr-evaluation.md and raw reports
 ## Build 20 implementation status
 
 Bounded contextual windows and native timed-partial accumulation now preserve the complete controlled300s narrative. Final device result474/478words, WER10.67%,8.258s. Details and raw reports are in docs/asr-evaluation.md. Final Simulator suite102PASS8SKIP0FAIL,total110. Both final device acceptance cases passed. The actual full-build20 airplane-mode repeat, bundled comparison, natural corpus and energy observations remain open.
+
+Build 21 compared the two engines on the same iPhone, with hash-verified fixtures and recorded charging and thermal state. See docs/asr-evaluation.md for timing, WER, the default-engine decision and the limits of the comparison. Natural speech, full updated airplane-mode acceptance and measurable energy impact remain open.
