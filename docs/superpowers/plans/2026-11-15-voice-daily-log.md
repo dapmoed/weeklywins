@@ -39,7 +39,7 @@
 - [x] Implement one toggle intent that starts a file recording when idle and stops it when active. Keep its operation idempotent across repeated invocations.
 - [ ] On the physical iPhone, grant microphone permission, assign the shortcut to the Action Button, lock the phone, press to start, then press to stop. Repeat after force quit, restart, a 5-minute recording, and a call interruption.
 - [ ] Record OS version, exact behavior, time from press to capture, produced file duration, and any unlock prompt in `docs/device-validation.md`.
-- [ ] Gate: continue only if locked start and stop both work without unlock and create a valid file. Otherwise revise the agreed interaction before implementing later tasks.
+- [x] Gate: locked start and stop both worked without unlocking and created a valid file. Build 22 produced one fully decodable 56-second recording and completed transcription in airplane mode, with the lock and radio states confirmed by the user.
 
 ### Task 2: Reliable recording and local persistence
 
