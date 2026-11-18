@@ -2,6 +2,45 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    func testUnpunctuatedAppleTranscriptSeparatesMeetingFollowUpAndRepairs() throws {
+        // Contiguous excerpt from the controlled one-minute Apple Speech report.
+        let text = "прошла встреча по микро сервису вайфая авторизации обсудили проблему с доступом и решили что нужно ответить в информационную безопасность встреча длилась 01:00 после встречи починил сервис по вайфая авторизации была проблема с паролем теперь подключение проходит успешно затем поменяла пароль в сервисе SNS паблишер"
+        let events = EventExtractor.extract(text, recordingID: UUID())
+
+        XCTAssertEqual(events.count, 4)
+        XCTAssertEqual(events.map(\.completion), [.completed, .notCompleted, .completed, .completed])
+        XCTAssertEqual(events.map(\.duration), [3600, nil, nil, nil])
+        XCTAssertTrue(try XCTUnwrap(events.first).sourceText.contains("встреча длилась 01:00"))
+        XCTAssertTrue(events.contains { $0.text.hasPrefix("после встречи починил") })
+        XCTAssertTrue(events.contains { $0.text.hasPrefix("поменяла пароль") })
+    }
+
+    func testClockStyleDurationRequiresAnExplicitDurationVerb() {
+        XCTAssertEqual(EventExtractor.extract("Встреча длилась 01:25", recordingID: UUID()).first?.duration, 5100)
+        XCTAssertNil(EventExtractor.extract("Встреча началась в 01:25", recordingID: UUID()).first?.duration)
+        XCTAssertNil(EventExtractor.extract("Встреча длилась около 01:25", recordingID: UUID()).first?.duration)
+        XCTAssertNil(EventExtractor.extract("Встреча длилась 01:25–02:00", recordingID: UUID()).first?.duration)
+        XCTAssertNil(EventExtractor.extract("Встреча длилась 01:75", recordingID: UUID()).first?.duration)
+        for prefix in ["Сегодня", "Сама"] {
+            let events = EventExtractor.extract("\(prefix) встреча длилась 01:25", recordingID: UUID())
+            XCTAssertEqual(events.count, 1)
+            XCTAssertEqual(events.first?.duration, 5100)
+        }
+    }
+
+    func testDecisionKeepsItsSubjectAndNegationTogether() {
+        for text in ["Я решил что нужно отправить письмо", "Я не решил что нужно отправить"] {
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.map(\.text), [text])
+            XCTAssertEqual(events.first?.completion, .notCompleted)
+        }
+    }
+
+    func testAfterMeetingPhraseKeepsItsLeadingModifier() {
+        let text = "Сразу после встречи подготовил письмо"
+        XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).map(\.text), [text])
+    }
+
     func testUserMeetingLinksDurationClarificationAndRetainsPendingFollowUp() throws {
         let transcript = "Прошла встреча по микросервису вай Фай  аторизация. Решили что нужно ответить в инфосеке. Часовая встреча"
         let events = EventExtractor.extract(transcript, recordingID: UUID())
