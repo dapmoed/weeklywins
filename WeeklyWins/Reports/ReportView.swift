@@ -13,6 +13,8 @@ struct ReportView: View {
     @State private var selectedTimeZone = TimeZone.current
     @State private var parentReport: (period: ReportPeriod, date: Date)?
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption) private var timeWidth = 60.0
     let isToday: Bool
 
     private var entries: [ReportEntry] {
@@ -93,33 +95,10 @@ struct ReportView: View {
                     if entries.isEmpty {
                         ContentUnavailableView("Нет событий", systemImage: "list.bullet", description: Text("Расскажите, что уже сделали. События появятся после расшифровки."))
                     }
-                    LazyVStack(spacing: 16) {
-                        ForEach(entries) { entry in
-                            HStack(alignment: .top, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if entry.event.occurredAt == nil { Text("Записано").font(.caption2) }
-                                    Text(entry.date.formatted(.dateTime.hour().minute())).font(.caption.monospacedDigit())
-                                }.foregroundStyle(StudioTheme.secondary).frame(width: 60, alignment: .leading)
-                                Circle().fill(StudioTheme.categoryColor(entry.event.category)).frame(width: 8, height: 8).padding(.top, 6)
-                                Button { selectedEntry = entry } label: {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: entry.event.category == .home ? "house" : "briefcase")
-                                            .font(.title2).foregroundStyle(StudioTheme.categoryColor(entry.event.category))
-                                        VStack(alignment: .leading, spacing: 5) {
-                                            Text(entry.event.text).font(.headline).multilineTextAlignment(.leading)
-                                            Text("\(entry.event.category.title) · \(StudioTheme.duration(entry.event.duration))")
-                                                .font(.caption).foregroundStyle(StudioTheme.secondary)
-                                            if entry.event.completion == .notCompleted {
-                                                Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
-                                            }
-                                        }
-                                        Spacer(minLength: 0)
-                                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(StudioTheme.mint)
-                                    }
-                                    .padding(15).frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 20))
-                                }.buttonStyle(.plain)
-                            }
+                    let items = entries
+                    LazyVStack(spacing: isToday ? 12 : 16) {
+                        ForEach(items) { entry in
+                            eventRow(entry, hasPrevious: entry.id != items.first?.id, hasNext: entry.id != items.last?.id)
                         }
                     }
                 }.padding(20)
@@ -149,6 +128,88 @@ struct ReportView: View {
             }
             .sheet(item: $selectedRecording) { recording in
                 TranscriptView(recording: recording, recordingService: service)
+            }
+        }
+    }
+
+    private func eventRow(_ entry: ReportEntry, hasPrevious: Bool, hasNext: Bool) -> some View {
+        let columnWidth = min(timeWidth, 92)
+        let dotColor = StudioTheme.categoryColor(entry.event.category)
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let dot = Circle().fill(dotColor).frame(width: 8, height: 8).accessibilityHidden(true)
+        let row = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: isToday ? .center : .top, spacing: isToday ? 8 : 12))
+        let timestamp = stacked
+            ? AnyLayout(HStackLayout(spacing: 8))
+            : AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        return row {
+            timestamp {
+                if stacked { dot }
+                if entry.event.occurredAt == nil { Text("Записано").font(.caption2) }
+                Text(entry.date.formatted(.dateTime.hour().minute())).font(.caption.monospacedDigit())
+            }
+            .foregroundStyle(StudioTheme.secondary)
+            .frame(width: stacked ? nil : isToday ? columnWidth : 60, alignment: .leading)
+            if !stacked { dot.padding(.top, isToday ? 0 : 6) }
+            HStack(alignment: stacked ? .top : .center, spacing: 0) {
+                Button { selectedEntry = entry } label: {
+                    HStack(spacing: 10) {
+                        if !stacked {
+                            Image(systemName: entry.event.category == .home ? "house" : isToday ? "laptopcomputer" : "briefcase")
+                                .font(.title2).foregroundStyle(dotColor)
+                                .accessibilityHidden(true)
+                        }
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(entry.event.text).font(.headline).multilineTextAlignment(.leading)
+                            Text("\(entry.event.category.title) · \(StudioTheme.duration(entry.event.duration))")
+                                .font(.caption).foregroundStyle(StudioTheme.secondary)
+                            if entry.event.completion == .notCompleted {
+                                Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        if !isToday {
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(StudioTheme.mint)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .padding(.leading, isToday ? 12 : 15)
+                    .padding(.trailing, isToday ? 0 : 15)
+                    .padding(.vertical, isToday ? 12 : 15)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                if isToday {
+                    Button { selectedRecording = entry.recording } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(StudioTheme.mint)
+                            .frame(width: 34, height: 34)
+                            .background(.white.opacity(0.06), in: Circle())
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 4)
+                    .padding(.top, stacked ? 8 : 0)
+                    .accessibilityLabel("Открыть аудио: \(entry.event.text)")
+                }
+            }
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: isToday ? 16 : 20))
+        }
+        .background {
+            if isToday && !stacked && (hasPrevious || hasNext) {
+                GeometryReader { proxy in
+                    let x = columnWidth + 12
+                    let center = proxy.size.height / 2
+                    Path { line in
+                        line.move(to: CGPoint(x: x, y: hasPrevious ? 0 : center))
+                        line.addLine(to: CGPoint(x: x, y: hasNext ? proxy.size.height + 12 : center))
+                    }.stroke(StudioTheme.secondary.opacity(0.32), lineWidth: 1)
+                }
+                .accessibilityHidden(true)
+                .allowsHitTesting(false)
             }
         }
     }

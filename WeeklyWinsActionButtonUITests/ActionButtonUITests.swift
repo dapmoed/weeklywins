@@ -434,6 +434,16 @@ final class ActionButtonUITests: XCTestCase {
         }
         XCTAssertTrue(event.isHittable, app.debugDescription)
         XCTAssertLessThan(event.frame.maxY, startRecording.frame.minY - 12)
+        let audio = app.buttons["Открыть аудио: " + eventTitle]
+        XCTAssertTrue(audio.isHittable)
+        XCTAssertGreaterThanOrEqual(audio.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(audio.frame.height, 44)
+        audio.tap()
+        let sourceText = app.textViews["transcriptEditor"]
+        XCTAssertTrue(sourceText.waitForExistence(timeout: 5))
+        XCTAssertTrue((sourceText.value as? String)?.contains(eventTitle) == true)
+        app.buttons["Готово"].tap()
+        XCTAssertTrue(sourceText.waitForNonExistence(timeout: 5))
         event.tap()
         XCTAssertTrue(app.buttons["edit-event"].waitForExistence(timeout: 5))
         app.buttons["Открыть аудиозапись и текст"].tap()

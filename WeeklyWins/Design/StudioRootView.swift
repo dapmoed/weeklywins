@@ -65,6 +65,7 @@ struct StudioRootView: View {
             VStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 23))
                 Text(title).font(.caption.weight(.medium))
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }.frame(maxWidth: .infinity).frame(minHeight: 48)
                 .foregroundStyle(selectedTab == index ? StudioTheme.mint : StudioTheme.secondary)
         }
