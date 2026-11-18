@@ -496,11 +496,61 @@ final class ActionButtonUITests: XCTestCase {
         search.tap()
         search.typeText(marker)
         XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 1)
+        let searchResults = XCTAttachment(screenshot: app.screenshot())
+        searchResults.name = "A07-recording-search-keyboard"
+        searchResults.lifetime = .keepAlways
+        add(searchResults)
+        search.typeText("\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 1)
         app.buttons["Действия записи"].firstMatch.tap()
         app.buttons["Удалить запись"].tap()
         app.buttons["Удалить запись"].tap()
         XCTAssertTrue(app.staticTexts["Ничего не найдено"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 0)
+    }
+
+    @MainActor
+    func testRecordingListGroupsDaysAndKeepsMenuReachableAtLargestTextSize() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_RECORDINGS_LAYOUT_FIXTURE"] == "1",
+                          "Run with the two-day Simulator recording fixture.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        let rows = app.buttons.matching(identifier: "recording-row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        let calendar = Calendar.current
+        let today = Date.now
+        let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
+        let format = Date.FormatStyle.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))
+        let todayHeading = app.staticTexts[today.formatted(format)]
+        let yesterdayHeading = app.staticTexts[yesterday.formatted(format)]
+        XCTAssertTrue(todayHeading.exists)
+        XCTAssertTrue(yesterdayHeading.exists)
+        XCTAssertLessThan(todayHeading.frame.minY, yesterdayHeading.frame.minY)
+        let normal = XCTAttachment(screenshot: app.screenshot())
+        normal.name = "A07-recording-days"
+        normal.lifetime = .keepAlways
+        add(normal)
+
+        app.terminate()
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        XCTAssertTrue(todayHeading.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(todayHeading.frame.height, 30)
+        let menu = app.buttons["Действия записи"].firstMatch
+        XCTAssertTrue(menu.isHittable)
+        XCTAssertGreaterThanOrEqual(menu.frame.width, 44)
+        XCTAssertLessThan(menu.frame.maxY, app.buttons["Записать"].frame.minY)
+        let largest = XCTAttachment(screenshot: app.screenshot())
+        largest.name = "A07-recording-largest-text"
+        largest.lifetime = .keepAlways
+        add(largest)
     }
 
     @MainActor

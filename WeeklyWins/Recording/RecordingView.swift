@@ -7,16 +7,17 @@ struct RecordingView: View {
     @State private var showDeleteConfirmation = false
     @State private var query = ""
     @State private var error: String?
+    @FocusState private var searchFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var filtered: [Recording] {
-        recorder.recordings.filter { RecordingSearch.matches($0, query: query) }
-    }
-
-    private var days: [Date] {
-        Array(Set(filtered.map { Calendar.current.startOfDay(for: $0.recordedAt) })).sorted(by: >)
+    private var recordingsByDay: [Date: [Recording]] {
+        let calendar = Calendar.current
+        let matching = recorder.recordings.filter { RecordingSearch.matches($0, query: query) }
+        return Dictionary(grouping: matching) { calendar.startOfDay(for: $0.recordedAt) }
     }
 
     var body: some View {
+        let groups = recordingsByDay
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text("Записи").font(.largeTitle.bold())
@@ -24,17 +25,28 @@ struct RecordingView: View {
                 SettingsButton()
             }
             HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").foregroundStyle(StudioTheme.secondary)
+                Image(systemName: "magnifyingglass").font(.system(size: 17)).foregroundStyle(StudioTheme.secondary)
                 TextField("Текст или дата", text: $query)
                     .accessibilityIdentifier("recording-search")
+                    .focused($searchFocused)
                     .submitLabel(.search)
+                    .onSubmit { searchFocused = false }
                 if !query.isEmpty {
-                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
-                        .accessibilityLabel("Очистить поиск")
+                    Button { query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 17))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Очистить поиск")
                 }
             }
-            .padding(14).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
-            if filtered.isEmpty {
+            .frame(minHeight: 48)
+            .padding(.leading, 14)
+            .padding(.trailing, query.isEmpty ? 14 : 0)
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+            if groups.isEmpty {
                 ContentUnavailableView(
                     query.isEmpty ? "Пока нет записей" : "Ничего не найдено",
                     systemImage: query.isEmpty ? "waveform" : "magnifyingglass",
@@ -43,12 +55,13 @@ struct RecordingView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(days, id: \.self) { day in
+                        ForEach(groups.keys.sorted(by: >), id: \.self) { day in
                             Text(day.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))))
                                 .font(.subheadline.weight(.semibold)).foregroundStyle(StudioTheme.secondary)
+                                .accessibilityAddTraits(.isHeader)
                                 .padding(.top, 8)
-                            ForEach(filtered.filter { Calendar.current.isDate($0.recordedAt, inSameDayAs: day) }) { recording in
-                                HStack(spacing: 0) {
+                            ForEach(groups[day] ?? []) { recording in
+                                HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 0) {
                                     Button { selectedRecording = recording } label: {
                                         RecordingRow(recording: recording)
                                     }
@@ -61,8 +74,12 @@ struct RecordingView: View {
                                             showDeleteConfirmation = true
                                         }
                                     } label: {
-                                        Image(systemName: "ellipsis").frame(width: 44, height: 54)
-                                    }.accessibilityLabel("Действия записи")
+                                        Image(systemName: "ellipsis")
+                                            .font(.system(size: 18))
+                                            .frame(width: 44, height: 54)
+                                    }
+                                    .padding(.top, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
+                                    .accessibilityLabel("Действия записи")
                                 }
                                 .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
                             }
@@ -96,9 +113,13 @@ struct RecordingView: View {
 
 private struct RecordingRow: View {
     let recording: Recording
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "waveform").font(.title2).foregroundStyle(StudioTheme.mint)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Image(systemName: "waveform").font(.title2).foregroundStyle(StudioTheme.mint)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 6) {
                 Text("Запись в \(recording.recordedAt.formatted(.dateTime.hour().minute()))")
                     .font(.headline)
