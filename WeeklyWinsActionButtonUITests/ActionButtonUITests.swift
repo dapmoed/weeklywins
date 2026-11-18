@@ -188,7 +188,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
-        app.buttons["studio-tab-1"].tap()
+        openRecordingsAfterSaving(app)
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         app.buttons["Изменить текст"].tap()
         let transcript = app.textViews["transcriptEditor"]
@@ -285,7 +285,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
-        app.buttons["studio-tab-1"].tap()
+        openRecordingsAfterSaving(app)
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
@@ -386,7 +386,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.buttons["recorder-stop"].waitForExistence(timeout: 10))
         app.buttons["recorder-stop"].tap()
-        app.buttons["studio-tab-1"].tap()
+        openRecordingsAfterSaving(app)
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
@@ -575,7 +575,7 @@ final class ActionButtonUITests: XCTestCase {
         stop.tap()
         XCTAssertTrue(datePicker.waitForExistence(timeout: 5))
         XCTAssertEqual(datePicker.value as? String, selectedLabel)
-        app.buttons["studio-tab-1"].tap()
+        openRecordingsAfterSaving(app)
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
@@ -634,7 +634,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
-        app.buttons["studio-tab-1"].tap()
+        openRecordingsAfterSaving(app)
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
@@ -681,7 +681,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.buttons["recorder-stop"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
-        app.buttons["studio-tab-1"].tap()
+        openRecordingsAfterSaving(app)
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
@@ -844,18 +844,40 @@ final class ActionButtonUITests: XCTestCase {
 
     @MainActor
     func testSettingsShowsVersionAndActionButtonGuide() throws {
+        continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        let largestText = ProcessInfo.processInfo.environment["RUN_SETTINGS_LAYOUT_FIXTURE"] == "1"
+        if largestText {
+            app.launchArguments = [
+                "-UIPreferredContentSizeCategoryName",
+                UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+            ]
+        }
         app.launch()
         let settings = app.buttons["settings-button"].firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.tap()
-        XCTAssertTrue(app.staticTexts["Сборка"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Офлайн-распознавание"].exists)
+        let build = app.descendants(matching: .any)["settings-build"].firstMatch
+        if largestText {
+            let list = app.collectionViews.firstMatch
+            XCTAssertTrue(list.waitForExistence(timeout: 5))
+            for _ in 0..<12 where !build.isHittable { list.swipeUp() }
+            XCTAssertTrue(build.isHittable, app.debugDescription)
+        } else {
+            XCTAssertTrue(build.waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["Офлайн-распознавание"].exists)
+        }
+        XCTAssertNotNil((build.value as? String).flatMap(Int.init))
         let settingsScreenshot = XCTAttachment(screenshot: app.screenshot())
-        settingsScreenshot.name = "A18-settings"
+        settingsScreenshot.name = largestText ? "A18-settings-largest-text" : "A18-settings"
         settingsScreenshot.lifetime = .keepAlways
         add(settingsScreenshot)
-        app.buttons["Настроить кнопку действия"].tap()
+        let guide = app.buttons["Настроить кнопку действия"]
+        if largestText {
+            let list = app.collectionViews.firstMatch
+            for _ in 0..<8 where !guide.isHittable { list.swipeDown() }
+        }
+        guide.tap()
         XCTAssertTrue(app.staticTexts["Первоначальная настройка"].waitForExistence(timeout: 5))
         let guideScreenshot = XCTAttachment(screenshot: app.screenshot())
         guideScreenshot.name = "A18-action-button-guide"
@@ -867,6 +889,21 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(stop.waitForExistence(timeout: 10))
         stop.tap()
         XCTAssertTrue(app.navigationBars["Кнопка действия"].waitForExistence(timeout: 5))
+        if largestText {
+            app.terminate()
+            app.launch()
+            app.buttons["Выбрать день"].tap()
+            XCTAssertTrue(app.navigationBars["Выбор даты"].waitForExistence(timeout: 5))
+            let done = app.buttons["Готово"]
+            XCTAssertTrue(done.isHittable)
+            let calendar = app.datePickers["Дата"]
+            XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+            let calendarScreenshot = XCTAttachment(screenshot: app.screenshot())
+            calendarScreenshot.name = "A16-calendar-largest-text"
+            calendarScreenshot.lifetime = .keepAlways
+            add(calendarScreenshot)
+            done.tap()
+        }
         #endif
     }
 
@@ -1030,6 +1067,16 @@ final class ActionButtonUITests: XCTestCase {
         play.tap()
         XCTAssertTrue(app.buttons["Пауза"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["Пауза"].tap()
+    }
+
+    @MainActor
+    private func openRecordingsAfterSaving(_ app: XCUIApplication) {
+        let tab = app.buttons["studio-tab-1"]
+        let ready = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == true"), object: tab
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed, app.debugDescription)
+        tab.tap()
     }
 
     @MainActor

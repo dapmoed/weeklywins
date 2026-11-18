@@ -18,9 +18,11 @@ Environment: iPhone 17 Pro Simulator, iOS 26.5, Xcode 26.6.
 - `TranscriptionService` persists transcript text and processing state, supports retry, and retains the audio file on errors. `TranscriptView` lets the user edit and save the text.
 - Simulator tests use a scripted fake transcriber to verify success, editing persistence, error state, retry, and audio retention. They do not measure ASR quality.
 
-## Selection status and next measurement
+## Current provider and remaining measurements
 
-No final ASR provider or bundled model has been selected. The initial Simulator probe reported unavailable on-device Russian engines. Later runtime probes advertise legacy on-device support, while native recognition in this Simulator reports backend failures. Physical short-note transcription is confirmed below. When the device is available, compare installed `SpeechTranscriber` assets against one bundled offline model using the same Russian recordings in airplane mode. Record word error rate, processing time, model size, and battery impact before selecting the provider. If no offline engine is supported, keep transcription unavailable with an explicit error rather than sending audio or text to a network service.
+Apple Speech is the default. On iPhone 16 Pro with iOS 27.2.1, Apple exposes Russian through the on-device legacy recognizer. The app uses bounded recognition windows for longer recordings. The controlled Apple and Whisper comparison and verified offline Apple measurements are below. The production app does not bundle Whisper or transmit audio for recognition.
+
+The current adapter processed both the 60-second and 300-second fixtures with the phone offline. Build 22 also recorded and transcribed a natural 56-second note from the locked Action Button without network access. A separate 299.9-second natural capture after reboot verified automatic finalization and persisted a transcript. Network isolation was not required for that particular capture. The natural-speech accuracy corpus and a comparative discharge measurement remain open.
 
 ## Physical iPhone probe, build 14
 
@@ -104,7 +106,7 @@ A single iPhone 16 Pro on iOS 27.2.1 processed the same hash-verified 60- and 30
 | 60 seconds, 89 reference words | 1.520 s | 14 errors, 15.73% | 1.853 s | 16 errors, 17.98% |
 | 300 seconds, 478 reference words | 8.101 s | 51 errors, 10.67% | 7.642 s | 48 errors, 10.04% |
 
-Processing time covers the path from opening audio through complete transcript assembly. Whisper model load took 0.059 s and 0.031 s respectively and is included in the totals. Each run initialized its own context. Both transcripts included the concluding phrase for both fixtures. The phone was connected by USB, at 100% charge, with nominal thermal state for all runs. These battery observations do not resolve per-engine energy consumption. Network state was not recorded in this comparison. The Whisper test performed all inference from bundled resources with local APIs. The explicit airplane-mode repetition of the updated Apple path remains open.
+Processing time covers the path from opening audio through complete transcript assembly. Whisper model load took 0.059 s and 0.031 s respectively and is included in the totals. Each run initialized its own context. Both transcripts included the concluding phrase for both fixtures. The phone was connected by USB, at 100% charge, with nominal thermal state for all runs. These battery observations do not resolve per-engine energy consumption. Network state was not recorded in this comparison. The Whisper test performed all inference from bundled resources with local APIs. The separate offline repetition of the updated Apple path is documented below.
 
 Apple Speech remains the default for build 21 based on the measured minute latency, the small differences on this controlled corpus, and the 59.7 MB footprint of the candidate model. The decision will be reassessed using natural Russian speech if the measured quality falls short. The Apple model allocation is managed by iOS and was not measured. Source and resources for Whisper are confined to the benchmark test project. The two Apple tests and the Whisper corpus test all passed in the same device run. The test session confirmed that idle-timer suppression was removed when the run finished. [Reports and scores](asr/2026-11-18-whisper-comparison/scores.json), [reproduction](../scripts/whisper-benchmark/README.md).
 
@@ -117,4 +119,4 @@ Both reports were saved on the iPhone 16 Pro running iOS 27.2.1 on 18 November, 
 | 60 seconds | 1.650 s | 87 of 89 | 15.73% | Present |
 | 300 seconds | 7.909 s | 474 of 478 | 10.67% | Present |
 
-This verifies native offline processing of saved Russian audio through the current adapter at both durations. Capture through the locked Action Button, background completion and natural speech remain separate acceptance checks. [Recovered reports and scores](asr/2026-11-18-native-offline/scores.json).
+This verifies native offline processing of saved Russian audio through the current adapter at both durations. The subsequent build 22 natural locked-screen capture and offline transcription are documented in [device validation](device-validation.md#physical-build-22-action-button-recording). [Recovered reports and scores](asr/2026-11-18-native-offline/scores.json).

@@ -143,3 +143,12 @@ On 18 November the owner confirmed that build 22 started and stopped recording f
 ### Five-minute locked capture after iPhone restart
 
 On 18 November the owner confirmed that build 22 started recording from the locked iPhone after a reboot and one initial unlock, without opening WeeklyWins, and saved a 5:00 recording automatically. The journal shows one start intent at 07:12:51 UTC in PID 457. The recorder and Live Activity started at 07:12:52 UTC. The stop was logged at 07:17:54 UTC with no second intent entry. The manifest records 299.9 seconds of saved audio, completed transcription, 87 words and one event. The last two ASR windows reported no recognized speech. This run verifies capture and automatic finalization at the duration limit. The earlier airplane-mode recording and the controlled five-minute offline fixture supply the separate offline evidence.
+
+
+## Build 23 Simulator regression
+
+The app and Live Activity extension both report version 0.1.0, build 23. The generated project and XcodeGen source agree. The physical iPhone was not updated from build 22 for this check.
+
+On the iPhone 16 Pro Simulator with iOS 26.5, the final ordinary run passed 116 cases, skipped 11 and failed 0. The system Action Button started and stopped capture, and the test opened and played the saved audio after relaunch. The full suite also verified recording, draft recovery, event editing and all three reports. The simulator's original Documents were restored after the run. Full log at /private/tmp/weeklywins-build23-release.log.
+
+The populated report and clean-onboarding trials, plus the maximum-size calendar and settings trial, passed separately. The ordinary suite skips scenarios that require opt-in fixtures, a physical device or the wall-clock five-minute run. See [design verification](design/verification/README.md) for the actual Simulator screenshots. The owner's physical call-interruption test is deferred.

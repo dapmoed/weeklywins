@@ -42,8 +42,13 @@ struct SettingsView: View {
                     NavigationLink("Настроить кнопку действия") { ActionButtonGuideView() }
                 }.listRowBackground(StudioTheme.surface)
                 Section("Версия и сборка") {
+                    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
                     LabeledContent("Версия", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
-                    LabeledContent("Сборка", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
+                    LabeledContent("Сборка", value: build)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Сборка")
+                        .accessibilityValue(build)
+                        .accessibilityIdentifier("settings-build")
                 }.listRowBackground(StudioTheme.surface)
             }
             .scrollContentBackground(.hidden).background(StudioTheme.background)

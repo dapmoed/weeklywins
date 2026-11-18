@@ -60,10 +60,12 @@
 
 **Files:** `WeeklyWins/Transcription/Transcriber.swift`, `WeeklyWins/Transcription/TranscriptionService.swift`, `WeeklyWins/Transcription/TranscriptView.swift`, `WeeklyWinsTests/TranscriptionTests.swift`, `docs/asr-evaluation.md`.
 
-- [ ] On device, check `SpeechTranscriber` availability and Russian locale; compare it with one bundled offline model using the same representative recordings in airplane mode.
-- [ ] Record word errors, processing time, storage size, and battery impact; select the smallest acceptable solution in `docs/asr-evaluation.md`.
-- [ ] Test success, unsupported language/model, retry, and failure without audio deletion; implement the chosen transcriber behind a replaceable interface.
-- [ ] Verify the full five-minute path in airplane mode on the physical iPhone.
+- [x] Check the Russian locale and compare Apple Speech and a bundled Whisper model using the same hash-verified recordings on iPhone 16 Pro. Apple uses the on-device legacy recognizer for Russian on this phone.
+- [x] Measure word errors, elapsed time, and the candidate model footprint. Keep Apple as the default. Details and exclusions are in [ASR evaluation](../../asr-evaluation.md).
+- [x] Verify editable text, retained audio after failure, and a successful retry through the replaceable transcriber interface. Runtime availability probes cover the installed Russian recognizers.
+- [x] Verify saved one-minute and five-minute audio files complete processing with the device offline. A natural locked Action Button note with offline capture and processing was also confirmed at 56 seconds.
+- [ ] Verify one continuous five-minute spoken capture and transcription with the phone offline throughout. The five-minute reboot capture and the five-minute offline fixture were separate runs.
+- [ ] Compare battery impact and measure recognition quality on a larger natural Russian corpus.
 
 ### Task 4: Event extraction and editing
 
@@ -71,10 +73,11 @@
 
 **Files:** `WeeklyWins/Events/Event.swift`, `WeeklyWins/Events/EventExtractor.swift`, `WeeklyWins/Events/EventReviewView.swift`, `WeeklyWinsTests/EventExtractionTests.swift`, `docs/event-evaluation.md`.
 
-- [ ] Build a small set of real Russian examples with large and small tasks, negation, recalled earlier tasks, and explicit or unknown duration; define expected splits.
-- [ ] Compare local extraction approaches against these examples; choose one that meets a documented quality threshold. Do not add cloud processing silently.
-- [ ] Test separate events, source linkage, unknown time/duration, category editing, merge, and deletion; implement extraction and editing; pass tests.
-- [x] Confirm that new suggestions appear in Today immediately and can be corrected later. Build 22 Simulator cases save a transcript, open a new suggestion in Today, edit it and observe the updated card in all three report periods.
+- [x] Record expected splits for three user-provided Russian examples with meeting, follow-up, and repair tasks. Controlled cases cover negation, references to earlier actions and unknown durations.
+- [x] Compare punctuation-only splitting with contextual interpretation. Select the approach that matches all three examples, including event count, duration, completion status and linked source. See [event evaluation](../../event-evaluation.md).
+- [x] Test separate events, source linkage, unknown time and duration, category editing, merge, and deletion. The controlled five-minute Apple transcript regression verifies 13 episodes.
+- [x] Confirm that new suggestions appear in Today immediately and can be corrected later. Simulator cases save a transcript, open a new suggestion in Today, edit it and observe the updated card in all three report periods.
+- [ ] Extend the natural-note corpus with negation and earlier-day recall, and record the expected events.
 
 ### Task 5: Today and period reports
 
@@ -84,7 +87,8 @@
 
 - [x] Test ordering, local day boundaries, timezone changes, unknown duration exclusion, and report updates after edits/deletion. ReportTests verifies distinct period ranges and persisted edits.
 - [x] Implement one query source for all periods and category grouping; pass tests. ReportView uses ReportQuery for Today and all selected periods.
-- [ ] Check readable presentation of many short events and a few long events on the physical device.
+- [x] Check readable presentation and day drilldown on iPhone 16 Pro Simulator with a populated week and maximum Dynamic Type. See [design verification](../../design/verification/README.md).
+- [ ] Check readable presentation of many short events and a few long events on the physical device if needed after the Simulator verification.
 
 ### Task 6: Conditional cloud text fallback
 
@@ -92,7 +96,7 @@
 
 **Files:** separate follow-on plan after selecting the API, hosting, proxy, authentication, privacy notice, and cost cap.
 
-- [ ] Keep local MVP complete and usable without this task.
+- [x] Keep the local MVP usable without a cloud service.
 - [ ] If activated, design the server boundary so audio stays on-device, text transfer is opt-in per user setting, credentials stay server-side, and all external requests use the configured proxy.
 
 ## Delivery order
