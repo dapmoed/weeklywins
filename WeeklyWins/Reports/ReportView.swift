@@ -96,13 +96,23 @@ struct ReportView: View {
             }
             .sheet(isPresented: $showCalendar) {
                 NavigationStack {
-                    DatePicker("Дата", selection: Binding(get: { date }, set: {
-                        date = $0
-                        if isToday { followsToday = Calendar.current.isDateInToday($0) }
-                    }), displayedComponents: .date)
-                        .datePickerStyle(.graphical).padding()
-                        .toolbar { Button("Готово") { showCalendar = false } }
-                }.presentationDetents([.medium])
+                    ScrollView {
+                        DatePicker("Дата", selection: Binding(get: { date }, set: {
+                            date = $0
+                            if isToday { followsToday = Calendar.current.isDateInToday($0) }
+                        }), displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .tint(StudioTheme.mint)
+                        .padding(.horizontal, 20)
+                    }
+                    .background(StudioTheme.background)
+                    .navigationTitle("Выбор даты")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { Button("Готово") { showCalendar = false } }
+                }
+                .environment(\.calendar, ReportQuery.calendar)
+                .environment(\.locale, Locale(identifier: "ru_RU"))
+                .presentationDetents([.medium, .large])
             }
             .sheet(item: $selectedEntry) { entry in
                 NavigationStack { EventDetailView(entry: entry, service: service) }

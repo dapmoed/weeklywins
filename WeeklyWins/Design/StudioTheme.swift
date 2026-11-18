@@ -24,10 +24,24 @@ enum StudioTheme {
 struct CategoryFilter: View {
     @Binding var category: EventCategory?
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                pill("Все", value: nil)
-                ForEach([EventCategory.work, .home, .unclassified]) { pill($0.title, value: $0) }
+        VStack(alignment: .leading, spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    pill("Все", value: nil)
+                    ForEach([EventCategory.work, .home, .unclassified]) { pill($0.title, value: $0) }
+                }
+            }
+            if let category {
+                HStack {
+                    Text(category.title)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: 8)
+                    Button("Сбросить") { self.category = nil }
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("reset-category-filter")
+                }
+                .font(.subheadline)
+                .foregroundStyle(StudioTheme.secondary)
             }
         }
     }

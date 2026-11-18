@@ -224,6 +224,10 @@ final class ActionButtonUITests: XCTestCase {
         if !merge.isHittable { app.swipeUp() }
         merge.tap()
         XCTAssertTrue(app.navigationBars["Объединить дела"].waitForExistence(timeout: 5))
+        let firstSource = app.staticTexts["merge-source-0"]
+        let secondSource = app.staticTexts["merge-source-1"]
+        XCTAssertTrue(firstSource.label.contains("Подготовил отчёт"))
+        XCTAssertTrue(secondSource.label.contains("Купил хлеб"))
         let proposalText = try XCTUnwrap(app.textFields.matching(identifier: "review-event-text")
             .allElementsBoundByIndex.first(where: { $0.isHittable }))
         proposalText.tap()
@@ -238,8 +242,10 @@ final class ActionButtonUITests: XCTestCase {
         let restoredProposal = try XCTUnwrap(app.textFields.matching(identifier: "review-event-text")
             .allElementsBoundByIndex.first(where: { $0.isHittable }))
         XCTAssertEqual(restoredProposal.value as? String, mergeText)
+        XCTAssertTrue(firstSource.exists)
+        XCTAssertTrue(secondSource.exists)
         let preview = XCTAttachment(screenshot: app.screenshot())
-        preview.name = "A10-merge-confirmation"
+        preview.name = "A17-merge-confirmation"
         preview.lifetime = .keepAlways
         add(preview)
         app.buttons["Отмена"].tap()
@@ -302,7 +308,7 @@ final class ActionButtonUITests: XCTestCase {
         if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
             app.buttons["report-category-work"].tap()
             XCTAssertLessThan(count("report-completed-count"), initialCompleted + 2)
-            app.buttons["Все"].tap()
+            app.buttons["reset-category-filter"].tap()
             XCTAssertEqual(count("report-completed-count"), initialCompleted + 2)
         }
         app.buttons["Неделя"].tap()
@@ -538,6 +544,11 @@ final class ActionButtonUITests: XCTestCase {
         formatter.dateFormat = "d MMMM"
         let selectedLabel = formatter.string(from: selectedDay)
         datePicker.tap()
+        XCTAssertTrue(app.navigationBars["Выбор даты"].waitForExistence(timeout: 5))
+        let calendarScreenshot = XCTAttachment(screenshot: app.screenshot())
+        calendarScreenshot.name = "A16-calendar"
+        calendarScreenshot.lifetime = .keepAlways
+        add(calendarScreenshot)
         let calendarDay = app.datePickers["Дата"].buttons.containing(
             .staticText, identifier: String(calendar.component(.day, from: selectedDay))
         ).firstMatch
@@ -592,12 +603,21 @@ final class ActionButtonUITests: XCTestCase {
 
     @MainActor
     func testFreshInstallOnboardingStartsTrialRecordingAndDoesNotRepeat() throws {
+        continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         try XCTSkipUnless(app.staticTexts["Вспомнить свой день"].waitForExistence(timeout: 3), "Run this case on a clean Simulator installation.")
+        let introduction = XCTAttachment(screenshot: app.screenshot())
+        introduction.name = "A01-onboarding"
+        introduction.lifetime = .keepAlways
+        add(introduction)
         app.buttons["Начать"].tap()
         XCTAssertTrue(app.staticTexts["Начните с голоса"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Сделать пробную запись"].waitForExistence(timeout: 5), "Microphone must be granted by the clean Simulator setup.")
+        let ready = XCTAttachment(screenshot: app.screenshot())
+        ready.name = "A01-onboarding-microphone"
+        ready.lifetime = .keepAlways
+        add(ready)
         app.buttons["Сделать пробную запись"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
@@ -830,8 +850,24 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.tap()
         XCTAssertTrue(app.staticTexts["Сборка"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Офлайн-распознавание"].exists)
+        let settingsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        settingsScreenshot.name = "A18-settings"
+        settingsScreenshot.lifetime = .keepAlways
+        add(settingsScreenshot)
         app.buttons["Настроить кнопку действия"].tap()
         XCTAssertTrue(app.staticTexts["Первоначальная настройка"].waitForExistence(timeout: 5))
+        let guideScreenshot = XCTAttachment(screenshot: app.screenshot())
+        guideScreenshot.name = "A18-action-button-guide"
+        guideScreenshot.lifetime = .keepAlways
+        add(guideScreenshot)
+        #if targetEnvironment(simulator)
+        app.buttons["Сделать пробную запись"].tap()
+        let stop = app.buttons["recorder-stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 10))
+        stop.tap()
+        XCTAssertTrue(app.navigationBars["Кнопка действия"].waitForExistence(timeout: 5))
+        #endif
     }
 
     @MainActor

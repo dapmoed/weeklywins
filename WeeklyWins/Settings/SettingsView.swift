@@ -32,19 +32,19 @@ struct SettingsView: View {
                     Button("Открыть настройки iPhone") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
-                }
-                Section("Русская расшифровка") {
+                }.listRowBackground(StudioTheme.surface)
+                Section("Офлайн-распознавание") {
                     LabeledContent("На устройстве", value: offline)
                     Text("Аудиозаписи обрабатываются на устройстве. Доступность модели зависит от языка и версии iOS.")
                         .font(.footnote).foregroundStyle(StudioTheme.secondary)
-                }
+                }.listRowBackground(StudioTheme.surface)
                 Section {
                     NavigationLink("Настроить кнопку действия") { ActionButtonGuideView() }
-                }
-                Section("Приложение") {
+                }.listRowBackground(StudioTheme.surface)
+                Section("Версия и сборка") {
                     LabeledContent("Версия", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                     LabeledContent("Сборка", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
-                }
+                }.listRowBackground(StudioTheme.surface)
             }
             .scrollContentBackground(.hidden).background(StudioTheme.background)
             .navigationTitle("Настройки").navigationBarTitleDisplayMode(.inline)
@@ -70,7 +70,8 @@ struct SettingsView: View {
             let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
             switch await AssetInventory.status(forModules: [transcriber]) {
             case .installed: offline = "Готова"
-            case .supported, .downloading: offline = "Требуется модель"
+            case .supported: offline = "Требуется модель"
+            case .downloading: offline = "Загружается"
             case .unsupported: offline = legacyAvailability
             @unknown default: offline = "Не определено"
             }
@@ -83,20 +84,30 @@ struct SettingsView: View {
 }
 
 struct ActionButtonGuideView: View {
+    var offersTrial = true
+    @ObservedObject private var service = RecordingService.shared
+    @State private var showTrial = false
+
     var body: some View {
         List {
             Section("Первоначальная настройка") {
-                Text("Разрешите доступ к микрофону и сделайте пробную запись в приложении.")
+                if offersTrial {
+                    Button(service.isRecording ? "Открыть запись" : "Сделать пробную запись") { showTrial = true }
+                        .disabled(service.isStarting)
+                }
                 Text("Откройте «Настройки» iPhone → «Кнопка действия».")
                 Text("Выберите «Быстрая команда» → «Выбрать команду» → WeeklyWins → «Запись».")
-            }
+            }.listRowBackground(StudioTheme.surface)
             Section("Проверка") {
                 Text("Сверните WeeklyWins и заблокируйте экран. Удержите кнопку действия до начала записи.")
                 Text("На экране блокировки появятся индикатор и таймер. Повторное удержание остановит и сохранит запись.")
                 Text("Откройте «Записи» и прослушайте результат. Через пять минут запись завершается автоматически.")
-            }
+            }.listRowBackground(StudioTheme.surface)
         }
         .scrollContentBackground(.hidden).background(StudioTheme.background)
+        .fullScreenCover(isPresented: $showTrial) {
+            StudioRecorderView(service: service, preparesOnAppear: !service.isRecording)
+        }
         .navigationTitle("Кнопка действия").navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
     }

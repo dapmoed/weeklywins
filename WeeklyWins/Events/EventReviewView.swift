@@ -23,6 +23,12 @@ struct EventReviewView: View {
 
     private var hasChanges: Bool { draft.events != draft.baseline || draft.mergeProposal != nil }
 
+    private var mergingIndex: Int? {
+        guard let id = draft.mergingEventID,
+              let index = draft.events.firstIndex(where: { $0.id == id }), index > 0 else { return nil }
+        return index
+    }
+
     var body: some View {
         List {
             ForEach(draft.events) { event in
@@ -87,15 +93,19 @@ struct EventReviewView: View {
             EventMergeView(event: Binding(
                 get: { draft.mergeProposal ?? proposal },
                 set: { draft.mergeProposal = $0 }
-            ), defaultDate: recording.recordedAt) { merged in
-                guard let id = draft.mergingEventID,
-                      let index = draft.events.firstIndex(where: { $0.id == id }), index > 0 else { return }
+            ), sourceTexts: mergeSources(fallback: proposal.sourceText), defaultDate: recording.recordedAt) { merged in
+                guard let index = mergingIndex else { return }
                 draft.events[index - 1] = merged
                 draft.events.remove(at: index)
                 draft.mergeProposal = nil
                 draft.mergingEventID = nil
             }
         }
+    }
+
+    private func mergeSources(fallback: String) -> [String] {
+        guard let index = mergingIndex else { return [fallback] }
+        return draft.events[(index - 1)...index].map(\.sourceText)
     }
 
     private func binding(for event: DiaryEvent) -> Binding<DiaryEvent> {
@@ -190,6 +200,7 @@ private struct ReviewEventFields: View {
 
 private struct EventMergeView: View {
     @Binding var event: DiaryEvent
+    let sourceTexts: [String]
     let defaultDate: Date
     let onConfirm: (DiaryEvent) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -197,13 +208,20 @@ private struct EventMergeView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Исходные фрагменты") {
+                    ForEach(sourceTexts.indices, id: \.self) { index in
+                        Text(sourceTexts[index])
+                            .foregroundStyle(StudioTheme.secondary)
+                            .accessibilityIdentifier("merge-source-\(index)")
+                    }
+                }.listRowBackground(StudioTheme.surface)
                 Section {
                     ReviewEventFields(event: $event, defaultDate: defaultDate)
+                } header: {
+                    Text("Объединённое дело")
                 } footer: {
                     Text("Проверьте категорию и статус. Время и длительность объединённого дела можно указать заново.")
                 }.listRowBackground(StudioTheme.surface)
-                Section("Исходный текст") { Text(event.sourceText) }
-                    .listRowBackground(StudioTheme.surface)
             }
             .scrollContentBackground(.hidden).background(StudioTheme.background)
             .navigationTitle("Объединить дела").navigationBarTitleDisplayMode(.inline)

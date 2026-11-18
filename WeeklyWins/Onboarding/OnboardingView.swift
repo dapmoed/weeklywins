@@ -33,7 +33,7 @@ struct OnboardingView: View {
                             }.buttonStyle(.borderedProminent).disabled(requestingPermission)
                         }
                         if microphoneGranted {
-                            NavigationLink("Настроить кнопку действия") { ActionButtonGuideView() }
+                            NavigationLink("Настроить кнопку действия") { ActionButtonGuideView(offersTrial: false) }
                                 .frame(minHeight: 44)
                         }
                         Text("После остановки аудио сохраняется. Расшифровка превращает рассказ в события, которые можно исправить и распределить по работе и дому.")
