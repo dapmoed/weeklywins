@@ -506,6 +506,7 @@ final class ActionButtonUITests: XCTestCase {
     @MainActor
     func testSimulatorCanVerifyRecordingFlowInApp() throws {
         #if targetEnvironment(simulator)
+        continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         addTeardownBlock { @MainActor in
@@ -529,6 +530,13 @@ final class ActionButtonUITests: XCTestCase {
         capture.lifetime = .keepAlways
         add(capture)
         app.buttons["recorder-stop"].tap()
+        let savedAudio = app.staticTexts["Аудио сохранено"]
+        XCTAssertTrue(savedAudio.waitForExistence(timeout: 5), app.debugDescription)
+        let confirmation = XCTAttachment(screenshot: app.screenshot())
+        confirmation.name = "A06-audio-saved"
+        confirmation.lifetime = .keepAlways
+        add(confirmation)
+        XCTAssertTrue(savedAudio.waitForNonExistence(timeout: 5))
         app.buttons["studio-tab-1"].tap()
 
         let recordingRow = app.buttons.matching(identifier: "recording-row").firstMatch

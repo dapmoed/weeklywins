@@ -3,6 +3,7 @@ import SwiftUI
 struct StudioRootView: View {
     @ObservedObject private var service = RecordingService.shared
     @State private var recorderPresentation: RecorderPresentation?
+    @State private var showsSavedAudio = false
     @State private var selectedTab = 0
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
@@ -37,6 +38,15 @@ struct StudioRootView: View {
                 ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
             }
             VStack(spacing: 0) {
+                if showsSavedAudio {
+                    Label("Аудио сохранено", systemImage: "checkmark.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(StudioTheme.mint)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(StudioTheme.surface, in: Capsule())
+                        .padding(.horizontal, 20)
+                }
                 bottomBar
                 Divider().overlay(StudioTheme.surface)
                 HStack {
@@ -52,6 +62,13 @@ struct StudioRootView: View {
         .environment(\.locale, Locale(identifier: "ru_RU"))
         .fullScreenCover(item: $recorderPresentation) { presentation in
             StudioRecorderView(service: service, preparesOnAppear: presentation == .prepare)
+        }
+        .task(id: service.completedRecordingID) {
+            showsSavedAudio = service.completedRecordingID != nil && scenePhase == .active
+            guard showsSavedAudio else { return }
+            do { try await Task.sleep(for: .seconds(2.5)) }
+            catch { return }
+            showsSavedAudio = false
         }
     }
 
