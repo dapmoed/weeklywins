@@ -170,3 +170,7 @@ The opt-in `testFiveMinuteAutomaticStopReturnsToTimeline` passed in 308.135 seco
 Source revision `58679e9` built successfully in Debug for `generic/platform=iOS`. The application and embedded Live Activity extension are arm64 and both report version 0.1.0, build 23. The app declares background audio and Live Activity support. The bundle passed `codesign --verify --deep --strict`, and the development provisioning profiles for both targets included the connected iPhone 16 Pro and were valid through 22 November 2026.
 
 The local package is at `/private/tmp/weeklywins-device23.4GqvCI/DerivedData/Build/Products/Debug-iphoneos/WeeklyWins.app`. A read-only app listing confirmed the phone was still running the installed build 22. This stage checked the package and provisioning. Physical behavior of build 23 remains unverified.
+
+### Simulator regression after the event extraction changes
+
+At revision `85ae026`, the unit suite passed 106 tests with 4 device-only skips and no failures. The system Action Button UI test passed separately in 60.462 seconds on iPhone 16 Pro Simulator. It verified two background button presses, a new recording identity, persistence across relaunch and playback of that recording. This run exercised the Simulator system shortcut, while physical locked-screen results remain documented under build 22. Log at /private/tmp/weeklywins-final-parser-action-button.log.
