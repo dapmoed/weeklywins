@@ -4,6 +4,49 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testDeniedMicrophoneShowsRecordingPreparationAndRetry() throws {
+        #if targetEnvironment(simulator)
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DENIED_MIC_UI_TEST"] == "1",
+                          "Enable TEST_RUNNER_RUN_DENIED_MIC_UI_TEST=1 after revoking microphone access.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["Записать"].tap()
+        if ProcessInfo.processInfo.environment["RUN_MIC_UI_PROMPT"] == "1" {
+            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            let prompt = springboard.alerts.firstMatch
+            XCTAssertTrue(prompt.waitForExistence(timeout: 5), springboard.debugDescription)
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "A04-microphone-preparation"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            let deny = prompt.buttons.matching(NSPredicate(format: "label IN %@", [
+                "Не разрешать", "Не разрешить", "Don’t Allow", "Don't Allow"
+            ])).firstMatch
+            XCTAssertTrue(deny.exists, prompt.debugDescription)
+            deny.tap()
+        }
+        let retry = app.buttons["Повторить"]
+        let failure = app.staticTexts["Нет доступа к микрофону"]
+        XCTAssertTrue(failure.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Запись"].exists)
+        XCTAssertTrue(app.buttons["Открыть настройки"].isHittable)
+        XCTAssertFalse(app.buttons["recorder-stop"].exists)
+        XCTAssertTrue(retry.isHittable)
+        retry.tap()
+        XCTAssertTrue(failure.waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A04-microphone-denied"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Закрыть"].tap()
+        XCTAssertTrue(app.buttons["Записать"].waitForExistence(timeout: 5))
+        #else
+        throw XCTSkip("This permission fixture uses Simulator.")
+        #endif
+    }
+
+    @MainActor
     func testRecorderControlsRemainReachableAtLargestTextSize() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")

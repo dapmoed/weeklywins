@@ -2,11 +2,15 @@ import SwiftUI
 
 struct StudioRootView: View {
     @ObservedObject private var service = RecordingService.shared
-    @State private var showRecorder = false
-    @State private var error: String?
+    @State private var recorderPresentation: RecorderPresentation?
     @State private var selectedTab = 0
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
+
+    private enum RecorderPresentation: String, Identifiable {
+        case prepare, active
+        var id: Self { self }
+    }
 
     var body: some View {
         Group {
@@ -15,15 +19,7 @@ struct StudioRootView: View {
             } else {
                 OnboardingView { startRecording in
                     hasCompletedOnboarding = true
-                    if startRecording {
-                        Task {
-                            do {
-                                try await service.start()
-                                showRecorder = service.isRecording
-                            }
-                            catch { self.error = error.localizedDescription }
-                        }
-                    }
+                    if startRecording { openRecorder() }
                 }
             }
         }
@@ -54,10 +50,13 @@ struct StudioRootView: View {
         .tint(StudioTheme.mint)
         .preferredColorScheme(.dark)
         .environment(\.locale, Locale(identifier: "ru_RU"))
-        .fullScreenCover(isPresented: $showRecorder) { StudioRecorderView(service: service) }
-        .alert("Запись не запущена", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
-            Button("Готово") { error = nil }
-        } message: { Text(error ?? "") }
+        .fullScreenCover(item: $recorderPresentation) { presentation in
+            StudioRecorderView(service: service, preparesOnAppear: presentation == .prepare)
+        }
+    }
+
+    private func openRecorder() {
+        recorderPresentation = service.isRecording ? .active : .prepare
     }
 
     private func tab(_ title: String, icon: String, index: Int) -> some View {
@@ -79,18 +78,7 @@ struct StudioRootView: View {
 
     private var recordingBar: some View {
         HStack(spacing: 14) {
-            Button {
-                if service.isRecording {
-                    showRecorder = true
-                } else {
-                    Task {
-                        do {
-                            try await service.start()
-                            showRecorder = service.isRecording
-                        } catch { self.error = error.localizedDescription }
-                    }
-                }
-            } label: {
+            Button(action: openRecorder) {
                 HStack {
                     Image(systemName: service.isRecording ? "waveform" : "mic.fill").font(.title2)
                     Text(service.isRecording ? "Идёт запись" : service.isStarting ? "Запускается…" : "Записать")
@@ -119,8 +107,69 @@ struct StudioRootView: View {
 struct StudioRecorderView: View {
     @ObservedObject var service: RecordingService
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @State private var isPreparing: Bool
+    @State private var startupError: Error?
+    private let preparesOnAppear: Bool
+
+    init(service: RecordingService, preparesOnAppear: Bool = false) {
+        self.service = service
+        self.preparesOnAppear = preparesOnAppear
+        _isPreparing = State(initialValue: preparesOnAppear)
+    }
 
     var body: some View {
+        Group {
+            if !service.isRecording && (isPreparing || startupError != nil) {
+                preparation
+            } else {
+                recorder
+            }
+        }
+        .background(StudioTheme.background.ignoresSafeArea())
+        .foregroundStyle(StudioTheme.text)
+        .task {
+            if preparesOnAppear { await prepareRecording() }
+            else { dismissAfterSuccessfulSave() }
+        }
+        .onChange(of: service.completedRecordingID) { _, _ in dismissAfterSuccessfulSave() }
+    }
+
+    private var preparation: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Запись").font(.largeTitle.bold())
+                if let startupError {
+                    let denied = (startupError as? RecordingError) == .permissionDenied
+                    Label(denied ? "Нет доступа к микрофону" : "Не удалось начать запись",
+                          systemImage: "exclamationmark.circle")
+                        .font(.headline).foregroundStyle(StudioTheme.coral)
+                    if denied {
+                        Button("Открыть настройки") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        }.frame(minHeight: 44)
+                    }
+                    Button {
+                        Task { await prepareRecording() }
+                    } label: {
+                        Text("Повторить").font(.headline)
+                            .foregroundStyle(StudioTheme.background)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(StudioTheme.mint, in: Capsule())
+                    }.buttonStyle(.plain)
+                    Button("Закрыть") { dismiss() }.frame(minHeight: 44)
+                } else {
+                    ProgressView("Подготавливаем микрофон…")
+                        .foregroundStyle(StudioTheme.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(28)
+        }
+        .tint(StudioTheme.mint)
+    }
+
+    private var recorder: some View {
         VStack(spacing: 24) {
             HStack {
                 Button { dismiss() } label: { Label("Свернуть", systemImage: "chevron.down") }
@@ -134,7 +183,7 @@ struct StudioRecorderView: View {
                     .foregroundStyle(service.isRecording ? StudioTheme.text : StudioTheme.coral)
                     .accessibilityIdentifier("recorder-status")
             }
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            TimelineView(.periodic(from: service.recordingStartedAt ?? .distantPast, by: 1)) { context in
                 let elapsed = max(0, Int(context.date.timeIntervalSince(service.recordingStartedAt ?? context.date)))
                 Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60))
                     .font(.system(size: 72, weight: .light)).monospacedDigit()
@@ -157,31 +206,50 @@ struct StudioRecorderView: View {
             Text("До 5 минут").font(.footnote).foregroundStyle(StudioTheme.secondary)
         }
         .padding(28).padding(.bottom, 35)
-        .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
-        .onAppear { dismissAfterSuccessfulSave() }
-        .onChange(of: service.completedRecordingID) { _, _ in dismissAfterSuccessfulSave() }
+    }
+
+    private func prepareRecording() async {
+        isPreparing = true
+        startupError = nil
+        defer {
+            isPreparing = false
+            dismissAfterSuccessfulSave()
+        }
+        do {
+            // An Action Button intent can be waiting for microphone permission.
+            while service.isStarting { try await Task.sleep(for: .milliseconds(50)) }
+            try Task.checkCancellation()
+            if !service.isRecording { try await service.start() }
+        } catch is CancellationError {
+            return
+        } catch {
+            startupError = error
+        }
     }
 
     private func dismissAfterSuccessfulSave() {
-        guard service.completedRecordingID != nil, !service.isRecording, !service.isStarting else { return }
+        guard !isPreparing, startupError == nil, service.completedRecordingID != nil,
+              !service.isRecording, !service.isStarting else { return }
         dismiss()
     }
 }
 
 private struct StudioWaveform: View {
-    @ObservedObject var service: RecordingService
+    let service: RecordingService
     @State private var levels = Array(repeating: Float(0), count: 48)
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.08)) { context in
-            GeometryReader { geometry in
-                HStack(spacing: 3) {
-                    ForEach(levels.indices, id: \.self) { index in
-                        Capsule().fill(StudioTheme.coral)
-                            .frame(height: max(4, CGFloat(levels[index]) * geometry.size.height))
-                    }
-                }.frame(maxHeight: .infinity)
-            }
-            .onChange(of: context.date) { _, _ in
+        GeometryReader { geometry in
+            HStack(spacing: 3) {
+                ForEach(levels.indices, id: \.self) { index in
+                    Capsule().fill(StudioTheme.coral)
+                        .frame(height: max(4, CGFloat(levels[index]) * geometry.size.height))
+                }
+            }.frame(maxHeight: .infinity)
+        }
+        .task {
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(80)) }
+                catch { return }
                 levels.removeFirst()
                 levels.append(service.audioLevel())
             }
