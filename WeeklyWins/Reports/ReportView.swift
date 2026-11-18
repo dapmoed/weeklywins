@@ -33,15 +33,7 @@ struct ReportView: View {
                         SettingsButton()
                     }
                     if isToday {
-                        HStack {
-                            Button { showCalendar = true } label: {
-                                Text(ReportQuery.periodTitle(period: .day, date: date)).foregroundStyle(StudioTheme.secondary)
-                            }.buttonStyle(.plain).accessibilityLabel("Выбрать день")
-                            Spacer()
-                            if !Calendar.current.isDateInToday(date) {
-                                Button("Сегодня") { followsToday = true; date = .now }
-                            }
-                        }
+                        dayNavigation
                     }
                     CategoryFilter(category: $category)
                     if isToday { processingRecordings }
@@ -130,6 +122,42 @@ struct ReportView: View {
                 TranscriptView(recording: recording, recordingService: service)
             }
         }
+    }
+
+    private var dayNavigation: some View {
+        let selectedTitle = ReportQuery.periodTitle(period: .day, date: date)
+        let dayPicker = Button { showCalendar = true } label: {
+            Text(selectedTitle).foregroundStyle(StudioTheme.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Выбрать день")
+        .accessibilityValue(selectedTitle)
+        return VStack(alignment: .leading, spacing: 4) {
+            if Calendar.current.isDateInToday(date) {
+                dayPicker
+            } else {
+                HStack {
+                    dayArrow(-1, icon: "chevron.left", label: "Предыдущий день")
+                    Spacer(minLength: 4)
+                    dayPicker
+                    Spacer(minLength: 4)
+                    dayArrow(1, icon: "chevron.right", label: "Следующий день")
+                }
+                Button("Сегодня") {
+                    followsToday = true
+                    date = .now
+                }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("return-to-today")
+            }
+        }
+    }
+
+    private func dayArrow(_ offset: Int, icon: String, label: String) -> some View {
+        Button { moveDate(offset) } label: {
+            Image(systemName: icon).frame(width: 44, height: 44).contentShape(Rectangle())
+        }
+        .accessibilityLabel(label)
     }
 
     private func eventRow(_ entry: ReportEntry, hasPrevious: Bool, hasNext: Bool) -> some View {
@@ -305,6 +333,8 @@ struct ReportView: View {
     }
 
     private func moveDate(_ direction: Int) {
-        date = ReportQuery.shiftedDate(date, period: period, offset: direction) ?? date
+        guard let shifted = ReportQuery.shiftedDate(date, period: isToday ? .day : period, offset: direction) else { return }
+        date = shifted
+        if isToday { followsToday = Calendar.current.isDateInToday(shifted) }
     }
 }

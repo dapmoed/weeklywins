@@ -315,6 +315,80 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testRecordingFromAnotherDayKeepsSelectionAndUsesCurrentDate() throws {
+        #if targetEnvironment(simulator)
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["recorder-stop"].firstMatch
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        let datePicker = app.buttons["Выбрать день"]
+        XCTAssertTrue(datePicker.waitForExistence(timeout: 5))
+        let todayLabel = datePicker.value as? String
+        let calendar = Calendar.current
+        let now = Date.now
+        let offset = calendar.component(.day, from: now) == 1 ? 1 : -1
+        let selectedDay = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: now))
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "d MMMM"
+        let selectedLabel = formatter.string(from: selectedDay)
+        datePicker.tap()
+        let calendarDay = app.datePickers["Дата"].buttons.containing(
+            .staticText, identifier: String(calendar.component(.day, from: selectedDay))
+        ).firstMatch
+        XCTAssertTrue(calendarDay.waitForExistence(timeout: 5), app.debugDescription)
+        calendarDay.tap()
+        app.buttons["Готово"].tap()
+        XCTAssertEqual(datePicker.value as? String, selectedLabel)
+
+        let outward = app.buttons[offset < 0 ? "Предыдущий день" : "Следующий день"]
+        let inward = app.buttons[offset < 0 ? "Следующий день" : "Предыдущий день"]
+        outward.tap()
+        let adjacent = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: selectedDay))
+        XCTAssertEqual(datePicker.value as? String, formatter.string(from: adjacent))
+        inward.tap()
+        XCTAssertEqual(datePicker.value as? String, selectedLabel)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A03-other-day"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        app.buttons["Записать"].tap()
+        let stop = app.buttons["recorder-stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 10))
+        stop.tap()
+        XCTAssertTrue(datePicker.waitForExistence(timeout: 5))
+        XCTAssertEqual(datePicker.value as? String, selectedLabel)
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let editor = app.textViews["transcriptEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let title = "Подготовил отчёт \(UUID().uuidString.prefix(6))"
+        editor.tap()
+        editor.typeText(title + ".")
+        app.buttons["Сохранить текст"].tap()
+        app.buttons["Готово"].tap()
+        app.buttons["studio-tab-0"].tap()
+        XCTAssertEqual(datePicker.value as? String, selectedLabel)
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        XCTAssertFalse(card.exists)
+        app.buttons["return-to-today"].tap()
+        XCTAssertEqual(datePicker.value as? String, todayLabel)
+        for _ in 0..<32 {
+            if card.exists { break }
+            app.scrollViews.firstMatch.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        #else
+        throw XCTSkip("This timeline date regression runs on Simulator.")
+        #endif
+    }
+
+    @MainActor
     func testFreshInstallOnboardingStartsTrialRecordingAndDoesNotRepeat() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
