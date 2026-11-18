@@ -160,3 +160,7 @@ On iPhone 16 Pro Simulator with iOS 26.5, the recording service received a synth
 ### Timing available for the physical Action Button checks
 
 The build 22 checks used the iPhone 16 Pro on iOS 27.2.1. The ordinary and force-quit runs logged intent entry and capture start in the same UTC second. After reboot, intent entry was logged at 07:12:51 UTC and capture at 07:12:52 UTC. The journal has whole-second resolution and starts at intent entry. The time of the physical hold was not recorded, so these timestamps do not measure hold-to-capture latency.
+
+### Five-minute automatic stop on build 23
+
+The opt-in `testFiveMinuteAutomaticStopReturnsToTimeline` passed in 308.135 seconds on iPhone 16 Pro Simulator with iOS 26.5. The UI returned from the recorder automatically and showed 5:00 in the recording list. The isolated manifest contained one saved entry, `CCF76BC4-0FE9-410D-B885-734ED90A1D8C`, with duration 299.9 seconds. FFprobe measured 300.032 seconds of 16 kHz mono AAC and FFmpeg decoded the file to completion. Simulator transcription reported “Failed to initialize recognizer”, and the saved audio remained available. The original Simulator data was restored. Log at /private/tmp/weeklywins-build23-five-minute.log. The continuous physical offline test remains tracked separately in the plan.
