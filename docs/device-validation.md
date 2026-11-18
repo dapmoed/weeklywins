@@ -164,3 +164,9 @@ The build 22 checks used the iPhone 16 Pro on iOS 27.2.1. The ordinary and force
 ### Five-minute automatic stop on build 23
 
 The opt-in `testFiveMinuteAutomaticStopReturnsToTimeline` passed in 308.135 seconds on iPhone 16 Pro Simulator with iOS 26.5. The UI returned from the recorder automatically and showed 5:00 in the recording list. The isolated manifest contained one saved entry, `CCF76BC4-0FE9-410D-B885-734ED90A1D8C`, with duration 299.9 seconds. FFprobe measured 300.032 seconds of 16 kHz mono AAC and FFmpeg decoded the file to completion. Simulator transcription reported “Failed to initialize recognizer”, and the saved audio remained available. The original Simulator data was restored. Log at /private/tmp/weeklywins-build23-five-minute.log. The continuous physical offline test remains tracked separately in the plan.
+
+### Build 23 device package
+
+Source revision `58679e9` built successfully in Debug for `generic/platform=iOS`. The application and embedded Live Activity extension are arm64 and both report version 0.1.0, build 23. The app declares background audio and Live Activity support. The bundle passed `codesign --verify --deep --strict`, and the development provisioning profiles for both targets included the connected iPhone 16 Pro and were valid through 22 November 2026.
+
+The local package is at `/private/tmp/weeklywins-device23.4GqvCI/DerivedData/Build/Products/Debug-iphoneos/WeeklyWins.app`. A read-only app listing confirmed the phone was still running the installed build 22. This stage checked the package and provisioning. Physical behavior of build 23 remains unverified.
