@@ -72,7 +72,7 @@
 - [ ] Build a small set of real Russian examples with large and small tasks, negation, recalled earlier tasks, and explicit or unknown duration; define expected splits.
 - [ ] Compare local extraction approaches against these examples; choose one that meets a documented quality threshold. Do not add cloud processing silently.
 - [ ] Test separate events, source linkage, unknown time/duration, category editing, merge, and deletion; implement extraction and editing; pass tests.
-- [ ] Confirm that new suggestions appear in Today immediately and can be corrected later.
+- [x] Confirm that new suggestions appear in Today immediately and can be corrected later. Build 22 Simulator cases save a transcript, open a new suggestion in Today, edit it and observe the updated card in all three report periods.
 
 ### Task 5: Today and period reports
 

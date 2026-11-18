@@ -123,3 +123,9 @@ The signed build was installed on the physical iPhone 16 Pro and CoreDevice repo
 On the iPhone 16 Pro Simulator, the full build 22 run passed 114 cases, skipped 8 and failed 0. The real Simulator Action Button test passed in 58.955 seconds. It exercised background start and stop, retained the new recording through relaunch and played that exact source. The separate in-app flow saved a manually entered transcript and opened the resulting card from Today. The full run is in /private/tmp/weeklywins-build22-full.log.
 
 The focused report suite passed all seven checks at /private/tmp/weeklywins-report22.log. Its new persistent-store integration covers day, week and month with different expected event ranges. After a category and duration edit, a second event's deletion and a store reload, the three totals changed to 30, 40 and 45 minutes respectively. The test verifies the query results after save and reload. A live view edit across all tabs and visual readability on the physical phone remain separate checks.
+
+## Edit a Today item and delete it from a report
+
+A focused build 22 Simulator UI test created a recording and saved two uniquely named tasks through the transcript editor. It opened the weekly report, went back to Today, edited one task through its detail screen and saved category Home with a one-minute duration. The changed card appeared in each of the day, week and month reports. The test deleted that card from the month report, returned to Today, found the neighboring task from the same recording and verified the deleted card was absent.
+
+The focused run passed on the iPhone 16 Pro Simulator. Temporary test Documents were isolated and the original QA Documents were restored afterward. Log at /private/tmp/weeklywins-report-live-run4.log, result bundle Test-WeeklyWins-2026.11.18_10-46-35-+0500.xcresult. The scalar totals and separate date ranges are covered by the persistent report query tests above.

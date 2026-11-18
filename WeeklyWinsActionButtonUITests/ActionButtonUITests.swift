@@ -229,6 +229,92 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayEditAndReportDeletionUpdateAlreadyOpenedTabs() throws {
+        #if targetEnvironment(simulator)
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["recorder-stop"].firstMatch
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.buttons["recorder-stop"].waitForExistence(timeout: 10))
+        app.buttons["recorder-stop"].tap()
+        app.buttons["studio-tab-1"].tap()
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let editor = app.textViews["transcriptEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let marker = UUID().uuidString.prefix(6)
+        let title = "Подготовил отчёт \(marker)"
+        let neighbor = "Купил хлеб \(marker)"
+        editor.tap()
+        editor.typeText(title + ". " + neighbor + ".")
+        app.buttons["Сохранить текст"].tap()
+        app.buttons["Готово"].tap()
+
+        app.buttons["studio-tab-2"].tap()
+        app.buttons["Неделя"].tap()
+        app.buttons["studio-tab-0"].tap()
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        let neighboringCard = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", neighbor)).firstMatch
+        func revealCard(_ element: XCUIElement) {
+            let record = app.buttons["Записать"]
+            for _ in 0..<20 {
+                if element.exists && element.isHittable && element.frame.maxY < record.frame.minY { return }
+                app.scrollViews.firstMatch.swipeUp(velocity: .fast)
+            }
+            XCTFail("Could not reveal the saved event in the current view.")
+        }
+
+        func dismissEvent() {
+            let header = app.navigationBars["Событие"]
+            header.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).press(
+                forDuration: 0.05,
+                thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
+            )
+            XCTAssertTrue(header.waitForNonExistence(timeout: 5))
+        }
+
+        revealCard(card)
+        card.tap()
+        let edit = app.buttons["edit-event"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        if !edit.isHittable { app.swipeUp() }
+        edit.tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Категория,")).firstMatch.tap()
+        app.buttons["Дом"].firstMatch.tap()
+        let duration = app.switches["Указать длительность"]
+        duration.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertTrue(app.textFields["Минуты"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Сохранить"].tap()
+        XCTAssertTrue(app.staticTexts["Длительность"].waitForExistence(timeout: 5))
+        dismissEvent()
+        app.buttons["studio-tab-2"].tap()
+        app.buttons["Дом"].firstMatch.tap()
+        for period in ["День", "Неделя", "Месяц"] {
+            app.buttons[period].tap()
+            revealCard(card)
+            XCTAssertTrue(card.label.contains("Дом · 1 мин"), card.label)
+        }
+
+        card.tap()
+        let delete = app.buttons["Удалить событие"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        if !delete.isHittable { app.swipeUp() }
+        delete.tap()
+        XCTAssertTrue(app.staticTexts["Событие удалено"].waitForExistence(timeout: 5))
+        dismissEvent()
+        app.buttons["studio-tab-0"].tap()
+        revealCard(neighboringCard)
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
+        #else
+        throw XCTSkip("This editing and report regression runs on Simulator.")
+        #endif
+    }
+
+    @MainActor
     func testFreshInstallOnboardingStartsTrialRecordingAndDoesNotRepeat() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
