@@ -180,3 +180,9 @@ At revision `85ae026`, the unit suite passed 106 tests with 4 device-only skips 
 On 18 November, the owner confirmed a successful manual run on build 22, starting with one Action Button hold on the locked iPhone 16 Pro, airplane mode on and Wi-Fi off. The owner checked the 5:00 recording and the final phrase in its transcript before restoring connectivity. The radio conditions are from the owner's confirmation.
 
 The device journal logged intent entry and capture start at 09:43:54 UTC and automatic stop at 09:48:56 UTC, with no intervening intent. The stored recording `7D8DC9DC-BC99-4AD6-8B37-F522CA2399C1` has 299.9 seconds of audio and completed transcription. The recognizer logged six on-device legacy windows through 09:49:04 UTC. The persisted text contains 596 word tokens and the expected final phrase near the end. Only metadata and diagnostic evidence are recorded here. Recognition accuracy was not scored for this run.
+
+### Locked recording while music plays
+
+The owner reported that build 22 failed to start a recording from the locked Action Button while music was playing. Two matching entries reached the intent with microphone permission granted and an active audio session, then returned `WeeklyWins.RecordingError` code 1 before recording and Live Activity startup. An intervening attempt started, saved and transcribed a 29-second recording. Build 22 used one error for both recorder preparation and start, so those failures could not be distinguished from its journal.
+
+Build 24 logs the active input/output port types, sample rate, input channel count, presence of other audio and the results of preparation and start separately. It is installed on the physical iPhone for a repeat with the same audio output. The iPhone 16 Pro Simulator passed all 11 recording unit tests and the system Action Button test with this build. The locked music-playback scenario awaits the physical repeat.

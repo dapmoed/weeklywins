@@ -305,6 +305,13 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             throw error
         }
         RecordingDiagnostics.write("audio session activated")
+        let route = session.currentRoute
+        let inputs = route.inputs.map(\.portType.rawValue).joined(separator: ",")
+        let outputs = route.outputs.map(\.portType.rawValue).joined(separator: ",")
+        RecordingDiagnostics.write(
+            "audio route input=\(inputs) output=\(outputs) sampleRate=\(session.sampleRate) " +
+                "inputChannels=\(session.inputNumberOfChannels) otherAudio=\(session.isOtherAudioPlaying)"
+        )
         logger.info("audio session activated")
 
         let recording: Recording
@@ -325,7 +332,12 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             let newRecorder = try AVAudioRecorder(url: url, settings: settings)
             newRecorder.isMeteringEnabled = true
             newRecorder.delegate = self
-            guard newRecorder.prepareToRecord(), newRecorder.record(forDuration: maxRecordingDuration) else {
+            let prepared = newRecorder.prepareToRecord()
+            RecordingDiagnostics.write("recorder prepared=\(prepared)")
+            guard prepared else { throw RecordingError.recorderStartFailed }
+            let started = newRecorder.record(forDuration: maxRecordingDuration)
+            RecordingDiagnostics.write("recorder accepted start=\(started)")
+            guard started else {
                 throw RecordingError.recorderStartFailed
             }
             RecordingDiagnostics.write("recorder started")
@@ -344,6 +356,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             )
             try? session.setActive(false)
             refreshRecordings()
+            RecordingDiagnostics.write("audio recorder failed to start: \(Self.errorSummary(error))")
             logger.error("audio recorder failed to start: \(Self.errorSummary(error), privacy: .public)")
             throw error
         }
