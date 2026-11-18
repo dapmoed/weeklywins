@@ -344,14 +344,33 @@ final class ActionButtonUITests: XCTestCase {
         card.tap()
         let edit = app.buttons["edit-event"]
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        let eventTime = app.descendants(matching: .any)["event-time"].firstMatch
+        XCTAssertEqual(eventTime.value as? String, "Не указано", app.debugDescription)
+        let detail = XCTAttachment(screenshot: app.screenshot())
+        detail.name = "A11-event-detail"
+        detail.lifetime = .keepAlways
+        add(detail)
         if !edit.isHittable { app.swipeUp() }
         edit.tap()
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Категория,")).firstMatch.tap()
         app.buttons["Дом"].firstMatch.tap()
         let duration = app.switches["Указать длительность"]
         duration.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
-        XCTAssertTrue(app.textFields["Минуты"].waitForExistence(timeout: 5), app.debugDescription)
-        app.buttons["Сохранить"].tap()
+        let minutes = app.textFields["event-duration-minutes"]
+        XCTAssertTrue(minutes.waitForExistence(timeout: 5), app.debugDescription)
+        minutes.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        minutes.typeText(XCUIKeyboardKey.delete.rawValue + "2")
+        XCTAssertEqual(minutes.value as? String, "2")
+        let save = app.buttons["save-event"]
+        XCTAssertTrue(save.isHittable)
+        XCTAssertLessThanOrEqual(save.frame.maxY, keyboard.frame.minY)
+        let editorKeyboard = XCTAttachment(screenshot: app.screenshot())
+        editorKeyboard.name = "A12-event-editor-keyboard"
+        editorKeyboard.lifetime = .keepAlways
+        add(editorKeyboard)
+        save.tap()
         XCTAssertTrue(app.staticTexts["Длительность"].waitForExistence(timeout: 5))
         dismissEvent()
         app.buttons["studio-tab-2"].tap()
@@ -359,10 +378,32 @@ final class ActionButtonUITests: XCTestCase {
         for period in ["День", "Неделя", "Месяц"] {
             app.buttons[period].tap()
             revealCard(card)
-            XCTAssertTrue(card.label.contains("Дом · 1 мин"), card.label)
+            XCTAssertTrue(card.label.contains("Дом · 2 мин"), card.label)
         }
 
         card.tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        if !edit.isHittable { app.swipeUp() }
+        edit.tap()
+        let eventTitle = app.descendants(matching: .any)["event-editor-title"].firstMatch
+        XCTAssertTrue(eventTitle.waitForExistence(timeout: 5), app.debugDescription)
+        eventTitle.tap()
+        eventTitle.typeText(" Черновик")
+        let draft = try XCTUnwrap(eventTitle.value as? String)
+        app.buttons["event-editor-actions"].tap()
+        app.buttons["event-editor-delete"].tap()
+        XCTAssertTrue(app.staticTexts["Удалить событие?"].waitForExistence(timeout: 5))
+        app.buttons.matching(identifier: "confirm-event-deletion").firstMatch.tap()
+        let undo = app.buttons["Отменить удаление"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        undo.tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        if !edit.isHittable { app.swipeUp() }
+        edit.tap()
+        XCTAssertTrue(eventTitle.waitForExistence(timeout: 5))
+        XCTAssertEqual(eventTitle.value as? String, draft)
+        app.buttons["Отмена"].tap()
+        app.buttons["Отбросить изменения"].tap()
         let delete = app.buttons["Удалить событие"]
         XCTAssertTrue(delete.waitForExistence(timeout: 5))
         if !delete.isHittable { app.swipeUp() }
@@ -372,6 +413,27 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["studio-tab-0"].tap()
         revealCard(neighboringCard)
         XCTAssertTrue(card.waitForNonExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        revealCard(neighboringCard)
+        neighboringCard.tap()
+        for _ in 0..<6 where !edit.isHittable { app.swipeUp() }
+        XCTAssertTrue(edit.isHittable, app.debugDescription)
+        edit.tap()
+        XCTAssertTrue(eventTitle.waitForExistence(timeout: 5))
+        eventTitle.tap()
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isHittable)
+        XCTAssertLessThanOrEqual(save.frame.maxY, keyboard.frame.minY)
+        let largest = XCTAttachment(screenshot: app.screenshot())
+        largest.name = "A12-event-editor-largest-text"
+        largest.lifetime = .keepAlways
+        add(largest)
         #else
         throw XCTSkip("This editing and report regression runs on Simulator.")
         #endif
