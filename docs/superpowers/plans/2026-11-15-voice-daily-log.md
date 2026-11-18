@@ -38,7 +38,8 @@
 - [x] Create the minimal SwiftUI iOS project and configure microphone permission, background audio, App Shortcut, and Live Activity.
 - [x] Implement one toggle intent that starts a file recording when idle and stops it when active. Keep its operation idempotent across repeated invocations.
 - [x] On the physical iPhone, grant microphone permission, assign the shortcut to the Action Button, and start and stop a recording while locked. Build 22 passed both the ordinary run and a repeat after force quit.
-- [ ] Verify the locked path after an iPhone restart, automatic stop after five minutes, and capture recovery after a call or audio-route interruption.
+- [x] Verify the locked path after an iPhone restart and automatic stop after five minutes. Build 22 stored 299.9 seconds after a single locked Action Button start.
+- [ ] Verify capture recovery after a call or audio-route interruption.
 - [ ] Record OS version, exact behavior, time from press to capture, produced file duration, and any unlock prompt in `docs/device-validation.md`.
 - [x] Gate: locked start and stop both worked without unlocking and created a valid file. Build 22 produced one fully decodable 56-second recording and completed transcription in airplane mode, with the lock and radio states confirmed by the user.
 
@@ -51,7 +52,7 @@
 - [x] Define one recording identity, start timestamp, duration, file URL, processing state, and error state in local storage.
 - [x] Add tests for the 5-minute stop, double stop, interruption, and recovery after relaunch; run the focused test target and observe failures.
 - [x] Implement capture and atomic finalization; make UI and intent call the same recording service; pass focused tests.
-- [x] Verify short recordings on the physical device with WeeklyWins in the background and the screen locked. Build 22 saved and recognized audio in the ordinary run and after force quit. The restart, maximum-duration and interruption cases remain tracked in Task 1.
+- [x] Verify short recordings on the physical device with WeeklyWins in the background and the screen locked. Build 22 saved and recognized audio in the ordinary run and after force quit. Build 22 also saved a five-minute capture after an iPhone reboot. Physical interruption recovery remains tracked in Task 1.
 
 ### Task 3: Offline Russian transcription selection and integration
 
