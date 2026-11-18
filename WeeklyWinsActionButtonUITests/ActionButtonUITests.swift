@@ -121,13 +121,28 @@ final class ActionButtonUITests: XCTestCase {
 
     @MainActor
     func testSavedTranscriptionFailureCanOpenAudioSource() throws {
+        #if targetEnvironment(simulator)
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_RECORDING_FAILURE_FIXTURE"] == "1",
+                          "Run with the failed-recording Simulator fixture.")
+        continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         let failure = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ошибка расшифровки")).firstMatch
-        try XCTSkipUnless(failure.waitForExistence(timeout: 3), "This case requires a saved failed-recording fixture.")
+        XCTAssertTrue(failure.waitForExistence(timeout: 5), app.debugDescription)
         failure.tap()
-        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Прослушать"].exists)
+        app.buttons["Настройки распознавания"].tap()
+        XCTAssertTrue(app.navigationBars["Настройки"].waitForExistence(timeout: 5))
+        app.buttons["Готово"].tap()
+        app.buttons["recording-details-actions"].tap()
+        app.buttons["Удалить запись"].tap()
+        XCTAssertTrue(app.staticTexts["Удалить запись?"].waitForExistence(timeout: 5))
+        app.buttons["Удалить запись"].tap()
+        XCTAssertTrue(failure.waitForNonExistence(timeout: 5))
+        #else
+        throw XCTSkip("This case operates on a disposable Simulator fixture.")
+        #endif
     }
 
     @MainActor
@@ -160,7 +175,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Повторить расшифровку"].firstMatch.tap()
         XCTAssertTrue(failure.waitForExistence(timeout: 10))
         failure.tap()
-        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Прослушать"].exists)
         #endif
     }
@@ -175,12 +190,15 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
         let transcript = app.textViews["transcriptEditor"]
         XCTAssertTrue(transcript.waitForExistence(timeout: 5))
         transcript.tap()
         transcript.typeText("Подготовил отчёт. Купил хлеб.")
-        app.buttons["Сохранить текст"].tap()
+        app.buttons["save-transcript"].tap()
         app.buttons["События"].tap()
+        XCTAssertTrue(app.buttons["Подготовил отчёт, Без категории"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["recording-details-back"].exists)
         app.buttons["Подготовил отчёт, Без категории"].tap()
         let title = app.textFields["review-event-text"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
@@ -245,12 +263,13 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.tap()
         editor.typeText("Работал два часа.")
-        app.buttons["Сохранить текст"].tap()
-        app.buttons["Готово"].tap()
+        app.buttons["save-transcript"].tap()
+        app.buttons["recording-details-back"].tap()
         app.buttons["studio-tab-2"].tap()
         app.buttons["Неделя"].tap()
         let period = app.buttons["Выбрать период"]
@@ -287,6 +306,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         let marker = UUID().uuidString.prefix(6)
@@ -294,8 +314,8 @@ final class ActionButtonUITests: XCTestCase {
         let neighbor = "Купил хлеб \(marker)"
         editor.tap()
         editor.typeText(title + ". " + neighbor + ".")
-        app.buttons["Сохранить текст"].tap()
-        app.buttons["Готово"].tap()
+        app.buttons["save-transcript"].tap()
+        app.buttons["recording-details-back"].tap()
 
         app.buttons["studio-tab-2"].tap()
         app.buttons["Неделя"].tap()
@@ -408,13 +428,14 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertEqual(datePicker.value as? String, selectedLabel)
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         let title = "Подготовил отчёт \(UUID().uuidString.prefix(6))"
         editor.tap()
         editor.typeText(title + ".")
-        app.buttons["Сохранить текст"].tap()
-        app.buttons["Готово"].tap()
+        app.buttons["save-transcript"].tap()
+        app.buttons["recording-details-back"].tap()
         app.buttons["studio-tab-0"].tap()
         XCTAssertEqual(datePicker.value as? String, selectedLabel)
         let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
@@ -457,6 +478,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.tap()
@@ -464,16 +486,33 @@ final class ActionButtonUITests: XCTestCase {
         editor.typeText(marker)
         XCTAssertTrue(app.staticTexts["Черновик сохранён"].waitForExistence(timeout: 5))
         app.terminate()
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
         app.launch()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         XCTAssertEqual(editor.value as? String, marker)
-        app.buttons["Готово"].tap()
+        XCTAssertTrue(app.staticTexts["Расшифровка"].isHittable)
+        XCTAssertTrue(app.buttons["save-transcript"].isHittable)
+        editor.tap()
+        XCTAssertTrue(app.buttons["transcript-keyboard-done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["save-transcript"].isHittable)
+        let largest = XCTAttachment(screenshot: app.screenshot())
+        largest.name = "A09-transcript-editor-largest-text"
+        largest.lifetime = .keepAlways
+        add(largest)
+        app.buttons["Отмена"].tap()
         app.buttons["Отбросить изменения"].tap()
+        let preview = app.staticTexts["transcript-preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(preview.label, marker)
+        app.buttons["recording-details-back"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
-        XCTAssertNotEqual(editor.value as? String, marker)
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertFalse(editor.exists)
     }
 
     @MainActor
@@ -486,12 +525,13 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["recorder-stop"].tap()
         app.buttons["studio-tab-1"].tap()
         app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.tap()
         editor.typeText(marker)
-        app.buttons["Сохранить текст"].tap()
-        app.buttons["Готово"].tap()
+        app.buttons["save-transcript"].tap()
+        app.buttons["recording-details-back"].tap()
         let search = app.textFields["recording-search"]
         search.tap()
         search.typeText(marker)
@@ -592,15 +632,31 @@ final class ActionButtonUITests: XCTestCase {
         let recordingRow = app.buttons.matching(identifier: "recording-row").firstMatch
         XCTAssertTrue(recordingRow.waitForExistence(timeout: 5), app.debugDescription)
         recordingRow.tap()
-        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["Расшифровать"].exists)
-        XCTAssertTrue(app.buttons["Сохранить текст"].exists)
         let editor = app.textViews["transcriptEditor"]
+        XCTAssertFalse(editor.exists)
+        app.buttons["Изменить текст"].tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.sliders["Позиция аудио"].exists)
         editor.tap()
         let eventTitle = "Проверил отчёт \(UUID().uuidString.prefix(6))"
         editor.typeText(eventTitle + ".")
-        app.buttons["Сохранить текст"].tap()
-        app.buttons["Готово"].tap()
+        let keyboardDone = app.buttons["transcript-keyboard-done"]
+        XCTAssertTrue(keyboardDone.waitForExistence(timeout: 5), app.debugDescription)
+        let editorScreenshot = XCTAttachment(screenshot: app.screenshot())
+        editorScreenshot.name = "A09-transcript-editor-keyboard"
+        editorScreenshot.lifetime = .keepAlways
+        add(editorScreenshot)
+        keyboardDone.tap()
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        app.buttons["save-transcript"].tap()
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        let detailsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        detailsScreenshot.name = "A08-recording-details"
+        detailsScreenshot.lifetime = .keepAlways
+        add(detailsScreenshot)
+        app.buttons["recording-details-back"].tap()
         app.buttons["studio-tab-0"].tap()
         let event = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", eventTitle)).firstMatch
         for _ in 0..<32 {
@@ -614,15 +670,15 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(audio.frame.width, 44)
         XCTAssertGreaterThanOrEqual(audio.frame.height, 44)
         audio.tap()
-        let sourceText = app.textViews["transcriptEditor"]
+        let sourceText = app.staticTexts["transcript-preview"]
         XCTAssertTrue(sourceText.waitForExistence(timeout: 5))
-        XCTAssertTrue((sourceText.value as? String)?.contains(eventTitle) == true)
-        app.buttons["Готово"].tap()
+        XCTAssertTrue(sourceText.label.contains(eventTitle))
+        app.buttons["recording-details-back"].tap()
         XCTAssertTrue(sourceText.waitForNonExistence(timeout: 5))
         event.tap()
         XCTAssertTrue(app.buttons["edit-event"].waitForExistence(timeout: 5))
         app.buttons["Открыть аудиозапись и текст"].tap()
-        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
         #else
         throw XCTSkip("This recorder-flow check is for Simulator; Action Button end-to-end is covered by the device test.")
         #endif
