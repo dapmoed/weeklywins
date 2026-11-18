@@ -26,7 +26,13 @@ enum EventExtractor {
             of: "(?i)(\\b\(durationClause))[ \\t]+(?=\(subsequentTask))",
             with: "$1;", options: .regularExpression
         )
-        let fragments = clauses.replacingOccurrences(
+        let priorAction = #"(?:поменял|сменил|проверил|сходил|купил|заш[её]л|помыл|приготовил|убрал)(?:а|и)?\b"#
+        let transition = #"(?:на обед|дома)\s+(?:не\s+)?(?:сходил|купил|помыл|приготовил|убрал)(?:а|и)?\b"#
+        let activities = clauses.replacingOccurrences(
+            of: "(?i)(\\b\(priorAction)[^;.!?\\n]*?)[ \\t]+(?=\(transition))",
+            with: "$1;", options: .regularExpression
+        )
+        let fragments = activities.replacingOccurrences(
             of: #"(?<!\d)\.|\.(?!\d)|[!?;\n]+"#,
             with: ";",
             options: .regularExpression
@@ -46,26 +52,32 @@ enum EventExtractor {
                 events[index].sourceText += ". " + text
                 continue
             }
-            let negative = text.range(
-                of: #"(?i)\b(не\s+\p{L}+|планирую|собираюсь|нужно|надо)\b"#,
-                options: .regularExpression
-            ) != nil
             events.append(DiaryEvent(
                 recordingID: recordingID,
                 sourceText: text,
                 text: text,
-                completion: negative ? .notCompleted : .completed,
+                completion: isPending(text) ? .notCompleted : .completed,
                 duration: clarification?.duration ?? explicitDuration(in: text)
             ))
         }
         return events
     }
 
+    private static func isPending(_ text: String) -> Bool {
+        let leadingNegation = #"^(?:(?:я|мы|сегодня|вчера|дома|утром|вечером)\s+)*не\s+\p{L}+"#
+        let negatedVerb = #"\bне\s+(?:\p{L}+(?:л|ла|ли|ло|ет|ит|ют|ат|ят)(?:ся|сь)?|мог|смог|могу|можем)\b"#
+        let negatedResult = #"\bне\s+(?:выполнен|отправлен|сделан|закончен|подготовлен|заверш[её]н)[аоы]?\b"#
+        let intent = #"\b(?:планирую|собираюсь|нужно|надо)\b"#
+        return text.range(of: "(?i)\(leadingNegation)|\(negatedVerb)|\(negatedResult)|\(intent)",
+                          options: .regularExpression) != nil
+    }
+
     private static func describesSubject(_ subject: String, in text: String) -> Bool {
         let time = "(?:(?:сегодня|вчера|утром|днем|днём|вечером)\\s+)?"
         let action = "(?:прош(?:[её]л|ла|ло|ли)|пров[её]л|провела|провели|состоял(?:ся|ась|ось|ись)|был(?:а|о|и)?|проводил(?:а|и)?|выполнил(?:а|и)?|сделал(?:а|и)?|завершил(?:а|и)?|планирую|запланировал(?:а|и)?|будет|нужно\\s+(?:провести|назначить|сделать|выполнить))"
         let adjective = "(?:\\p{L}+(?:ая|ую|ое|ый|ой|ые|ого)\\s+)?"
-        let pattern = "(?i)^\(time)(?:я\\s+)?(?:\(action)\\s+)?\(adjective)\(subject)\\p{L}*\\b"
+        let introduction = #"(?:(?:запишу|запишем|расскажу|расскажем)\s+[^;.!?\n]{1,100}?\bдел(?:а)?\s+)?"#
+        let pattern = "(?i)^\(time)(?:я\\s+)?\(introduction)(?:\(action)\\s+)?\(adjective)\(subject)\\p{L}*\\b"
         return text.range(of: pattern, options: .regularExpression) != nil
     }
 

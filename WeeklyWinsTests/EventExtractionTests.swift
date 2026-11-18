@@ -2,6 +2,46 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    @MainActor
+    func testCompleteMinuteAppleTranscriptPersistsSeparateWorkAndHouseholdTasks() throws {
+        // Full output from final-ru-one-minute.native-report.json, including ASR errors.
+        let text = "Сегодня запишу несколько рабочих и домашних дел прошла встреча по микро сервису вайфая авторизации обсудили проблему с доступом и решили что нужно ответить в информационную безопасность встреча длилась 01:00 после встречи починил сервис по вайфая авторизации была проблема с паролем теперь подключение проходит успешно затем поменяла пароль в сервисе SNS паблишер проверил что сообщения отправляются на обед сходил в магазин купил хлеб молоко и яблоки дома помыл посуду его не мусор на это ушло 15 минут в конце оставляю контрольную фразу в ежедневнике сохранены последние заметки"
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let recording = try store.beginRecording()
+        try Data([1, 2, 3]).write(to: store.fileURL(for: recording))
+        try store.finalizeRecording(id: recording.id, duration: 60)
+        try store.updateTranscription(recordingID: recording.id, transcript: text, processingState: .completed, errorMessage: nil)
+
+        let restored = RecordingStore(directory: directory)
+        let stored = try XCTUnwrap(restored.recordings.first)
+        XCTAssertEqual(stored.transcript, text)
+        let events = try XCTUnwrap(stored.events)
+        XCTAssertEqual(events.map(\.completion), [.completed, .notCompleted, .completed, .completed, .completed, .completed])
+        XCTAssertEqual(events.map(\.duration), [3600, nil, nil, nil, nil, 900])
+        for prefix in ["на обед сходил в магазин", "дома помыл посуду"] {
+            XCTAssertTrue(events.contains { $0.text.hasPrefix(prefix) }, prefix)
+        }
+        XCTAssertTrue(events.allSatisfy { $0.recordingID == recording.id && $0.occurredAt == nil })
+        let entries = ReportQuery.events(in: restored.recordings, period: .day, date: recording.recordedAt)
+        XCTAssertEqual(entries.count, 6)
+        XCTAssertEqual(ReportQuery.knownDuration(entries), 4500)
+    }
+
+    func testHouseholdTransitionKeepsLeadingTimeAndNegation() {
+        let text = "Вчера дома не помыл посуду"
+        let events = EventExtractor.extract(text, recordingID: UUID())
+        XCTAssertEqual(events.map(\.text), [text])
+        XCTAssertEqual(events.first?.completion, .notCompleted)
+    }
+
+    func testNegationAfterSubjectStillMarksTheTaskPending() {
+        for text in ["Встреча не состоялась", "Работа не завершилась", "Задача не выполнена", "Письмо не отправлено"] {
+            XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).first?.completion, .notCompleted, text)
+        }
+    }
+
     func testUnpunctuatedAppleTranscriptSeparatesMeetingFollowUpAndRepairs() throws {
         // Contiguous excerpt from the controlled one-minute Apple Speech report.
         let text = "прошла встреча по микро сервису вайфая авторизации обсудили проблему с доступом и решили что нужно ответить в информационную безопасность встреча длилась 01:00 после встречи починил сервис по вайфая авторизации была проблема с паролем теперь подключение проходит успешно затем поменяла пароль в сервисе SNS паблишер"
