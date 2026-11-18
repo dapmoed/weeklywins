@@ -31,7 +31,7 @@ enum EventExtractor {
             of: #"(?<!\d)\.|\.(?!\d)|[!?;\n]+"#,
             with: ";",
             options: .regularExpression
-        ).components(separatedBy: ";")
+        ).components(separatedBy: ";").flatMap(splitDirectActions)
         var events: [DiaryEvent] = []
         var conflictingDurations: Set<UUID> = []
         for fragment in fragments {
@@ -56,6 +56,38 @@ enum EventExtractor {
             ))
         }
         return events
+    }
+
+    private static func splitDirectActions(_ fragment: String) -> [String] {
+        let action = "(?:не\\s+)?\(timelineActions)\\b"
+        let relativeDay = "(?:сегодня|вчера)\\s+(?:я\\s+)?"
+        let speaker = "(?:я\\s+)?"
+        guard fragment.range(
+            of: "(?i)^\\s*\(speaker)(?:\(relativeDay))?\(action)",
+            options: .regularExpression
+        ) != nil else { return [fragment] }
+
+        // Keep reported actions in the explanation that introduced them.
+        let explanation = fragment.range(
+            of: #"(?i)\b(?:почему|что|как|когда|чтобы)\b"#, options: .regularExpression
+        )?.lowerBound ?? fragment.endIndex
+        let direct = String(fragment[..<explanation]).replacingOccurrences(
+            of: "(?i),?\\s+но\\s+(?=\(speaker)(?:\(relativeDay))?\(action))",
+            with: ";", options: .regularExpression
+        )
+        var result = direct.components(separatedBy: ";").flatMap { clause in
+            guard let firstAction = clause.range(
+                of: "(?i)^\\s*\(speaker)\(relativeDay)\(action)",
+                options: .regularExpression
+            ) else { return [clause] }
+            let transitions = String(clause[firstAction.upperBound...]).replacingOccurrences(
+                of: "(?i),?\\s+(\(speaker)\(relativeDay)\(action))",
+                with: ";$1", options: .regularExpression
+            )
+            return (String(clause[..<firstAction.upperBound]) + transitions).components(separatedBy: ";")
+        }
+        result[result.count - 1] += fragment[explanation...]
+        return result
     }
 
     private static func splitTimelineTransitions(_ text: String) -> String {

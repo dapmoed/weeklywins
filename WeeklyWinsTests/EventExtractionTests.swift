@@ -409,6 +409,30 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertEqual(events.last?.completion, .completed)
     }
 
+    func testContrastKeepsCompletedAndUnfinishedActionsSeparate() {
+        for (text, second) in [
+            ("Не отправил отчёт, но подготовил инструкцию", "подготовил инструкцию"),
+            ("Не отправил отчёт но подготовил инструкцию", "подготовил инструкцию"),
+            ("Не отправил отчёт, но я подготовил инструкцию", "я подготовил инструкцию")
+        ] {
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.map(\.sourceText), ["Не отправил отчёт", second])
+            XCTAssertEqual(events.map(\.completion), [.notCompleted, .completed])
+        }
+        let explanation = "Проверил почему коллега не отправил отчёт, но подготовил инструкцию"
+        XCTAssertEqual(EventExtractor.extract(explanation, recordingID: UUID()).map(\.sourceText), [explanation])
+    }
+
+    func testRelativeDayTransitionPreservesBothDescriptionsWithoutInventingTimes() {
+        let note = "Я вчера починил авторизацию я сегодня поменял пароль сегодня проверил доступ"
+        let events = EventExtractor.extract(note, recordingID: UUID())
+        XCTAssertEqual(events.map(\.sourceText), ["Я вчера починил авторизацию", "я сегодня поменял пароль", "сегодня проверил доступ"])
+        XCTAssertTrue(events.allSatisfy { $0.occurredAt == nil })
+
+        let explanation = "Вчера проверил почему коллега сегодня подготовил отчёт"
+        XCTAssertEqual(EventExtractor.extract(explanation, recordingID: UUID()).map(\.sourceText), [explanation])
+    }
+
     func testSplitsSequenceAndReadsExplicitDuration() {
         let events = EventExtractor.extract("Работал над проектом два часа, потом купил продукты и помыл посуду.", recordingID: UUID())
         XCTAssertEqual(events.count, 3)
