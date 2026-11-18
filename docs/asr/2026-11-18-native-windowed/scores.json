@@ -1,0 +1,16 @@
+[
+  {
+    "report": "native-five-minute-final-report.json",
+    "provider": "OnDeviceSpeechTranscriber",
+    "fixture": "ru-five-minute.m4a",
+    "reference_words": 478,
+    "transcript_words": 474,
+    "word_errors": 51,
+    "word_error_rate": 0.10669456066945607,
+    "ending_marker_present": true,
+    "processing_seconds": 8.257694875006564,
+    "audio_seconds": 300,
+    "network_before": null,
+    "error": null
+  }
+]

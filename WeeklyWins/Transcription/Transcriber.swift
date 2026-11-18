@@ -110,26 +110,88 @@ struct OnDeviceSpeechTranscriber: Transcriber {
         }
         try await ensureSpeechAuthorization()
 
-        let request = SFSpeechURLRecognitionRequest(url: audioFileURL)
+        return try await LegacySpeechTranscription.transcribe(audioFileURL: audioFileURL, reportProgress: reportProgress) { url, window in
+            let start = Double(window.coreFrames.lowerBound) / window.sampleRate
+            let end = Double(window.coreFrames.upperBound) / window.sampleRate
+            do {
+                let result = try await recognizeLegacyWindow(url: url, window: window, recognizer: recognizer, reportProgress: reportProgress)
+                RecordingDiagnostics.write("legacy ASR core=\(start)-\(end) words=\(result.words.count) timing=\(result.words.first?.timestamp ?? -1)-\(result.words.last?.timestamp ?? -1)")
+                return result
+            } catch {
+                let failure = error as NSError
+                RecordingDiagnostics.write("legacy ASR core=\(start)-\(end) failed domain=\(failure.domain) code=\(failure.code)")
+                throw error
+            }
+        }
+    }
+
+    @MainActor
+    func recognizeLegacyWindow(
+        url: URL,
+        window: LegacySpeechTranscription.Window,
+        recognizer: SFSpeechRecognizer,
+        reportProgress: @escaping @Sendable (Double) -> Void
+    ) async throws -> LegacySpeechTranscription.Transcript {
+        let request = SFSpeechURLRecognitionRequest(url: url)
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
-        let audioFile = try AVAudioFile(forReading: audioFileURL)
-        let duration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
-        return try await SpeechRecognitionSession().run { finish in
-            let task = recognizer.recognitionTask(with: request) { result, error in
-                if let segment = result?.bestTranscription.segments.last, duration > 0 {
-                    reportProgress(min(1, max(0, (segment.timestamp + segment.duration) / duration)))
-                }
-                if let error {
-                    finish(.failure(error))
-                } else if let result, result.isFinal {
-                    let text = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if text.isEmpty { finish(.failure(TranscriptionError.noSpeechRecognized)) }
-                    else { finish(.success(text)) }
+        let accumulator = LegacySpeechResultAccumulator()
+        return try await SpeechRecognitionResultSession<LegacySpeechTranscription.Transcript>().run { finish in
+            let (updates, continuation) = AsyncStream<LegacyRecognitionEvent>.makeStream()
+            let consumer = Task { @MainActor in
+                defer { continuation.finish() }
+                var progress = Double(window.coreFrames.lowerBound) / Double(window.totalFrames)
+                for await event in updates {
+                    if let error = event.error {
+                        let nativeError = error as NSError
+                        // Apple's 1110 code identifies a window without recognized speech.
+                        let noSpeech = nativeError.domain == "kAFAssistantErrorDomain" && nativeError.code == 1110
+                        finish(.failure(noSpeech && !accumulator.hasTimedSpeech ? TranscriptionError.noSpeechRecognized : error))
+                        return
+                    }
+                    guard let snapshot = event.snapshot else { continue }
+                    if let last = snapshot.words.last, last.timestamp > 0 || last.duration > 0 {
+                        progress = max(progress, window.progress(at: last.timestamp + last.duration))
+                        reportProgress(progress)
+                    }
+                    do {
+                        if let complete = try accumulator.update(snapshot, isFinal: event.isFinal) {
+                            if complete.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                finish(.failure(TranscriptionError.noSpeechRecognized))
+                            } else {
+                                finish(.success(complete))
+                            }
+                            return
+                        }
+                    } catch {
+                        finish(.failure(error))
+                        return
+                    }
                 }
             }
-            return { task.cancel() }
+            let task = recognizer.recognitionTask(with: request) { result, error in
+                let snapshot = result.map { result in
+                    LegacySpeechTranscription.Transcript(
+                        text: result.bestTranscription.formattedString,
+                        words: result.bestTranscription.segments.map {
+                            .init(range: $0.substringRange, timestamp: $0.timestamp, duration: $0.duration)
+                        }
+                    )
+                }
+                continuation.yield(LegacyRecognitionEvent(snapshot: snapshot, isFinal: result?.isFinal == true, error: error))
+            }
+            return {
+                task.cancel()
+                continuation.finish()
+                consumer.cancel()
+            }
         }
+    }
+
+    private struct LegacyRecognitionEvent: Sendable {
+        let snapshot: LegacySpeechTranscription.Transcript?
+        let isFinal: Bool
+        let error: Error?
     }
 
     @MainActor
@@ -159,6 +221,8 @@ enum TranscriptionError: LocalizedError, Equatable {
     case recordingNotFound
     case recordingStillActive
     case alreadyProcessing
+    case audioReadFailed
+    case invalidRecognitionResult
 
     var errorDescription: String? {
         switch self {
@@ -171,6 +235,8 @@ enum TranscriptionError: LocalizedError, Equatable {
         case .recordingNotFound: return "Запись не найдена."
         case .recordingStillActive: return "Сначала остановите запись, затем запускайте расшифровку."
         case .alreadyProcessing: return "Расшифровка уже выполняется. Дождитесь её завершения."
+        case .audioReadFailed: return "Не удалось прочитать аудиозапись."
+        case .invalidRecognitionResult: return "Не удалось обработать результат распознавания речи. Повторите расшифровку."
         }
     }
 }

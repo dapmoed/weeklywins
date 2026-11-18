@@ -1,15 +1,17 @@
 import Foundation
 
+typealias SpeechRecognitionSession = SpeechRecognitionResultSession<String>
+
 @MainActor
-final class SpeechRecognitionSession {
-    typealias Completion = @Sendable (Result<String, Error>) -> Void
+final class SpeechRecognitionResultSession<Output: Sendable> {
+    typealias Completion = @Sendable (Result<Output, Error>) -> Void
     typealias Cancellation = @MainActor () -> Void
 
-    private var continuation: CheckedContinuation<String, Error>?
+    private var continuation: CheckedContinuation<Output, Error>?
     private var cancelRecognition: Cancellation?
     private var hasStarted = false
 
-    func run(start: (@escaping Completion) -> Cancellation) async throws -> String {
+    func run(start: (@escaping Completion) -> Cancellation) async throws -> Output {
         guard !hasStarted else { throw TranscriptionError.alreadyProcessing }
         hasStarted = true
         defer { cancelRecognition = nil }
@@ -26,7 +28,7 @@ final class SpeechRecognitionSession {
         }
     }
 
-    private func finish(_ result: Result<String, Error>) {
+    private func finish(_ result: Result<Output, Error>) {
         guard let continuation else { return }
         self.continuation = nil
         let cancel = cancelRecognition

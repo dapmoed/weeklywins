@@ -25,6 +25,54 @@ final class ASRAcceptanceTests: XCTestCase {
     }
 
     @MainActor
+    func testNativeRussianIsolatedProblemWindow() async throws {
+        #if targetEnvironment(simulator)
+        let isPhysicalDevice = false
+        #else
+        let isPhysicalDevice = true
+        #endif
+        try XCTSkipUnless(isPhysicalDevice && ProcessInfo.processInfo.environment["RUN_DEVICE_ASR_ACCEPTANCE"] == "1")
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ASRAcceptance", isDirectory: true)
+        let source = try AVAudioFile(forReading: directory.appendingPathComponent("ru-five-minute.m4a"))
+        let rate = source.processingFormat.sampleRate
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        var problem: LegacySpeechTranscription.Window?
+        let url = temporary.appendingPathComponent("problem.wav")
+        for second in stride(from: 0, through: 150, by: 50) {
+            let start = Int64(Double(second) * rate)
+            let end = start + Int64(50 * rate)
+            let context = Int64(2 * rate)
+            let window = LegacySpeechTranscription.Window(
+                inputFrames: max(0, start - context)..<min(source.length, end + context),
+                coreFrames: start..<end, totalFrames: source.length, sampleRate: rate
+            )
+            if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+            try LegacySpeechTranscription.write(window: window, from: source, to: url)
+            problem = window
+        }
+        try Data(contentsOf: url).write(to: directory.appendingPathComponent("isolated-window.wav"), options: .atomic)
+        let recognizer = try XCTUnwrap(SFSpeechRecognizer(locale: Locale(identifier: "ru-RU")))
+        XCTAssertTrue(recognizer.supportsOnDeviceRecognition)
+        XCTAssertEqual(SFSpeechRecognizer.authorizationStatus(), .authorized)
+        let started = ProcessInfo.processInfo.systemUptime
+        let result = try await OnDeviceSpeechTranscriber().recognizeLegacyWindow(
+            url: url, window: try XCTUnwrap(problem), recognizer: recognizer, reportProgress: { _ in }
+        )
+        let report: [String: Any] = [
+            "core_start": 150, "core_end": 200, "word_count": result.words.count,
+            "first_timestamp": result.words.first?.timestamp ?? -1,
+            "last_timestamp": result.words.last?.timestamp ?? -1,
+            "transcript": result.text, "processing_seconds": ProcessInfo.processInfo.systemUptime - started,
+        ]
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            .write(to: directory.appendingPathComponent("isolated-window-report.json"), options: .atomic)
+        XCTAssertGreaterThan(result.words.count, 40, "The isolated voiced window should contain its full speech.")
+    }
+
+    @MainActor
     private func measureNativeTranscription(fileName: String, requireOffline: Bool = false) async throws {
         #if targetEnvironment(simulator)
         let isPhysicalDevice = false
@@ -123,7 +171,10 @@ final class ASRAcceptanceTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: resultURL, options: .atomic)
         if let failure { throw failure }
         let text = try XCTUnwrap(transcript)
-        XCTAssertGreaterThanOrEqual(words(in: text).count, referenceWords.count * 4 / 5, "The result may be incomplete.")
+        XCTAssertGreaterThanOrEqual(words(in: text).count, referenceWords.count * 9 / 10, "The result may be incomplete.")
+        if fileName == "ru-five-minute.m4a" {
+            XCTAssertTrue(text.lowercased().contains("инструкц"), "The middle-of-recording task is missing.")
+        }
         let ending = words(in: text).suffix(20).joined(separator: " ")
         XCTAssertNotNil(ending.range(of: #"\bпоследн\p{L}+\s+замет\p{L}+\b"#, options: .regularExpression),
                         "The ending marker is missing.")

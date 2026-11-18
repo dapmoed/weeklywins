@@ -60,8 +60,8 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 
 ## Task 3 — Duration or lifecycle fixes when established by evidence
 
-- [ ] If measurement finds incomplete long recognition, create the reproducing test and implement a bounded local processing strategy through the existing Transcriber interface.
-- [ ] Cover cancellation, output ordering, boundaries and preservation of audio and user edits.
+- [x] If measurement finds incomplete long recognition, create the reproducing test and implement a bounded local processing strategy through the existing Transcriber interface.
+- [x] Cover cancellation, output ordering, boundaries and preservation of audio and user edits.
 - [ ] Repeat the same native device corpus after the fix, including the five-minute offline case.
 
 ## Task 4 — Bundled candidate comparison and selection
@@ -74,3 +74,7 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 ## Measurement status
 
 The native measurements are documented in docs/asr-evaluation.md and raw reports under docs/asr/2026-11-17-native-baseline. The user confirmed manual offline recognition. The five-minute fixture exposes incomplete long-file output and Task 3 is the next implementation step. The bundled comparison remains open. Radio automation was removed after a runner trust failure, and the successful offline workflow uses one running native test host with user-controlled radio settings.
+
+## Build 20 implementation status
+
+Bounded contextual windows and native timed-partial accumulation now preserve the complete controlled300s narrative. Final device result474/478words, WER10.67%,8.258s. Details and raw reports are in docs/asr-evaluation.md. Final Simulator suite102PASS8SKIP0FAIL,total110. Both final device acceptance cases passed. The actual full-build20 airplane-mode repeat, bundled comparison, natural corpus and energy observations remain open.

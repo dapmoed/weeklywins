@@ -74,3 +74,23 @@ python3 scripts/evaluate-asr-reports.py --fixtures /private/tmp/weeklywins-asr-f
 ```
 
 Device-hosted cases are explicitly gated by TEST_RUNNER_RUN_DEVICE_ASR_ACCEPTANCE=1. The combined offline case is ASRAcceptanceTests/testNativeRussianOfflineCorpus. Ordinary Simulator runs skip the three physical measurement cases. The final unit run passed 68 cases, skipped 3 and failed 0 at /private/tmp/weeklywins-asr-measurement-unit-final.log. Sol consultation was attempted during the radio-runner issue, and the service returned HTTP403. This measurement stage received author self-review.
+
+## Complete native long-file processing, build 20
+
+The legacy adapter now processes 50-second core ranges with two seconds of context on both sides, keeping each request at most 54 seconds. PCM windows are copied using a bounded buffer into protected temporary WAV files. Short captures up to 50 seconds retain their original file path. Context is reconciled through unique word-pair anchors, followed by unambiguous single-word anchors and a temporal fallback. The last pending text is retained through silent or left-context-only results. Original audio is read-only, and all temporary windows are removed on success, failure or cancellation.
+
+A second native issue was established after the first windowing implementation. The voiced 148–202s WAV decoded correctly and reproduced the failure with a fresh recognizer. Its callback trace grew to a timed 86-word partial result, reset to an untimed new phrase and ended with a final two-word result at 53s. Keeping only the final result lost the completed preceding utterance. The new MainActor accumulator keeps established timed speech, applies corrections to overlapping snapshots and appends subsequent utterances. It retains original UTF-16 offsets while joining text and uses half-open time intervals. Untimed partials are deferred until timing is established. Empty or identical untimed finals preserve known speech, while conflicting untimed finals fail explicitly.
+
+A single owned AsyncStream consumer processes native callbacks in delivery order. Existing one-shot completion and native task cancellation are reused through SpeechRecognitionResultSession with the previous String-based SpeechRecognitionSession type alias. Only Apple's documented no-recognized-speech error is skipped when the request has no established timed speech. Other failures propagate without committing a partial transcript. [Speech task errors](https://developer.apple.com/documentation/speech/sfspeechrecognitiontask/error)
+
+| Controlled 300s fixture | Recognized words | Processing | Word error rate |
+| --- | --- | --- | --- |
+| Build 18 single final result | 90 of 478 | 6.267 s | 83.05% |
+| Initial windowing, final-only window result | 396 of 478 | 8.249 s | 25.73% |
+| Build 20 complete accumulation | 474 of 478 | 8.258 s | 10.67% |
+
+The middle instruction task and the ending are present. The largest changed reference span is three words. The isolated problem window returns 88 timed segments instead of two. [Final results](asr/2026-11-18-native-windowed/scores.json) and the [pre-fix callback reset](asr/2026-11-18-native-windowed/callback-reset-before-fix.json) preserve the measured evidence. Results use the same controlled fixture bytes as the baseline. Device iPhone16Pro, iOS27.2.1. This final device repetition kept network settings under user control and did not record a network path snapshot. An explicit full build20 airplane-mode repetition remains open, alongside the bundled-model and natural-speech comparisons and energy measurement.
+
+The final Simulator suite passed 102 cases, skipped 8 and failed 0, total 110, at /private/tmp/weeklywins-speech-build20-final-verified.log. Skips cover four physical ASR measurement cases, the opt-in real five-minute capture case, direct App Shortcut dispatch, populated-install onboarding and unavailable-ASR capability preconditions. The final physical run passed both the complete-file and isolated-window cases at /private/tmp/weeklywins-device-asr20/native-final-validation.log.
+
+Sol's review findings about original UTF-16 offsets, cross-window timing disagreements, context-only results and abutting correction intervals were addressed with regressions. RED-to-GREEN evidence is in /private/tmp/weeklywins-speech-merger-overlap-red.log, /private/tmp/weeklywins-speech-context-only-red.log, /private/tmp/weeklywins-speech-final-reset-red.log and /private/tmp/weeklywins-speech-half-open-red.log, followed by the final full suite. No phone radio settings were changed in this implementation stage.
