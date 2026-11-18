@@ -107,3 +107,14 @@ A single iPhone 16 Pro on iOS 27.2.1 processed the same hash-verified 60- and 30
 Processing time covers the path from opening audio through complete transcript assembly. Whisper model load took 0.059 s and 0.031 s respectively and is included in the totals. Each run initialized its own context. Both transcripts included the concluding phrase for both fixtures. The phone was connected by USB, at 100% charge, with nominal thermal state for all runs. These battery observations do not resolve per-engine energy consumption. Network state was not recorded in this comparison. The Whisper test performed all inference from bundled resources with local APIs. The explicit airplane-mode repetition of the updated Apple path remains open.
 
 Apple Speech remains the default for build 21 based on the measured minute latency, the small differences on this controlled corpus, and the 59.7 MB footprint of the candidate model. The decision will be reassessed using natural Russian speech if the measured quality falls short. The Apple model allocation is managed by iOS and was not measured. Source and resources for Whisper are confined to the benchmark test project. The two Apple tests and the Whisper corpus test all passed in the same device run. The test session confirmed that idle-timer suppression was removed when the run finished. [Reports and scores](asr/2026-11-18-whisper-comparison/scores.json), [reproduction](../scripts/whisper-benchmark/README.md).
+
+## Recovered offline reports, build 21
+
+Both reports were saved on the iPhone 16 Pro running iOS 27.2.1 on 18 November, after the developer connection broke during the switch to airplane mode. CoreDevice reported a local-network connection when the device reappeared. The host-side XCTest run ended with a connection error. The recovered app reports record an unsatisfied network path, no active Wi-Fi, cellular or wired network interface, and successful recognition of both SHA-256-verified fixtures. The test session ended after reconnection, with `active=false` and `idleTimerDisabled=false` confirmed by the app.
+
+| Fixture | Processing | Recognized words | WER | Ending |
+| --- | ---: | ---: | ---: | --- |
+| 60 seconds | 1.650 s | 87 of 89 | 15.73% | Present |
+| 300 seconds | 7.909 s | 474 of 478 | 10.67% | Present |
+
+This verifies native offline processing of saved Russian audio through the current adapter at both durations. Capture through the locked Action Button, background completion and natural speech remain separate acceptance checks. [Recovered reports and scores](asr/2026-11-18-native-offline/scores.json).

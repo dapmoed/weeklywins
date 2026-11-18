@@ -62,7 +62,7 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 
 - [x] If measurement finds incomplete long recognition, create the reproducing test and implement a bounded local processing strategy through the existing Transcriber interface.
 - [x] Cover cancellation, output ordering, boundaries and preservation of audio and user edits.
-- [ ] Repeat the same native device corpus after the fix, including the five-minute offline case.
+- [x] Repeat the same native device corpus after the fix, including the five-minute offline case.
 
 ## Task 4 — Bundled candidate comparison and selection
 
@@ -80,3 +80,5 @@ The native measurements are documented in docs/asr-evaluation.md and raw reports
 Bounded contextual windows and native timed-partial accumulation now preserve the complete controlled300s narrative. Final device result474/478words, WER10.67%,8.258s. Details and raw reports are in docs/asr-evaluation.md. Final Simulator suite102PASS8SKIP0FAIL,total110. Both final device acceptance cases passed. The actual full-build20 airplane-mode repeat, bundled comparison, natural corpus and energy observations remain open.
 
 Build 21 compared the two engines on the same iPhone, with hash-verified fixtures and recorded charging and thermal state. See docs/asr-evaluation.md for timing, WER, the default-engine decision and the limits of the comparison. Natural speech, full updated airplane-mode acceptance and measurable energy impact remain open.
+
+Build 21 saved both offline reports on the phone despite the interruption of the host test connection. The recovered reports verify the fixed native recognizer with both controlled files. See docs/asr-evaluation.md.
