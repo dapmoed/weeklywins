@@ -5,6 +5,7 @@ enum EventExtractor {
     private static let durationVerbs = #"длил(?:ся|ась|ось)|занял(?:а|о)?"#
     private static let clockDuration = #"\d{1,3}:[0-5]\d"#
     private static let durationQualifier = #"(?:(?:сегодня|вчера|сам[ао]?)\s+)*"#
+    private static let timelineActions = #"(?:починил|подготовил|проверил|отправил|сделал|обсудил|разобрал|приготовил|записал|заш[её]л|сходил|купил|помыл|убрал|поменял|сменил|зашла)(?:а|и)?"#
 
     static func extract(_ transcript: String, recordingID: UUID) -> [DiaryEvent] {
         let separated = transcript.replacingOccurrences(
@@ -15,7 +16,7 @@ enum EventExtractor {
         let durationClause = "\(durationQualifier)(?:\(durationSubjects))\\p{L}*\\s+(?:\(durationVerbs))\\s+\(clockDuration)\\b"
         let followUp = #"(?:(?:я|мы)\s+)?решил(?:а|и)?[,]?\s+(?:что\s+)?(?:нужно|надо)\b"#
         let subsequentTask = #"после\s+(?:встречи|созвона|совещания)\s+(?:починил|проверил|подготовил|отправил|сделал|обсудил)(?:а|и)?\b"#
-        let decisions = separated.replacingOccurrences(
+        let decisions = splitTimelineTransitions(separated).replacingOccurrences(
             of: "(?i)(?<=\\S)(?<!\\bне)(?<!\\bя)(?<!\\bмы)(?<!\\bчто)[ \\t]+(?:и\\s+)?(\(followUp))",
             with: ";$1", options: .regularExpression
         )
@@ -26,13 +27,7 @@ enum EventExtractor {
             of: "(?i)(\\b\(durationClause))[ \\t]+(?=\(subsequentTask))",
             with: "$1;", options: .regularExpression
         )
-        let priorAction = #"(?:поменял|сменил|проверил|сходил|купил|заш[её]л|помыл|приготовил|убрал)(?:а|и)?\b"#
-        let transition = #"(?:на обед|дома)\s+(?:не\s+)?(?:сходил|купил|помыл|приготовил|убрал)(?:а|и)?\b"#
-        let activities = clauses.replacingOccurrences(
-            of: "(?i)(\\b\(priorAction)[^;.!?\\n]*?)[ \\t]+(?=\(transition))",
-            with: "$1;", options: .regularExpression
-        )
-        let fragments = activities.replacingOccurrences(
+        let fragments = clauses.replacingOccurrences(
             of: #"(?<!\d)\.|\.(?!\d)|[!?;\n]+"#,
             with: ";",
             options: .regularExpression
@@ -63,12 +58,31 @@ enum EventExtractor {
         return events
     }
 
+    private static func splitTimelineTransitions(_ text: String) -> String {
+        let timeAndPlace = #"(?:(?:сразу\s+)?после\s+(?:встречи|созвона|совещания|обеда|ужина)|перед\s+обедом|на\s+обед|во второй половине дня|в конце рабочего дня|по дороге домой|вернувшись домой[,]?|(?:до\s+)?дома|вечером|отдельно)"#
+        let timeline = "\(timeAndPlace)\\s+(?:не\\s+)?\(timelineActions)\\b"
+        let meeting = #"\bпрош(?:ла|[её]л|ло)\s+(?:встреча|созвон|совещание)\b"#
+        let pendingObject = #"(?:сам[ао]?\s+)?(?:письмо|отч[её]т|ответ)\s+(?:ещ[её]\s+)?не\s+(?:отправлял|отправил|закончил)(?:а|и)?\b"#
+        let pendingPayment = #"оплачивать\s+\p{L}+(?:\s+(?:сегодня|вчера|ещ[её]))?\s+не\s+стал(?:а|и)?\b"#
+        let walk = #"погулял(?:а|и)?\s+прогулка\s+заняла\b"#
+        let transitions = "\(timeline)|\(meeting)|\(pendingObject)|\(pendingPayment)|\(walk)"
+        // Anchors begin a new activity after a previous predicate. An isolated qualifier
+        // such as "вчера дома" remains part of the following activity.
+        let pattern = "(?i)(\\b(?:\(timelineActions)|посмотрел(?:а|и)?|ответил(?:а|и)?|написал(?:а|и)?|поставил(?:а|и)?|помыл(?:а|и)?|наш[её]л|нашла|не\\s+стал(?:а|и)?|длилась\\s+\(clockDuration)|заняла\\s+\\d+\\s+минут)\\b[^;.!?\\n]*?)(?<=\\S)(?<!\\bкак)(?<!\\bчто)(?<!\\bкогда)[ \\t]+(?=\(transitions))"
+        return text.replacingOccurrences(of: pattern, with: "$1;", options: .regularExpression)
+    }
+
     private static func isPending(_ text: String) -> Bool {
         let leadingNegation = #"^(?:(?:я|мы|сегодня|вчера|дома|утром|вечером)\s+)*не\s+\p{L}+"#
         let negatedVerb = #"\bне\s+(?:\p{L}+(?:л|ла|ли|ло|ет|ит|ют|ат|ят)(?:ся|сь)?|мог|смог|могу|можем)\b"#
         let negatedResult = #"\bне\s+(?:выполнен|отправлен|сделан|закончен|подготовлен|заверш[её]н)[аоы]?\b"#
         let intent = #"\b(?:планирую|собираюсь|нужно|надо)\b"#
-        return text.range(of: "(?i)\(leadingNegation)|\(negatedVerb)|\(negatedResult)|\(intent)",
+        let description = text.range(of: #"(?i)\b(?:обсудил(?:а|и)?|проверил(?:а|и)?|уточнил(?:а|и)?)\s*[,]?\s+(?:почему|что|как)\b"#,
+                                     options: .regularExpression)
+        let recap = text.range(of: #"(?i)\b(?:теперь\s+)?подведу\s+итог(?:и)?\s+дня\b"#, options: .regularExpression)
+        let end = [description?.upperBound, recap?.lowerBound].compactMap { $0 }.min() ?? text.endIndex
+        let mainClause = text[..<end]
+        return mainClause.range(of: "(?i)\(leadingNegation)|\(negatedVerb)|\(negatedResult)|\(intent)",
                           options: .regularExpression) != nil
     }
 
