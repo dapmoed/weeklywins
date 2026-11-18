@@ -256,8 +256,26 @@ final class ActionButtonUITests: XCTestCase {
 
     @MainActor
     func testReportChartOpensDayAndReturnsToWeek() throws {
+        continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
+        app.buttons["studio-tab-2"].tap()
+        let reportCounts = app.descendants(matching: .any)
+        func count(_ id: String) -> Int {
+            let element = reportCounts[id].firstMatch
+            guard element.exists, let value = element.value as? String else { return 0 }
+            return Int(value) ?? 0
+        }
+        func totalMinutes() -> Int {
+            let element = reportCounts["report-total-duration"].firstMatch
+            guard element.exists, let value = element.value as? String else { return 0 }
+            let parts = value.split(separator: " ")
+            let numbers = parts.compactMap { Int($0) }
+            return numbers.count == 2 ? numbers[0] * 60 + numbers[1] : numbers.first ?? 0
+        }
+        let initialCompleted = count("report-completed-count")
+        let initialUnknown = count("report-unknown-duration-count")
+        let initialDuration = totalMinutes()
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
@@ -267,15 +285,34 @@ final class ActionButtonUITests: XCTestCase {
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.tap()
-        editor.typeText("Работал два часа.")
+        editor.typeText("Работал два часа. Купил хлеб.")
         app.buttons["save-transcript"].tap()
         app.buttons["recording-details-back"].tap()
         app.buttons["studio-tab-2"].tap()
+        func attach(_ name: String) {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = name
+            shot.lifetime = .keepAlways
+            add(shot)
+        }
+        XCTAssertEqual(count("report-completed-count"), initialCompleted + 2)
+        XCTAssertEqual(totalMinutes(), initialDuration + 120)
+        XCTAssertEqual(count("report-unknown-duration-count"), initialUnknown + 1)
+        attach("A13-report-day")
+        if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
+            app.buttons["report-category-work"].tap()
+            XCTAssertLessThan(count("report-completed-count"), initialCompleted + 2)
+            app.buttons["Все"].tap()
+            XCTAssertEqual(count("report-completed-count"), initialCompleted + 2)
+        }
         app.buttons["Неделя"].tap()
         let period = app.buttons["Выбрать период"]
         let original = period.value as? String
         app.buttons["Следующий период"].tap()
         XCTAssertNotEqual(period.value as? String, original)
+        if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
+            XCTAssertTrue(app.staticTexts["За этот период нет событий"].waitForExistence(timeout: 5))
+        }
         app.buttons["Предыдущий период"].tap()
         XCTAssertEqual(period.value as? String, original)
         app.buttons["studio-tab-0"].tap()
@@ -283,11 +320,50 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertEqual(period.value as? String, original)
         let chart = app.otherElements["report-chart"].firstMatch
         XCTAssertTrue(chart.waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Записать"].tap()
+        let collapse = app.buttons["Свернуть"]
+        XCTAssertTrue(collapse.waitForExistence(timeout: 5))
+        collapse.tap()
+        let compactStop = app.buttons["compact-recording-stop"]
+        XCTAssertTrue(compactStop.waitForExistence(timeout: 5))
+        XCTAssertTrue(compactStop.isHittable)
+        attach("A14-report-week-recording")
+        compactStop.tap()
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).tap()
         let back = app.buttons["Вернуться к отчёту за неделю"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
         back.tap()
         XCTAssertEqual(period.value as? String, original)
+
+        app.buttons["Месяц"].tap()
+        let month = period.value as? String
+        let today = Date.now.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "ru_RU")))
+        let day = app.buttons.matching(identifier: "report-month-day")
+            .matching(NSPredicate(format: "label == %@", today)).firstMatch
+        XCTAssertTrue(day.waitForExistence(timeout: 5), app.debugDescription)
+        attach("A15-report-month")
+        for _ in 0..<6 where !day.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        day.tap()
+        let backToMonth = app.buttons["Вернуться к отчёту за месяц"]
+        XCTAssertTrue(backToMonth.waitForExistence(timeout: 5))
+        XCTAssertEqual(period.value as? String, today)
+        backToMonth.tap()
+        XCTAssertEqual(period.value as? String, month)
+
+        if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
+            app.terminate()
+            app.launchArguments = [
+                "-UIPreferredContentSizeCategoryName",
+                UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+            ]
+            app.launch()
+            app.buttons["studio-tab-2"].tap()
+            app.buttons["Неделя"].tap()
+            XCTAssertTrue(chart.waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["Следующий период"].isHittable)
+            XCTAssertTrue(app.buttons["Записать"].isHittable)
+            attach("A14-report-largest-text")
+        }
     }
 
     @MainActor

@@ -93,31 +93,56 @@ struct StudioRootView: View {
         recordingBar.padding(.horizontal, 20).padding(.vertical, 12).background(StudioTheme.background)
     }
 
+    @ViewBuilder
     private var recordingBar: some View {
-        HStack(spacing: 14) {
-            Button(action: openRecorder) {
-                HStack {
-                    Image(systemName: service.isRecording ? "waveform" : "mic.fill").font(.title2)
-                    Text(service.isRecording ? "Идёт запись" : service.isStarting ? "Запускается…" : "Записать")
-                        .font(.title3.weight(.semibold))
-                    if service.isRecording, let start = service.recordingStartedAt {
-                        Spacer()
-                        Text(start, style: .timer).monospacedDigit()
+        if service.isRecording {
+            HStack(alignment: .bottom, spacing: 10) {
+                Button(action: openRecorder) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Circle().fill(StudioTheme.coral).frame(width: 7, height: 7)
+                                .accessibilityHidden(true)
+                            Text("Идёт запись").font(.subheadline.weight(.semibold))
+                            Spacer(minLength: 0)
+                            if let start = service.recordingStartedAt {
+                                StudioElapsedTime(start: start)
+                                    .font(.subheadline)
+                                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            }
+                        }
+                        StudioWaveform(service: service).frame(height: 24)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity).frame(minHeight: 60)
-            }
-            .disabled(service.isStarting)
-            if service.isRecording {
                 Button { service.stop() } label: {
-                    Image(systemName: "stop.fill").font(.title2).frame(width: 50, height: 54)
-                }.accessibilityLabel("Остановить")
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .background(Circle().strokeBorder(StudioTheme.coral, lineWidth: 2))
+                }
+                .accessibilityLabel("Остановить")
+                .accessibilityIdentifier("compact-recording-stop")
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(StudioTheme.coral)
+            .padding(12)
+            .background(StudioTheme.coral.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18).strokeBorder(StudioTheme.coral.opacity(0.25))
+                    .allowsHitTesting(false)
+            }
+        } else {
+            Button(action: openRecorder) {
+                Label(service.isStarting ? "Запускается…" : "Записать", systemImage: "mic.fill")
+                    .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 60)
+                    .foregroundStyle(StudioTheme.background)
+                    .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: 26))
+            }
+            .buttonStyle(.plain)
+            .disabled(service.isStarting)
         }
-        .foregroundStyle(service.isRecording ? StudioTheme.coral : StudioTheme.background)
-        .padding(.horizontal, 16)
-        .background(service.isRecording ? StudioTheme.surface : StudioTheme.mint, in: RoundedRectangle(cornerRadius: 26))
-        .buttonStyle(.plain)
     }
 }
 
@@ -200,12 +225,9 @@ struct StudioRecorderView: View {
                     .foregroundStyle(service.isRecording ? StudioTheme.text : StudioTheme.coral)
                     .accessibilityIdentifier("recorder-status")
             }
-            TimelineView(.periodic(from: service.recordingStartedAt ?? .distantPast, by: 1)) { context in
-                let elapsed = max(0, Int(context.date.timeIntervalSince(service.recordingStartedAt ?? context.date)))
-                Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60))
-                    .font(.system(size: 72, weight: .light)).monospacedDigit()
-                    .accessibilityIdentifier("recorder-timer")
-            }
+            StudioElapsedTime(start: service.recordingStartedAt)
+                .font(.system(size: 72, weight: .light))
+                .accessibilityIdentifier("recorder-timer")
             StudioWaveform(service: service).frame(height: 140)
             Spacer()
             Button {
@@ -251,8 +273,21 @@ struct StudioRecorderView: View {
     }
 }
 
+private struct StudioElapsedTime: View {
+    let start: Date?
+
+    var body: some View {
+        TimelineView(.periodic(from: start ?? .distantPast, by: 1)) { context in
+            let elapsed = max(0, Int(context.date.timeIntervalSince(start ?? context.date)))
+            Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60))
+                .monospacedDigit()
+        }
+    }
+}
+
 private struct StudioWaveform: View {
     let service: RecordingService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var levels = Array(repeating: Float(0), count: 48)
     var body: some View {
         GeometryReader { geometry in
@@ -263,7 +298,11 @@ private struct StudioWaveform: View {
                 }
             }.frame(maxHeight: .infinity)
         }
-        .task {
+        .task(id: reduceMotion) {
+            if reduceMotion {
+                levels = Array(repeating: 0, count: levels.count)
+                return
+            }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(80)) }
                 catch { return }
