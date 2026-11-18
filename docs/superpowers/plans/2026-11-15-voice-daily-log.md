@@ -64,7 +64,7 @@
 - [x] Measure word errors, elapsed time, and the candidate model footprint. Keep Apple as the default. Details and exclusions are in [ASR evaluation](../../asr-evaluation.md).
 - [x] Verify editable text, retained audio after failure, and a successful retry through the replaceable transcriber interface. Runtime availability probes cover the installed Russian recognizers.
 - [x] Verify saved one-minute and five-minute audio files complete processing with the device offline. A natural locked Action Button note with offline capture and processing was also confirmed at 56 seconds.
-- [ ] Verify one continuous five-minute spoken capture and transcription with the phone offline throughout. The five-minute reboot capture and the five-minute offline fixture were separate runs.
+- [x] Verify one continuous five-minute spoken capture and transcription with the phone offline throughout. Build 22 saved a 299.9-second locked Action Button capture at the automatic limit and transcribed its final phrase before the owner restored connectivity. See [device validation](../../device-validation.md#five-minute-offline-capture-and-transcription-on-iphone).
 - [ ] Compare battery impact and measure recognition quality on a larger natural Russian corpus.
 
 ### Task 4: Event extraction and editing

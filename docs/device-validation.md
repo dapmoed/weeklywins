@@ -174,3 +174,9 @@ The local package is at `/private/tmp/weeklywins-device23.4GqvCI/DerivedData/Bui
 ### Simulator regression after the event extraction changes
 
 At revision `85ae026`, the unit suite passed 106 tests with 4 device-only skips and no failures. The system Action Button UI test passed separately in 60.462 seconds on iPhone 16 Pro Simulator. It verified two background button presses, a new recording identity, persistence across relaunch and playback of that recording. This run exercised the Simulator system shortcut, while physical locked-screen results remain documented under build 22. Log at /private/tmp/weeklywins-final-parser-action-button.log.
+
+### Five-minute offline capture and transcription on iPhone
+
+On 18 November, the owner confirmed a successful manual run on build 22, starting with one Action Button hold on the locked iPhone 16 Pro, airplane mode on and Wi-Fi off. The owner checked the 5:00 recording and the final phrase in its transcript before restoring connectivity. The radio conditions are from the owner's confirmation.
+
+The device journal logged intent entry and capture start at 09:43:54 UTC and automatic stop at 09:48:56 UTC, with no intervening intent. The stored recording `7D8DC9DC-BC99-4AD6-8B37-F522CA2399C1` has 299.9 seconds of audio and completed transcription. The recognizer logged six on-device legacy windows through 09:49:04 UTC. The persisted text contains 596 word tokens and the expected final phrase near the end. Only metadata and diagnostic evidence are recorded here. Recognition accuracy was not scored for this run.

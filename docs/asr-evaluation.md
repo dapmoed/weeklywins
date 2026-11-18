@@ -22,7 +22,7 @@ Environment: iPhone 17 Pro Simulator, iOS 26.5, Xcode 26.6.
 
 Apple Speech is the default. On iPhone 16 Pro with iOS 27.2.1, Apple exposes Russian through the on-device legacy recognizer. The app uses bounded recognition windows for longer recordings. The controlled Apple and Whisper comparison and verified offline Apple measurements are below. The production app does not bundle Whisper or transmit audio for recognition.
 
-The current adapter processed both the 60-second and 300-second fixtures with the phone offline. Build 22 also recorded and transcribed a natural 56-second note from the locked Action Button without network access. A separate 299.9-second natural capture after reboot verified automatic finalization and persisted a transcript. Network isolation was not required for that particular capture. The natural-speech accuracy corpus and a comparative discharge measurement remain open.
+The current adapter processed both the 60-second and 300-second fixtures with the phone offline. Build 22 also recorded and transcribed naturally spoken notes from the locked Action Button without network access, including a 56-second note and a continuous 299.9-second run with automatic stop and the expected final phrase in the transcript. The owner confirmed the radio state for those natural runs. The natural-speech accuracy corpus and a comparative discharge measurement remain open. [Physical acceptance evidence](device-validation.md#five-minute-offline-capture-and-transcription-on-iphone).
 
 ## Physical iPhone probe, build 14
 
