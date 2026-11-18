@@ -115,3 +115,11 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 The largest-text UI case supplies the UIKit accessibility XXXL category as a process argument, asserts its actual effect on text geometry and verifies reachable collapse/stop controls. The following tests launch with their ordinary arguments. Screenshots and visual-comparison notes are in docs/design/verification/README.md. Sol reviewed the implementation and both actual A05 screenshots and found no substantial issues.
 
 Before the final ordinary run, generated recordings on WeeklyWins Shortcuts QA were backed up to /private/tmp/weeklywins-qa18-before-final-regression and its Documents directory was reset. This backup includes the measured five-minute file and manifest. The other Simulator data and the physical phone were preserved. WeeklyWins Shortcuts QA is the only booted Simulator. No physical build was installed in this stage.
+
+## Build 22 with the long Russian event parser
+
+The signed build was installed on the physical iPhone 16 Pro and CoreDevice reported bundle version 22. A baseline of recording identities was saved locally before installation. The physical offline locked-screen check requires the owner to speak, hold the Action Button twice and report any unlock prompt. The diagnostic journal and new saved recording can be compared against the baseline after reconnection.
+
+On the iPhone 16 Pro Simulator, the full build 22 run passed 114 cases, skipped 8 and failed 0. The real Simulator Action Button test passed in 58.955 seconds. It exercised background start and stop, retained the new recording through relaunch and played that exact source. The separate in-app flow saved a manually entered transcript and opened the resulting card from Today. The full run is in /private/tmp/weeklywins-build22-full.log.
+
+The focused report suite passed all seven checks at /private/tmp/weeklywins-report22.log. Its new persistent-store integration covers day, week and month with different expected event ranges. After a category and duration edit, a second event's deletion and a store reload, the three totals changed to 30, 40 and 45 minutes respectively. The test verifies the query results after save and reload. A live view edit across all tabs and visual readability on the physical phone remain separate checks.

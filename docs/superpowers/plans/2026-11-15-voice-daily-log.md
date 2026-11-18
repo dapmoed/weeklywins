@@ -50,7 +50,7 @@
 - [x] Define one recording identity, start timestamp, duration, file URL, processing state, and error state in local storage.
 - [x] Add tests for the 5-minute stop, double stop, interruption, and recovery after relaunch; run the focused test target and observe failures.
 - [x] Implement capture and atomic finalization; make UI and intent call the same recording service; pass focused tests.
-- [ ] Verify recordings on the physical device, including locked screen and background use. Deferred: iPhone is disconnected; simulator covers app-owned recording behavior, not OS Action Button dispatch.
+- [ ] Verify recordings on the physical device, including locked screen and background use. The build 14 short locked run and the build 22 Simulator system Action Button run are documented in docs/device-validation.md. Build 22 physical acceptance remains open.
 
 ### Task 3: Offline Russian transcription selection and integration
 
@@ -80,8 +80,8 @@
 
 **Files:** `WeeklyWins/Timeline/TodayView.swift`, `WeeklyWins/Reports/ReportQuery.swift`, `WeeklyWins/Reports/ReportView.swift`, `WeeklyWinsTests/ReportTests.swift`.
 
-- [ ] Test ordering, local day boundaries, timezone changes, unknown duration exclusion, and report updates after edits/deletion.
-- [ ] Implement one query source for all periods and category grouping; pass tests.
+- [x] Test ordering, local day boundaries, timezone changes, unknown duration exclusion, and report updates after edits/deletion. ReportTests verifies distinct period ranges and persisted edits.
+- [x] Implement one query source for all periods and category grouping; pass tests. ReportView uses ReportQuery for Today and all selected periods.
 - [ ] Check readable presentation of many short events and a few long events on the physical device.
 
 ### Task 6: Conditional cloud text fallback

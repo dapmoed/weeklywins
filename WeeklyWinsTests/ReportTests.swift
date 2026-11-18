@@ -2,6 +2,51 @@ import XCTest
 @testable import WeeklyWins
 
 final class ReportTests: XCTestCase {
+    @MainActor
+    func testEventEditsAndDeletionReachAllReportPeriodsAfterReload() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-18T12:00:00Z"))
+        var calendar = ReportQuery.calendar
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 5 * 3600))
+        let recording = try store.beginRecording(startedAt: date)
+        try Data([1, 2, 3]).write(to: store.fileURL(for: recording))
+        try store.finalizeRecording(id: recording.id, duration: 1)
+
+        let newer = DiaryEvent(recordingID: recording.id, sourceText: "Отчёт", text: "Отчёт",
+                               category: .work, occurredAt: date, duration: 3600)
+        let older = DiaryEvent(recordingID: recording.id, sourceText: "Покупки", text: "Покупки",
+                               category: .home, occurredAt: date.addingTimeInterval(-3600), duration: 900)
+        let sameWeek = DiaryEvent(recordingID: recording.id, sourceText: "Созвон", text: "Созвон",
+                                  occurredAt: date.addingTimeInterval(-2 * 86400), duration: 600)
+        let sameMonth = DiaryEvent(recordingID: recording.id, sourceText: "Ремонт", text: "Ремонт",
+                                   occurredAt: date.addingTimeInterval(-6 * 86400), duration: 300)
+        let baseline = [older, sameMonth, newer, sameWeek]
+        try store.saveEvents(recordingID: recording.id, events: baseline)
+
+        var edited = newer
+        edited.category = .home
+        edited.duration = 1800
+        let periods: [(ReportPeriod, [DiaryEvent], TimeInterval)] = [
+            (.day, [], 0), (.week, [sameWeek], 600), (.month, [sameWeek, sameMonth], 900)
+        ]
+        for (period, earlierEvents, extraDuration) in periods {
+            let report = ReportQuery.events(in: store.recordings, period: period, date: date, calendar: calendar)
+            XCTAssertEqual(report.map(\.id), [newer.id, older.id] + earlierEvents.map(\.id), period.rawValue)
+            XCTAssertEqual(ReportQuery.knownDuration(report), 4500 + extraDuration, period.rawValue)
+        }
+
+        try store.saveEvents(recordingID: recording.id, events: [edited, sameWeek, sameMonth], expectedEvents: baseline)
+        let restored = RecordingStore(directory: directory)
+        for (period, earlierEvents, extraDuration) in periods {
+            let report = ReportQuery.events(in: restored.recordings, period: period, date: date, calendar: calendar)
+            XCTAssertEqual(report.map(\.id), [newer.id] + earlierEvents.map(\.id), period.rawValue)
+            XCTAssertEqual(report.first?.event.category, .home, period.rawValue)
+            XCTAssertEqual(ReportQuery.knownDuration(report), 1800 + extraDuration, period.rawValue)
+        }
+    }
+
     func testSelectedCalendarDateStaysInSameMonthAfterZoneChange() throws {
         var previous = Calendar(identifier: .gregorian)
         previous.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
