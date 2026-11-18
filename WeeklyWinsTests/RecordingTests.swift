@@ -244,14 +244,26 @@ final class RecordingTests: XCTestCase {
     }
 
     @MainActor
-    func testAudioInterruptionFinalizesRecordingAsInterrupted() async throws {
+    func testAudioInterruptionPreservesAudioAndAllowsNextToggle() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let service = RecordingService(recordingDirectory: directory, maxRecordingDuration: 10)
-        try await service.start()
+        let service = RecordingService(
+            recordingDirectory: directory,
+            maxRecordingDuration: 10,
+            transcriber: RecorderScreenTranscriber()
+        )
+        func assertDecodableAudio(_ url: URL) throws {
+            let audio = try AVAudioFile(forReading: url)
+            let frames = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: audio.processingFormat, frameCapacity: 1_024))
+            try audio.read(into: frames)
+            XCTAssertGreaterThan(frames.frameLength, 0)
+        }
+
+        try await service.toggle()
         defer { service.stop() }
+        try await Task.sleep(for: .milliseconds(500))
         let interruption = Notification(
             name: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance(),
@@ -261,8 +273,29 @@ final class RecordingTests: XCTestCase {
 
         XCTAssertFalse(service.isRecording)
         XCTAssertEqual(service.recordings.count, 1)
-        XCTAssertEqual(service.recordings.first?.state, .interrupted)
         XCTAssertEqual(service.status, "Запись прервана и сохранена")
+
+        let reopened = RecordingStore(directory: directory)
+        let interrupted = try XCTUnwrap(reopened.recordings.first)
+        XCTAssertEqual(interrupted.state, .interrupted)
+        let audioURL = reopened.fileURL(for: interrupted)
+        try assertDecodableAudio(audioURL)
+
+        NotificationCenter.default.post(interruption)
+        XCTAssertEqual(service.recordings.count, 1)
+        try await service.toggle()
+        XCTAssertTrue(service.isRecording)
+        try await Task.sleep(for: .milliseconds(500))
+        try await service.toggle()
+        XCTAssertFalse(service.isRecording)
+
+        let updated = RecordingStore(directory: directory)
+        XCTAssertEqual(updated.recordings.count, 2)
+        XCTAssertEqual(updated.recordings.first(where: { $0.id == interrupted.id })?.state, .interrupted)
+        let next = try XCTUnwrap(updated.recordings.first { $0.id != interrupted.id })
+        XCTAssertEqual(next.state, .saved)
+        try assertDecodableAudio(updated.fileURL(for: next))
+        try assertDecodableAudio(audioURL)
     }
 }
 

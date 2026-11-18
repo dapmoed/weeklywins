@@ -152,3 +152,11 @@ The app and Live Activity extension both report version 0.1.0, build 23. The gen
 On the iPhone 16 Pro Simulator with iOS 26.5, the final ordinary run passed 116 cases, skipped 11 and failed 0. The system Action Button started and stopped capture, and the test opened and played the saved audio after relaunch. The full suite also verified recording, draft recovery, event editing and all three reports. The simulator's original Documents were restored after the run. Full log at /private/tmp/weeklywins-build23-release.log.
 
 The populated report and clean-onboarding trials, plus the maximum-size calendar and settings trial, passed separately. The ordinary suite skips scenarios that require opt-in fixtures, a physical device or the wall-clock five-minute run. See [design verification](design/verification/README.md) for the actual Simulator screenshots. The owner's physical call-interruption test is deferred.
+
+### Interruption and the next recording
+
+On iPhone 16 Pro Simulator with iOS 26.5, the recording service received a synthetic audio-session interruption while capturing through the same toggle used by the Action Button intent. Reopening the store found one interrupted recording and AVAudioFile decoded its saved audio. A duplicate interruption added no recording. The next toggle started a new capture, which saved separately and left the interrupted audio intact. The physical call or route-change check requires an actual device interruption.
+
+### Timing available for the physical Action Button checks
+
+The build 22 checks used the iPhone 16 Pro on iOS 27.2.1. The ordinary and force-quit runs logged intent entry and capture start in the same UTC second. After reboot, intent entry was logged at 07:12:51 UTC and capture at 07:12:52 UTC. The journal has whole-second resolution and starts at intent entry. The time of the physical hold was not recorded, so these timestamps do not measure hold-to-capture latency.

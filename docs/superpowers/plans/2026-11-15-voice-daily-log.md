@@ -39,7 +39,7 @@
 - [x] Implement one toggle intent that starts a file recording when idle and stops it when active. Keep its operation idempotent across repeated invocations.
 - [x] On the physical iPhone, grant microphone permission, assign the shortcut to the Action Button, and start and stop a recording while locked. Build 22 passed both the ordinary run and a repeat after force quit.
 - [x] Verify the locked path after an iPhone restart and automatic stop after five minutes. Build 22 stored 299.9 seconds after a single locked Action Button start.
-- [ ] Verify capture recovery after a call or audio-route interruption.
+- [ ] Verify capture recovery after a call or audio-route interruption on iPhone. Simulator coverage verifies persisted audio, duplicate interruption handling and a successful next capture through the toggle.
 - [ ] Record OS version, exact behavior, time from press to capture, produced file duration, and any unlock prompt in `docs/device-validation.md`.
 - [x] Gate: locked start and stop both worked without unlocking and created a valid file. Build 22 produced one fully decodable 56-second recording and completed transcription in airplane mode, with the lock and radio states confirmed by the user.
 
