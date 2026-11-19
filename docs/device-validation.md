@@ -249,7 +249,9 @@ The owner confirmed two subsequent build 30 runs used the composed «Запис�
 
 #### Pause followed by a two-second wait
 
-The owner confirmed one physical build 30 run with the sequence Pause, Wait 2 seconds, then WeeklyWins, with Bluetooth music playing before the hold and the screen locked. The intent started capture at 17:18:58 UTC with built-in microphone/receiver and `otherAudio=false`. A second intent stopped the recorder at 17:19:07 UTC. Recording `85BED35B-D9C3-40BF-AD57-4C6BEB616BD5` saved 8.572 seconds, decoded through EOF, and completed transcription. This confirms that the delayed shortcut can work on the physical phone. Repeatability is still open. The experimental shortcut waits before both start and stop, so its test uses short recordings away from the automatic five-minute stop.
+The owner confirmed three physical build 30 runs with the sequence Pause, Wait 2 seconds, then WeeklyWins. Bluetooth music was playing before the first hold and the phone remained locked for both holds. The journal showed the built-in microphone and receiver route, `otherAudio=false` at capture start, and a second intent to stop each recording. The saved durations were 8.572, 5.180 and 5.692 seconds. FFmpeg decoded all three through EOF and transcription completed for all three.
+
+The experimental shortcut adds the two-second wait before both start and stop. These short runs were away from automatic stop at five minutes. They do not establish behavior when a stop request crosses that boundary, or automatic playback resume.
 
 ### Physical interruption and the next recording on build 25
 
