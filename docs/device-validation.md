@@ -247,6 +247,10 @@ This establishes that Bluetooth can remain connected in that control. The direct
 
 The owner confirmed two subsequent build 30 runs used the composed «Запись с паузой» shortcut after manually pausing playback. Both captured on the built-in route with no other audio observed at activation. The recordings were saved at 3.772 and 2.684 seconds respectively. The first completed transcription and the second was reported as having no recognized speech. The composed shortcut can therefore save audio when playback was paused beforehand. The next single-variable test adds a two-second system Wait between Pause and the WeeklyWins action, starting with Bluetooth music still playing.
 
+#### Pause followed by a two-second wait
+
+The owner confirmed one physical build 30 run with the sequence Pause, Wait 2 seconds, then WeeklyWins, with Bluetooth music playing before the hold and the screen locked. The intent started capture at 17:18:58 UTC with built-in microphone/receiver and `otherAudio=false`. A second intent stopped the recorder at 17:19:07 UTC. Recording `85BED35B-D9C3-40BF-AD57-4C6BEB616BD5` saved 8.572 seconds, decoded through EOF, and completed transcription. This confirms that the delayed shortcut can work on the physical phone. Repeatability is still open. The experimental shortcut waits before both start and stop, so its test uses short recordings away from the automatic five-minute stop.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
