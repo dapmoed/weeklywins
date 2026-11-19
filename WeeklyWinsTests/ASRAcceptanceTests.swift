@@ -25,6 +25,21 @@ final class ASRAcceptanceTests: XCTestCase {
     }
 
     @MainActor
+    func testNativeRussianNaturalCorpus() async throws {
+        try requirePhysicalMeasurement("RUN_DEVICE_NATURAL_ASR")
+        let directory = supportDirectory.appendingPathComponent("ASRNaturalCorpus", isDirectory: true)
+        let fixtures = try loadFixtures(from: directory)
+        XCTAssertFalse(fixtures.isEmpty)
+        for fixture in fixtures {
+            do {
+                try await measureNativeTranscription(fixture, in: directory)
+            } catch {
+                XCTFail("\(fixture.file): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @MainActor
     func testNativeRussianIsolatedProblemWindow() async throws {
         #if targetEnvironment(simulator)
         let isPhysicalDevice = false
@@ -74,26 +89,48 @@ final class ASRAcceptanceTests: XCTestCase {
 
     @MainActor
     private func measureNativeTranscription(fileName: String, requireOffline: Bool = false) async throws {
+        try requirePhysicalMeasurement("RUN_DEVICE_ASR_ACCEPTANCE")
+        let directory = supportDirectory.appendingPathComponent("ASRAcceptance", isDirectory: true)
+        let fixture = try XCTUnwrap(loadFixtures(from: directory).first { $0.file == fileName })
+        let text = try await measureNativeTranscription(fixture, in: directory, requireOffline: requireOffline)
+        let reference = try String(contentsOf: directory.appendingPathComponent(fixture.referenceFile), encoding: .utf8)
+        XCTAssertGreaterThanOrEqual(words(in: text).count, words(in: reference).count * 9 / 10, "The result may be incomplete.")
+        if fileName == "ru-five-minute.m4a" {
+            XCTAssertTrue(text.lowercased().contains("инструкц"), "The middle-of-recording task is missing.")
+        }
+        let ending = words(in: text).suffix(20).joined(separator: " ")
+        XCTAssertNotNil(ending.range(of: #"\bпоследн\p{L}+\s+замет\p{L}+\b"#, options: .regularExpression),
+                        "The ending marker is missing.")
+    }
+
+    private var supportDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
+
+    private func requirePhysicalMeasurement(_ flag: String) throws {
         #if targetEnvironment(simulator)
         let isPhysicalDevice = false
         #else
         let isPhysicalDevice = true
         #endif
         try XCTSkipUnless(
-            isPhysicalDevice && ProcessInfo.processInfo.environment["RUN_DEVICE_ASR_ACCEPTANCE"] == "1",
-            "Enable TEST_RUNNER_RUN_DEVICE_ASR_ACCEPTANCE=1 on the physical device with staged fixtures."
+            isPhysicalDevice && ProcessInfo.processInfo.environment[flag] == "1",
+            "Enable TEST_RUNNER_\(flag)=1 on the physical device with staged fixtures."
         )
+    }
 
-        let directory = try XCTUnwrap(FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first)
-            .appendingPathComponent("ASRAcceptance", isDirectory: true)
+    private func loadFixtures(from directory: URL) throws -> [Fixture] {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let fixtures = try decoder.decode([Fixture].self, from: Data(contentsOf: directory.appendingPathComponent("fixtures.json")))
-        let fixture = try XCTUnwrap(fixtures.first { $0.file == fileName })
+        return try decoder.decode([Fixture].self, from: Data(contentsOf: directory.appendingPathComponent("fixtures.json")))
+    }
+
+    @MainActor @discardableResult
+    private func measureNativeTranscription(_ fixture: Fixture, in directory: URL, requireOffline: Bool = false) async throws -> String {
         let audioURL = directory.appendingPathComponent(fixture.file)
         let audioData = try Data(contentsOf: audioURL)
         let hash = SHA256.hash(data: audioData).map { String(format: "%02x", $0) }.joined()
-        XCTAssertEqual(hash, fixture.sha256)
+        guard hash == fixture.sha256 else { throw MeasurementError.fixtureMismatch }
         let reference = try String(contentsOf: directory.appendingPathComponent(fixture.referenceFile), encoding: .utf8)
         let referenceWords = words(in: reference)
         let file = try AVAudioFile(forReading: audioURL)
@@ -170,14 +207,7 @@ final class ASRAcceptanceTests: XCTestCase {
         let resultURL = directory.appendingPathComponent(audioURL.deletingPathExtension().lastPathComponent + ".native-report.json")
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: resultURL, options: .atomic)
         if let failure { throw failure }
-        let text = try XCTUnwrap(transcript)
-        XCTAssertGreaterThanOrEqual(words(in: text).count, referenceWords.count * 9 / 10, "The result may be incomplete.")
-        if fileName == "ru-five-minute.m4a" {
-            XCTAssertTrue(text.lowercased().contains("инструкц"), "The middle-of-recording task is missing.")
-        }
-        let ending = words(in: text).suffix(20).joined(separator: " ")
-        XCTAssertNotNil(ending.range(of: #"\bпоследн\p{L}+\s+замет\p{L}+\b"#, options: .regularExpression),
-                        "The ending marker is missing.")
+        return try XCTUnwrap(transcript)
     }
 
     private func waitForOfflineNetwork() async throws -> NetworkSnapshot {
@@ -238,11 +268,12 @@ final class ASRAcceptanceTests: XCTestCase {
     }
 
     private enum MeasurementError: LocalizedError {
-        case timedOut, offlineNotReached
+        case timedOut, offlineNotReached, fixtureMismatch
         var errorDescription: String? {
             switch self {
             case .timedOut: return "Native recognition did not finish within 180 seconds."
             case .offlineNotReached: return "The device did not reach an offline network state within 180 seconds."
+            case .fixtureMismatch: return "The staged audio hash does not match its fixture manifest."
             }
         }
     }

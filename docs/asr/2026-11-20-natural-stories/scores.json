@@ -1,0 +1,307 @@
+{
+  "summary": {
+    "stories": 16,
+    "audio_seconds": 2172.203,
+    "reference_words": 4351,
+    "apple": {
+      "word_errors": 1337,
+      "word_error_rate": 0.30728568145253965,
+      "stories_lower_wer": 16
+    },
+    "whisper": {
+      "word_errors": 2007,
+      "word_error_rate": 0.46127327051252587,
+      "stories_lower_wer": 0
+    }
+  },
+  "stories": [
+    {
+      "file": "Sib_01-f.m4a",
+      "reference_file": "Sib_01-f.txt",
+      "sha256": "ff09912f0014028b90c0fa1e1089a4e0922e900eb43a097adfe16c7f5edd91ee",
+      "duration_seconds": 144.823938,
+      "reference_sha256": "0d41e1c68f2d1ec56831c097cac089983b6f3bca8192d48c6ff62886a37e1624",
+      "reference_words": 273,
+      "apple": {
+        "word_errors": 64,
+        "output_words": 234,
+        "processing_seconds": 3.488
+      },
+      "whisper": {
+        "word_errors": 121,
+        "output_words": 235,
+        "processing_seconds": 3.28
+      }
+    },
+    {
+      "file": "Sib_02-f.m4a",
+      "reference_file": "Sib_02-f.txt",
+      "sha256": "cd2f08d26183d58da2065a9a82ca04fce681d60692aa82006ac4803d341f498e",
+      "duration_seconds": 122.828813,
+      "reference_sha256": "1397352152f51d1c27f92187be2f3c2750db3b08b62acb2d45bf0011b3885204",
+      "reference_words": 255,
+      "apple": {
+        "word_errors": 60,
+        "output_words": 238,
+        "processing_seconds": 2.999
+      },
+      "whisper": {
+        "word_errors": 102,
+        "output_words": 228,
+        "processing_seconds": 2.704
+      }
+    },
+    {
+      "file": "Sib_03-m.m4a",
+      "reference_file": "Sib_03-m.txt",
+      "sha256": "147e729b480c92d80ceb0f05a804fbb53f018f9a8e278b6997f6c9ae870b11fe",
+      "duration_seconds": 96.131688,
+      "reference_sha256": "6b790ab8111cb0daa0b833039cfa621bd47fbc222059836f7c6aacbcafeb476f",
+      "reference_words": 174,
+      "apple": {
+        "word_errors": 73,
+        "output_words": 138,
+        "processing_seconds": 2.772
+      },
+      "whisper": {
+        "word_errors": 104,
+        "output_words": 137,
+        "processing_seconds": 2.139
+      }
+    },
+    {
+      "file": "Sib_04-m.m4a",
+      "reference_file": "Sib_04-m.txt",
+      "sha256": "4b7c2637b7285a5ee798910486dffeef936396d3fa0803035d1148e00ae91605",
+      "duration_seconds": 74.998625,
+      "reference_sha256": "747d48a335447b5c8acb271b411200f0a1421ed7a931984e11037e44a813d2ca",
+      "reference_words": 195,
+      "apple": {
+        "word_errors": 55,
+        "output_words": 179,
+        "processing_seconds": 2.463
+      },
+      "whisper": {
+        "word_errors": 89,
+        "output_words": 199,
+        "processing_seconds": 1.899
+      }
+    },
+    {
+      "file": "Sib_05-m.m4a",
+      "reference_file": "Sib_05-m.txt",
+      "sha256": "cb2f148cc29f9e6fb42549daa9a0eea000cf8a0f7697f6a17f86eb93b1ba0100",
+      "duration_seconds": 221.284313,
+      "reference_sha256": "259d676b165ea365abd85729581bb654debe55eeab2d337879a5d3a6359e1b21",
+      "reference_words": 486,
+      "apple": {
+        "word_errors": 179,
+        "output_words": 389,
+        "processing_seconds": 6.132
+      },
+      "whisper": {
+        "word_errors": 260,
+        "output_words": 390,
+        "processing_seconds": 4.804
+      }
+    },
+    {
+      "file": "Sib_06-f.m4a",
+      "reference_file": "Sib_06-f.txt",
+      "sha256": "5ceda9407522807b1dd6fc00ee9c17abc15deeef5180061053e2b3f6f965ddda",
+      "duration_seconds": 54.022313,
+      "reference_sha256": "bc5f9712b20d8ca10748e518d6e7a090ef5bdbdc7c918628bb5f0ac77a2e53df",
+      "reference_words": 103,
+      "apple": {
+        "word_errors": 45,
+        "output_words": 81,
+        "processing_seconds": 2.734
+      },
+      "whisper": {
+        "word_errors": 68,
+        "output_words": 93,
+        "processing_seconds": 1.542
+      }
+    },
+    {
+      "file": "Sib_07-f.m4a",
+      "reference_file": "Sib_07-f.txt",
+      "sha256": "54f44b59064a490fcf3616e2abc365255c95d9ba8b8dacc34bfc98b074283d0a",
+      "duration_seconds": 137.065563,
+      "reference_sha256": "2903cf5fc8649580a5a7d8350169266638cb7dabe71b567445fb58be5c66f116",
+      "reference_words": 374,
+      "apple": {
+        "word_errors": 116,
+        "output_words": 340,
+        "processing_seconds": 6.965
+      },
+      "whisper": {
+        "word_errors": 194,
+        "output_words": 353,
+        "processing_seconds": 3.53
+      }
+    },
+    {
+      "file": "Sib_08-f.m4a",
+      "reference_file": "Sib_08-f.txt",
+      "sha256": "5caa07cb408e3321d35a4a3ec9d180205b38537885aba2ab5e5ded473bc1f833",
+      "duration_seconds": 140.957813,
+      "reference_sha256": "a144a07e189b234d2326504dc7ca0b77db0a86e380343854aafa0bac00a73dbc",
+      "reference_words": 306,
+      "apple": {
+        "word_errors": 55,
+        "output_words": 284,
+        "processing_seconds": 3.28
+      },
+      "whisper": {
+        "word_errors": 111,
+        "output_words": 273,
+        "processing_seconds": 3.316
+      }
+    },
+    {
+      "file": "Sib_09-m.m4a",
+      "reference_file": "Sib_09-m.txt",
+      "sha256": "415c487626a33ac66e3eb51523739319e6509e65e371ef301f0bb7ebbe55c2b8",
+      "duration_seconds": 198.270438,
+      "reference_sha256": "d40f9bc00a1ddf62843484e06763859199e39ea29447b9fbfe34acf7286dd84f",
+      "reference_words": 398,
+      "apple": {
+        "word_errors": 114,
+        "output_words": 339,
+        "processing_seconds": 6.531
+      },
+      "whisper": {
+        "word_errors": 190,
+        "output_words": 331,
+        "processing_seconds": 4.14
+      }
+    },
+    {
+      "file": "Sib_10-m.m4a",
+      "reference_file": "Sib_10-m.txt",
+      "sha256": "773d8aa6a3514bc2ebd1023247bb3a343daa2e41c7438c9e6d0779069cd73e69",
+      "duration_seconds": 161.8035,
+      "reference_sha256": "918e2c89afec0e7cd1c322fb931978ec9a25a63948faf9bd90847c15e28529af",
+      "reference_words": 273,
+      "apple": {
+        "word_errors": 53,
+        "output_words": 257,
+        "processing_seconds": 3.769
+      },
+      "whisper": {
+        "word_errors": 76,
+        "output_words": 260,
+        "processing_seconds": 3.083
+      }
+    },
+    {
+      "file": "Sib_11-m.m4a",
+      "reference_file": "Sib_11-m.txt",
+      "sha256": "b98143ea36652a78bca38f6419cfafff16b0f5251300eab2bdd74dc876a7645f",
+      "duration_seconds": 134.21825,
+      "reference_sha256": "016dd68dd91b1496b6e7bfb24ba069e42c8450a89cbe8e0a07dc6402498e15b7",
+      "reference_words": 203,
+      "apple": {
+        "word_errors": 93,
+        "output_words": 164,
+        "processing_seconds": 3.412
+      },
+      "whisper": {
+        "word_errors": 102,
+        "output_words": 160,
+        "processing_seconds": 2.309
+      }
+    },
+    {
+      "file": "Sib_12-f.m4a",
+      "reference_file": "Sib_12-f.txt",
+      "sha256": "49c42532d4c064b9490548b8d1195b70fd41828e6e9a33273facdf6b6be1b25a",
+      "duration_seconds": 123.377375,
+      "reference_sha256": "4bcd7397db2a46935db6a2f2bc4cba5d9857c45d74575f4a8d40eeeefee43f78",
+      "reference_words": 321,
+      "apple": {
+        "word_errors": 132,
+        "output_words": 277,
+        "processing_seconds": 8.244
+      },
+      "whisper": {
+        "word_errors": 153,
+        "output_words": 309,
+        "processing_seconds": 2.929
+      }
+    },
+    {
+      "file": "Sib_13-f.m4a",
+      "reference_file": "Sib_13-f.txt",
+      "sha256": "0ccb1391ce6fd0e7c421a794c32c8c63b18ea1dbc9861edb975e0b2cd0f98f19",
+      "duration_seconds": 168.934938,
+      "reference_sha256": "80aa74084e7b0854e0cb10104bca015dfd68323927f883bdd49f4f5f02f37757",
+      "reference_words": 238,
+      "apple": {
+        "word_errors": 90,
+        "output_words": 199,
+        "processing_seconds": 4.128
+      },
+      "whisper": {
+        "word_errors": 127,
+        "output_words": 216,
+        "processing_seconds": 4.857
+      }
+    },
+    {
+      "file": "Sib_14-f.m4a",
+      "reference_file": "Sib_14-f.txt",
+      "sha256": "bdff1e3741a57a484a8f246bb133c067a6759bcc116db1c63645ee9d5cf35f6f",
+      "duration_seconds": 62.198625,
+      "reference_sha256": "2180e6b41b14a4a24932caec9908d8f78cc6beab7f3c7aad8f1193446b92df34",
+      "reference_words": 79,
+      "apple": {
+        "word_errors": 6,
+        "output_words": 76,
+        "processing_seconds": 1.165
+      },
+      "whisper": {
+        "word_errors": 25,
+        "output_words": 80,
+        "processing_seconds": 1.26
+      }
+    },
+    {
+      "file": "Sib_15-f.m4a",
+      "reference_file": "Sib_15-f.txt",
+      "sha256": "105a8225527692cae56d961451b5141ed3b819b52e1b7bcb00d1dedff970bebf",
+      "duration_seconds": 228.41575,
+      "reference_sha256": "77148d01c736478fa8194164fb090ebe586ff5b5ff040f7c8e8832437ed6f560",
+      "reference_words": 563,
+      "apple": {
+        "word_errors": 169,
+        "output_words": 498,
+        "processing_seconds": 9.914
+      },
+      "whisper": {
+        "word_errors": 228,
+        "output_words": 503,
+        "processing_seconds": 5.004
+      }
+    },
+    {
+      "file": "Sib_16-m.m4a",
+      "reference_file": "Sib_16-m.txt",
+      "sha256": "1ecc7943ebc0acc1409b9da90005e999a39fa3f77e0cf8fd85bd451431c26979",
+      "duration_seconds": 102.87125,
+      "reference_sha256": "66cbaa3479e6bd1f852a3289cc425cd9c87e5fbb9cdf131debdd7278b58b984e",
+      "reference_words": 110,
+      "apple": {
+        "word_errors": 33,
+        "output_words": 102,
+        "processing_seconds": 2.127
+      },
+      "whisper": {
+        "word_errors": 57,
+        "output_words": 90,
+        "processing_seconds": 1.622
+      }
+    }
+  ]
+}

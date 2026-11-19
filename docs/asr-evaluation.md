@@ -153,8 +153,25 @@ The owner read an [84-word diary script](../scripts/asr-fixtures/ru-natural-user
 | Apple Speech on iPhone | 84 | 3 | 3.57% |
 | Whisper Base Q5_1 on Mac | 85 | 12 | 14.29% |
 
-The scorer folds case and «ё» and compares word tokens as written. All three Apple differences arose from formatting «двадцати» as `20` and «половине шестого» as `05:30`. The spoken phrase leaves the half of the day unspecified. This is one read sample from one speaker. Spontaneous speech across a larger corpus and comparative battery consumption remain open.
+The scorer folds case and «ё» and compares word tokens as written. All three Apple differences arose from formatting «двадцати» as `20` and «половине шестого» as `05:30`. The spoken phrase leaves the half of the day unspecified. This is one read sample from one speaker.
+
+## Spontaneous Russian life stories
+
+The [Siberian life stories corpus](https://spokencorpora.ru/showcorpus.py?dir=01life) contains 17 spontaneous adult monologues with human transcripts. We selected all 16 recordings at or below WeeklyWins' five-minute limit, totaling 36 minutes and 12 seconds. The excluded recording is 302.42 seconds in the catalog. Both recognizers processed the same SHA-256-verified mono 16 kHz AAC files. Apple Speech ran through WeeklyWins build 32 on iPhone 16 Pro running iOS 27.2.1. The Whisper replay used whisper.cpp v1.9.5 with multilingual Base Q5_1, greedy Russian decoding and four CPU threads on the Mac.
+
+| Recognizer | Reference words | Word errors | Strict WER | Stories with lower WER |
+| --- | ---: | ---: | ---: | ---: |
+| Apple Speech on iPhone | 4,351 | 1,337 | 30.73% | 16 of 16 |
+| Whisper Base Q5_1 on Mac | 4,351 | 2,007 | 46.13% | 0 of 16 |
+
+The reference uses the corpus's minimal transcription, strips pause durations and unintelligible markers and takes the first listed alternative where the annotators offered several. Word-level distance uses the same case, punctuation and «ё» normalization as the controlled runs. The aggregate divides total word errors by total reference words. Remaining differences can include overlapping speakers, disfluencies, and uncertain words in the corpus. These monologues broaden the comparison beyond the owner's diary dictation. Their scores do not set an expected WER for WeeklyWins diaries.
+
+Keep Apple Speech as the default based on the controlled and human-speech comparisons. Aggregate evidence and hashes are in [the natural corpus report](asr/2026-11-20-natural-stories/scores.json). The preparation script and device test allow the comparison to be repeated without adding the source recordings or transcripts to Git. [Corpus transcription conventions](https://spokencorpora.ru/showtranshelp.py).
+
+To repeat, run `python3 scripts/prepare-natural-asr-corpus.py /private/tmp/weeklywins-natural-corpus`, then stage that directory in `Library/Application Support/ASRNaturalCorpus` in the Debug app's data container. Run `WeeklyWinsTests/ASRAcceptanceTests/testNativeRussianNaturalCorpus` through `scripts/device-test-session.py run` with `TEST_RUNNER_RUN_DEVICE_NATURAL_ASR=1`. Recover the `*.native-report.json` files from that directory. For the local comparison, decode the staged AAC clips to PCM WAV and run `whisper-cli` with Base Q5_1 and `-l ru -t 4 -bs 1 -ng`. Score both results against the prepared texts with `scripts/evaluate-asr-reports.py`. The script's fixed ending marker applies only to the controlled fixtures.
 
 ## Comparative battery measurement
 
 Use Instruments Power Profiler on the same iPhone with wireless debugging and the charger disconnected. Apple reports zero for overall system power while the device is charging. Use the system track for the comparison because Apple Speech can do work in system processes. Collect an idle baseline and repeated runs of each engine with the same verified audio and number of transcriptions. Keep display brightness and radio settings fixed, alternate engine order, and record the charging and thermal states. Compare the battery energy over each workload window against the idle baseline and report the variation between repeats. [Apple Power Profiler guide](https://developer.apple.com/documentation/Xcode/measuring-your-app-s-power-use-with-power-profiler).
+
+The iPhone reported `unplugged`, nominal thermal state and 95% charge throughout the Apple natural corpus run. This observation has insufficient resolution for a comparison. The stock CLI Power Profiler template rejected the all-processes target because of its Location Energy Model instrument. Attaching to WeeklyWins stalled at start. Activity Monitor with the Power Profiler instrument reached its time limit, then stalled at trace finalization. No usable power trace was captured. The phone confirmed the awake test session had ended after each attempt.

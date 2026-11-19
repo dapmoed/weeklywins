@@ -66,7 +66,8 @@
 - [x] Verify editable text, retained audio after failure, and a successful retry through the replaceable transcriber interface. Runtime availability probes cover the installed Russian recognizers.
 - [x] Verify saved one-minute and five-minute audio files complete processing with the device offline. A natural locked Action Button note with offline capture and processing was also confirmed at 56 seconds.
 - [x] Verify one continuous five-minute spoken capture and transcription with the phone offline throughout. Build 22 saved a 299.9-second locked Action Button capture at the automatic limit and transcribed its final phrase before the owner restored connectivity. See [device validation](../../device-validation.md#five-minute-offline-capture-and-transcription-on-iphone).
-- [ ] Compare battery impact and measure recognition quality on a larger natural Russian corpus. One user-read 84-word sample has a written reference and results for both recognizers. The earlier 33-clip replay lacks independent references. See [ASR evaluation](../../asr-evaluation.md#russian-diary-script-read-aloud-by-the-owner).
+- [x] Measure recognition quality on a larger natural Russian corpus. The owner-read sample and a 16-story corpus with human references both favored Apple Speech over Whisper Base Q5_1. See [ASR evaluation](../../asr-evaluation.md#spontaneous-russian-life-stories).
+- [ ] Compare battery impact of both recognizers on the same iPhone under a matched workload. A wireless Apple Speech run confirmed unplugged operation, but no comparative power trace was captured.
 
 ### Task 4: Event extraction and editing
 
