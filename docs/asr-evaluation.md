@@ -132,3 +132,14 @@ The set contains diary notes, counting and button checks, and recordings with ba
 - The two approximately five-minute recordings yielded 596 versus 567 normalized word tokens and 88 versus 401, respectively (saved Apple Speech versus local Whisper). The first was the continuous offline diary check and its Apple transcript contains the expected ending. The second was the automatic-stop check after reboot. Whisper produced distinct timestamped text to 4:59, including apparent background speech. The word-count gap identifies a sample for further reference-based evaluation. It cannot establish how much intended dictation either engine missed.
 
 The replay supports retaining Apple Speech as the default for short diary capture. It does not settle the accuracy tradeoff on noisy five-minute recordings or measure iPhone battery impact.
+
+## Repeated native offline acceptance, build 32
+
+On 19 November, the iPhone 16 Pro running iOS 27.2.1 processed both hash-verified fixtures through `OnDeviceSpeechTranscriber` with `requiresOnDeviceRecognition`. Before the airplane-mode transition, CoreDevice confirmed a wired USB transport. Each app report then recorded an unsatisfied network path with Wi-Fi, cellular and wired network interfaces all absent. The developer connection dropped when airplane mode was enabled, so XCTest could not return its final result to the host. Both reports had already been written on the phone; they were recovered after connectivity was restored. The device test session was then ended and confirmed `active=false`, `idleTimerDisabled=false`.
+
+| Fixture | Processing | Recognized words | WER | Ending |
+| --- | ---: | ---: | ---: | --- |
+| 60 seconds | 1.559 s | 87 of 89 | 14 errors, 15.73% | Present |
+| 300 seconds | 7.778 s | 474 of 478 | 51 errors, 10.67% | Present |
+
+Both reports show no recognition error. Battery remained at 95% while charging, with nominal thermal state; this observation does not measure energy use. The native Russian SpeechAnalyzer locale remained unavailable, and the on-device legacy recognizer was supported. Raw reports and scores are in [the recovered build 32 reports](asr/2026-11-19-native-offline/).

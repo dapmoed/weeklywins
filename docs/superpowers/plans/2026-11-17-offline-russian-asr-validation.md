@@ -55,7 +55,7 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 - [x] Call OnDeviceSpeechTranscriber.transcribe(audioFileURL:locale:) with ru-RU and record a report on success or failure.
 - [x] Record processing time, audio duration, selected native availability, reference/transcript word counts, complete transcript, terminal error, battery/charging and thermal state.
 - [x] Stage fixtures on the phone and run the one-minute and five-minute cases. Inspect the ending and compute word error rate against the controlled reference.
-- [ ] Verify wired transport before airplane-mode acceptance and restore connectivity to its prior state after the measurement.
+- [x] Verify wired transport before airplane-mode acceptance and restore connectivity to its prior state after the measurement. On 19 November, CoreDevice reported wired USB before the run; the on-device offline reports recorded no network interface; connectivity was restored before reports were recovered and the test session ended.
 - [x] Preserve measured reports locally and summarize evidence in docs/asr-evaluation.md. Seek Sol review and commit/push the completed stage.
 
 ## Task 3 — Duration or lifecycle fixes when established by evidence
@@ -82,3 +82,5 @@ Bounded contextual windows and native timed-partial accumulation now preserve th
 Build 21 compared the two engines on the same iPhone, with hash-verified fixtures and recorded charging and thermal state. See docs/asr-evaluation.md for timing, WER, the default-engine decision and the limits of the comparison. Natural speech, full updated airplane-mode acceptance and measurable energy impact remain open.
 
 Build 21 saved both offline reports on the phone despite the interruption of the host test connection. The recovered reports verify the fixed native recognizer with both controlled files. See docs/asr-evaluation.md.
+
+Build 32 repeated the one-minute and five-minute native cases offline on 19 November. The device saved reports with unsatisfied network paths, 87/89 and 474/478 recognized words, and present ending markers. The host XCTest connection dropped during the airplane-mode transition, but both reports were recovered after connectivity returned and the device test session was confirmed ended. Raw evidence is under `docs/asr/2026-11-19-native-offline/`. Natural-speech accuracy with an independent reference and measurable energy comparison remain open.

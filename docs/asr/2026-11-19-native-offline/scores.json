@@ -1,0 +1,40 @@
+[
+  {
+    "report": "ru-one-minute.native-report.json",
+    "provider": "OnDeviceSpeechTranscriber",
+    "fixture": "ru-one-minute.m4a",
+    "reference_words": 89,
+    "transcript_words": 87,
+    "word_errors": 14,
+    "word_error_rate": 0.15730337078651685,
+    "ending_marker_present": true,
+    "processing_seconds": 1.558589000007487,
+    "audio_seconds": 60,
+    "network_before": {
+      "cellular": false,
+      "is_offline": true,
+      "wifi": false,
+      "wired": false
+    },
+    "error": null
+  },
+  {
+    "report": "ru-five-minute.native-report.json",
+    "provider": "OnDeviceSpeechTranscriber",
+    "fixture": "ru-five-minute.m4a",
+    "reference_words": 478,
+    "transcript_words": 474,
+    "word_errors": 51,
+    "word_error_rate": 0.10669456066945607,
+    "ending_marker_present": true,
+    "processing_seconds": 7.777924750000238,
+    "audio_seconds": 300,
+    "network_before": {
+      "cellular": false,
+      "is_offline": true,
+      "wifi": false,
+      "wired": false
+    },
+    "error": null
+  }
+]
