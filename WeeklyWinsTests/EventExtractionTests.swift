@@ -2,6 +2,40 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    func testNaturalUnpunctuatedDiarySpeechKeepsEachActivitySeparate() {
+        // The fixture uses an authored script, with the formatting observed in Apple's transcript.
+        let text = "вчера после работы я зашёл в магазин у дома и купил хлеб яйца и корм для кота молоко забыл поэтому сегодня утром вернулся за ним дома я приготовил ужин и убрал на кухне на это ушло около 20 минут посуду вечером не мыл оставил её до утра сегодня в 05:30 позвонил Анне и подтвердил встречу на четверг ещё нужно отправить документы и забрать посылку сначала проверю почту потом заеду домой на выходных хочу разобрать коробки в прихожей но ремонт пока начинать не буду"
+        let expected: [(String, EventCompletion)] = [
+            ("вчера после работы", .completed), ("купил хлеб", .completed),
+            ("поэтому сегодня утром вернулся", .completed), ("дома я приготовил ужин", .completed),
+            ("убрал на кухне", .completed), ("посуду вечером не мыл", .notCompleted),
+            ("сегодня в", .completed), ("ещё нужно отправить документы", .notCompleted),
+            ("забрать посылку", .notCompleted), ("сначала проверю почту", .notCompleted),
+            ("заеду домой", .notCompleted), ("на выходных хочу разобрать коробки", .notCompleted),
+            ("но ремонт пока начинать не буду", .notCompleted),
+        ]
+        for input in [text, text.replacingOccurrences(of: "05:30", with: "половине шестого")] {
+            let id = UUID()
+            let events = EventExtractor.extract(input, recordingID: id)
+            XCTAssertEqual(events.count, expected.count)
+            XCTAssertEqual(events.map(\.completion), expected.map { $0.1 })
+            for (event, expected) in zip(events, expected) {
+                XCTAssertTrue(event.text.hasPrefix(expected.0), event.text)
+                XCTAssertTrue(input.contains(event.sourceText), event.sourceText)
+                XCTAssertEqual(event.recordingID, id)
+                XCTAssertNil(event.duration)
+                XCTAssertNil(event.occurredAt)
+            }
+        }
+    }
+
+    func testPendingListKeepsActionsWithinAnExplanationTogether() {
+        let text = "Нужно проверить почему попросили забрать посылку и отправить документы"
+        let events = EventExtractor.extract(text, recordingID: UUID())
+        XCTAssertEqual(events.map(\.sourceText), [text])
+        XCTAssertEqual(events.map(\.completion), [.notCompleted])
+    }
+
     func testSubordinateDescriptionDoesNotChangeMainTaskStatus() {
         for text in ["Проверил как прошла встреча", "Проверил почему сервис не работал"] {
             let events = EventExtractor.extract(text, recordingID: UUID())

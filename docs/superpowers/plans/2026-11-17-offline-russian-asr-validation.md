@@ -68,7 +68,7 @@ Create WeeklyWinsTests/ASRAcceptanceTests.swift and regenerate the project throu
 
 - [x] Choose one maintained multilingual offline model implementation from primary documentation and record its version, license and artifact hash.
 - [x] Compare the same fixture bytes on the device, recording quality, processing time, storage footprint and the available energy observations with their resolution and charging state.
-- [ ] Use natural user speech for an additional accuracy check with an explicit reference.
+- [x] Use natural user speech for an additional accuracy check with an explicit reference. The owner read the 84-word test script, and both recognizers were scored against that reference. See the [recorded results](../../asr-evaluation.md#russian-diary-script-read-aloud-by-the-owner).
 - [x] Document the selected provider and any remaining measurement limits. Update the original Task 3 checkboxes only for requirements with matching evidence.
 
 ## Measurement status
@@ -83,4 +83,4 @@ Build 21 compared the two engines on the same iPhone, with hash-verified fixture
 
 Build 21 saved both offline reports on the phone despite the interruption of the host test connection. The recovered reports verify the fixed native recognizer with both controlled files. See docs/asr-evaluation.md.
 
-Build 32 repeated the one-minute and five-minute native cases offline on 19 November. The device saved reports with unsatisfied network paths, 87/89 and 474/478 recognized words, and present ending markers. The host XCTest connection dropped during the airplane-mode transition, but both reports were recovered after connectivity returned and the device test session was confirmed ended. Raw evidence is under `docs/asr/2026-11-19-native-offline/`. Natural-speech accuracy with an independent reference and measurable energy comparison remain open.
+Build 32 repeated the one-minute and five-minute native cases offline on 19 November. The device saved reports with unsatisfied network paths, 87/89 and 474/478 recognized words, and present ending markers. The host XCTest connection dropped during the airplane-mode transition, but both reports were recovered after connectivity returned and the device test session was confirmed ended. Raw evidence is under `docs/asr/2026-11-19-native-offline/`. The additional dictated sample was scored against its written reference. The larger natural corpus and battery comparison remain open in the original plan.

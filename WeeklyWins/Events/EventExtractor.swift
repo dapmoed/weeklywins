@@ -6,6 +6,9 @@ enum EventExtractor {
     private static let clockDuration = #"\d{1,3}:[0-5]\d"#
     private static let durationQualifier = #"(?:(?:сегодня|вчера|сам[ао]?)\s+)*"#
     private static let timelineActions = #"(?:починил|подготовил|проверил|отправил|сделал|обсудил|разобрал|приготовил|записал|заш[её]л|сходил|купил|помыл|убрал|поменял|сменил|зашла)(?:а|и)?"#
+    private static let futureActions = #"(?:проверю|заеду|позвоню|отправлю|заберу|сделаю|разберу)"#
+    private static let pendingModal = #"(?:нужно|надо|планирую|собираюсь|хочу)"#
+    private static let explanationStart = #"(?i)\b(?:потому\s+что|почему|что|как|когда|чтобы)\b"#
 
     static func extract(_ transcript: String, recordingID: UUID) -> [DiaryEvent] {
         let separated = transcript.replacingOccurrences(
@@ -32,9 +35,10 @@ enum EventExtractor {
             with: ";",
             options: .regularExpression
         ).components(separatedBy: ";").flatMap(splitDirectActions)
+        let activities = fragments.flatMap(splitSpokenActivities).flatMap(splitPendingList)
         var events: [DiaryEvent] = []
         var conflictingDurations: Set<UUID> = []
-        for fragment in fragments {
+        for (fragment, sharesPendingModal) in activities {
             let text = fragment.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
             let clarification = durationClarification(in: text) ?? clockDurationClarification(in: text)
@@ -51,11 +55,40 @@ enum EventExtractor {
                 recordingID: recordingID,
                 sourceText: text,
                 text: text,
-                completion: isPending(text) ? .notCompleted : .completed,
+                completion: sharesPendingModal || isPending(text) ? .notCompleted : .completed,
                 duration: clarification?.duration ?? explicitDuration(in: text)
             ))
         }
         return events
+    }
+
+    private static func splitSpokenActivities(_ fragment: String) -> [String] {
+        let relativeTime = #"(?:(?:поэтому\s+)?(?:сегодня|вчера)\s+(?:утром|вечером|дн[её]м)|(?:сегодня|вчера)\s+в\s+(?:\d{1,2}:[0-5]\d|половине\s+\p{L}+))"#
+        let timedAction = "\(relativeTime)\\s+(?:я\\s+)?(?:\(timelineActions)|вернул(?:ся|ась|ись)|позвонил(?:а|и)?)\\b"
+        let negatedAction = #"\p{L}+\s+(?:утром|вечером|дн[её]м)\s+не\s+(?:мыл|убирал|делал|готовил)(?:а|и)?\b"#
+        let announcedPlan = "(?:ещ[её]\\s+(?:нужно|надо)|сначала\\s+\(futureActions)|на выходных\\s+\(pendingModal))\\b"
+        let excludedPlan = #"но\s+\p{L}+\s+(?:пока\s+)?\p{L}+(?:ть|ти|чь)\s+не\s+буду\b"#
+        let boundary = "\(timedAction)|\(negatedAction)|\(announcedPlan)|\(excludedPlan)"
+
+        // Clauses introduced as reasons or reported speech still belong to their main action.
+        let explanation = fragment.range(of: explanationStart, options: .regularExpression)?.lowerBound ?? fragment.endIndex
+        let split = fragment[..<explanation].replacingOccurrences(
+            of: "(?i)(?<=\\S)(?<!\\bпоэтому)[ \\t]+(?=\(boundary))", with: ";", options: .regularExpression
+        )
+        return (split + fragment[explanation...]).components(separatedBy: ";")
+    }
+
+    private static func splitPendingList(_ fragment: String) -> [(String, Bool)] {
+        let infinitive = #"(?:отправить|забрать|проверить|подготовить|позвонить|купить|убрать)"#
+        guard fragment.range(
+            of: "(?i)^\\s*(?:ещ[её]\\s+)?\(pendingModal)\\s+\(infinitive)\\b", options: .regularExpression
+        ) != nil, fragment.range(of: explanationStart, options: .regularExpression) == nil else {
+            return [(fragment, false)]
+        }
+        let separated = fragment.replacingOccurrences(
+            of: "(?i),?\\s+и\\s+(?=\(infinitive)\\b)", with: ";", options: .regularExpression
+        )
+        return separated.components(separatedBy: ";").map { ($0, true) }
     }
 
     private static func splitDirectActions(_ fragment: String) -> [String] {
@@ -92,7 +125,7 @@ enum EventExtractor {
 
     private static func splitTimelineTransitions(_ text: String) -> String {
         let timeAndPlace = #"(?:(?:сразу\s+)?после\s+(?:встречи|созвона|совещания|обеда|ужина)|перед\s+обедом|на\s+обед|во второй половине дня|в конце рабочего дня|по дороге домой|вернувшись домой[,]?|(?:до\s+)?дома|вечером|отдельно)"#
-        let timeline = "\(timeAndPlace)\\s+(?:не\\s+)?\(timelineActions)\\b"
+        let timeline = "\(timeAndPlace)\\s+(?:я\\s+)?(?:не\\s+)?\(timelineActions)\\b"
         let meeting = #"\bпрош(?:ла|[её]л|ло)\s+(?:встреча|созвон|совещание)\b"#
         let pendingObject = #"(?:сам[ао]?\s+)?(?:письмо|отч[её]т|ответ)\s+(?:ещ[её]\s+)?не\s+(?:отправлял|отправил|закончил)(?:а|и)?\b"#
         let pendingPayment = #"оплачивать\s+\p{L}+(?:\s+(?:сегодня|вчера|ещ[её]))?\s+не\s+стал(?:а|и)?\b"#
@@ -100,7 +133,7 @@ enum EventExtractor {
         let transitions = "\(timeline)|\(meeting)|\(pendingObject)|\(pendingPayment)|\(walk)"
         // Anchors begin a new activity after a previous predicate. An isolated qualifier
         // such as "вчера дома" remains part of the following activity.
-        let pattern = "(?i)(\\b(?:\(timelineActions)|посмотрел(?:а|и)?|ответил(?:а|и)?|написал(?:а|и)?|поставил(?:а|и)?|помыл(?:а|и)?|наш[её]л|нашла|не\\s+стал(?:а|и)?|длилась\\s+\(clockDuration)|заняла\\s+\\d+\\s+минут)\\b[^;.!?\\n]*?)(?<=\\S)(?<!\\bкак)(?<!\\bчто)(?<!\\bкогда)[ \\t]+(?=\(transitions))"
+        let pattern = "(?i)(\\b(?:\(timelineActions)|вернул(?:ся|ась|ись)|посмотрел(?:а|и)?|ответил(?:а|и)?|написал(?:а|и)?|поставил(?:а|и)?|помыл(?:а|и)?|наш[её]л|нашла|не\\s+стал(?:а|и)?|длилась\\s+\(clockDuration)|заняла\\s+\\d+\\s+минут)\\b[^;.!?\\n]*?)(?<=\\S)(?<!\\bкак)(?<!\\bчто)(?<!\\bкогда)[ \\t]+(?=\(transitions))"
         return text.replacingOccurrences(of: pattern, with: "$1;", options: .regularExpression)
     }
 
@@ -108,13 +141,14 @@ enum EventExtractor {
         let leadingNegation = #"^(?:(?:я|мы|сегодня|вчера|дома|утром|вечером)\s+)*не\s+\p{L}+"#
         let negatedVerb = #"\bне\s+(?:\p{L}+(?:л|ла|ли|ло|ет|ит|ют|ат|ят)(?:ся|сь)?|мог|смог|могу|можем)\b"#
         let negatedResult = #"\bне\s+(?:выполнен|отправлен|сделан|закончен|подготовлен|заверш[её]н)[аоы]?\b"#
-        let intent = #"\b(?:планирую|собираюсь|нужно|надо)\b"#
+        let intent = #"\b(?:планирую|собираюсь|нужно|надо|не\s+буду)\b"#
+        let future = "^(?:(?:я|сначала|сегодня|завтра|на выходных)\\s+)*(?:хочу|\(futureActions))\\b"
         let description = text.range(of: #"(?i)\b(?:обсудил(?:а|и)?|проверил(?:а|и)?|уточнил(?:а|и)?)\s*[,]?\s+(?:почему|что|как)\b"#,
                                      options: .regularExpression)
         let recap = text.range(of: #"(?i)\b(?:теперь\s+)?подведу\s+итог(?:и)?\s+дня\b"#, options: .regularExpression)
         let end = [description?.upperBound, recap?.lowerBound].compactMap { $0 }.min() ?? text.endIndex
         let mainClause = text[..<end]
-        return mainClause.range(of: "(?i)\(leadingNegation)|\(negatedVerb)|\(negatedResult)|\(intent)",
+        return mainClause.range(of: "(?i)\(leadingNegation)|\(negatedVerb)|\(negatedResult)|\(intent)|\(future)",
                           options: .regularExpression) != nil
     }
 

@@ -143,3 +143,18 @@ On 19 November, the iPhone 16 Pro running iOS 27.2.1 processed both hash-verifie
 | 300 seconds | 7.778 s | 474 of 478 | 51 errors, 10.67% | Present |
 
 Both reports show no recognition error. Battery remained at 95% while charging, with nominal thermal state; this observation does not measure energy use. The native Russian SpeechAnalyzer locale remained unavailable, and the on-device legacy recognizer was supported. Raw reports and scores are in [the recovered build 32 reports](asr/2026-11-19-native-offline/).
+
+## Russian diary script read aloud by the owner
+
+The owner read an [84-word diary script](../scripts/asr-fixtures/ru-natural-user-diary.txt) in WeeklyWins build 32. The saved recording lasted 41.98 seconds. Apple Speech ran on the iPhone 16 Pro. The same recording was decoded to 16 kHz mono PCM and processed locally on the Mac by whisper.cpp v1.9.5 with multilingual Base Q5_1, Russian selected, and four CPU threads.
+
+| Recognizer | Output words | Word errors against the script | Strict WER |
+| --- | ---: | ---: | ---: |
+| Apple Speech on iPhone | 84 | 3 | 3.57% |
+| Whisper Base Q5_1 on Mac | 85 | 12 | 14.29% |
+
+The scorer folds case and «ё» and compares word tokens as written. All three Apple differences arose from formatting «двадцати» as `20` and «половине шестого» as `05:30`. The spoken phrase leaves the half of the day unspecified. This is one read sample from one speaker. Spontaneous speech across a larger corpus and comparative battery consumption remain open.
+
+## Comparative battery measurement
+
+Use Instruments Power Profiler on the same iPhone with wireless debugging and the charger disconnected. Apple reports zero for overall system power while the device is charging. Use the system track for the comparison because Apple Speech can do work in system processes. Collect an idle baseline and repeated runs of each engine with the same verified audio and number of transcriptions. Keep display brightness and radio settings fixed, alternate engine order, and record the charging and thermal states. Compare the battery energy over each workload window against the idle baseline and report the variation between repeats. [Apple Power Profiler guide](https://developer.apple.com/documentation/Xcode/measuring-your-app-s-power-use-with-power-profiler).
