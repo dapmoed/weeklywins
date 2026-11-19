@@ -245,6 +245,8 @@ The owner confirmed that the direct Action Button action succeeded on build 30 w
 
 This establishes that Bluetooth can remain connected in that control. The direct action and the earlier manual pause both differ from the failing composed shortcut. To separate them, compare the composed shortcut with playback manually paused in advance, leaving the same build, headset and lock conditions.
 
+The owner confirmed two subsequent build 30 runs used the composed «Запись с паузой» shortcut after manually pausing playback. Both captured on the built-in route with no other audio observed at activation. The recordings were saved at 3.772 and 2.684 seconds respectively. The first completed transcription and the second was reported as having no recognized speech. The composed shortcut can therefore save audio when playback was paused beforehand. The next single-variable test adds a two-second system Wait between Pause and the WeeklyWins action, starting with Bluetooth music still playing.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
