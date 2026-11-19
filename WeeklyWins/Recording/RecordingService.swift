@@ -291,7 +291,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
 
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers])
+            try session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .allowBluetoothA2DP])
             RecordingDiagnostics.write("audio session category configured")
         logger.info("audio session category configured")
         } catch {

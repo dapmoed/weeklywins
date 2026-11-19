@@ -57,6 +57,9 @@ final class RecordingServiceTests: XCTestCase {
 
         _ = try await ToggleRecordingIntent().perform()
         XCTAssertTrue(service.isRecording)
+        let options = AVAudioSession.sharedInstance().categoryOptions
+        XCTAssertTrue(options.contains(.mixWithOthers))
+        XCTAssertTrue(options.contains(.allowBluetoothA2DP), "Recording must keep Bluetooth music output available.")
 
         _ = try await ToggleRecordingIntent().perform()
         XCTAssertFalse(service.isRecording)
