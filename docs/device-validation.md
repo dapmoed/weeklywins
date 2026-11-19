@@ -221,6 +221,12 @@ The ordering assertion failed on build 26 and passed with build 27. On iPhone 16
 
 The owner's locked build 27 attempt reached the intent at 16:45:48 UTC. The journal shows the preparing Live Activity started, then both audio-session activation attempts returned `NSOSStatusErrorDomain` code 561015905 (`!pla`). Capture did not reach recorder preparation. The ordering change did not eliminate the activation failure. The next comparison uses the same build and shortcut with Bluetooth switched off, to separate the route from the locked startup context.
 
+#### Background audio route comparison
+
+With Bluetooth switched off in Settings, the owner repeated the same command from the Lock Screen on build 27. The journal shows a built-in microphone and receiver route, a start at 16:47:35 UTC, a second intent to stop at 16:47:41 UTC and successful transcription. Recording `29B65286-6A67-4791-ABC1-14CD239DBEDE` was persisted with a duration of 5.5 seconds. This control suggests a route-dependent issue. It does not establish that removing a session option is equivalent to switching off Bluetooth in Settings.
+
+Build 28 omits `allowBluetoothA2DP` for background recording only, preserves mixing and the start order from build 27, and leaves foreground options intact. The simulator background-options regression failed with build 27 and passed with this change. All 20 focused unit tests and the system Action Button UI test passed. The signed arm64 build was installed on the iPhone. The acceptance comparison keeps Bluetooth enabled on the phone, with the same connected headphones, playback and Pause shortcut. The journal will show the actual route selected for capture.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
