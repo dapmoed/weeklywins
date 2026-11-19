@@ -30,6 +30,8 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     private let transcriber: any Transcriber
     private let backgroundSessionFactory: @MainActor () -> any TranscriptionExecutionSession
     private let isApplicationActive: @MainActor () -> Bool
+    private let activateRecordingSession: @MainActor (AVAudioSession) throws -> Void
+    private let beginAudioCapture: @MainActor (AVAudioRecorder, TimeInterval) -> Bool
     private var automaticTranscriptionTask: Task<Void, Never>?
     private var automaticResumeRequested = false
     private var player: AVAudioPlayer?
@@ -46,13 +48,17 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         maxRecordingDuration: TimeInterval = 300,
         transcriber: any Transcriber = OnDeviceSpeechTranscriber(),
         backgroundSessionFactory: @escaping @MainActor () -> any TranscriptionExecutionSession = { TranscriptionBackgroundSession() },
-        isApplicationActive: @escaping @MainActor () -> Bool = { UIApplication.shared.applicationState == .active }
+        isApplicationActive: @escaping @MainActor () -> Bool = { UIApplication.shared.applicationState == .active },
+        activateRecordingSession: @escaping @MainActor (AVAudioSession) throws -> Void = { try $0.setActive(true) },
+        beginAudioCapture: @escaping @MainActor (AVAudioRecorder, TimeInterval) -> Bool = { $0.record(forDuration: $1) }
     ) {
         store = RecordingStore(directory: recordingDirectory)
         self.maxRecordingDuration = maxRecordingDuration
         self.transcriber = transcriber
         self.backgroundSessionFactory = backgroundSessionFactory
         self.isApplicationActive = isApplicationActive
+        self.activateRecordingSession = activateRecordingSession
+        self.beginAudioCapture = beginAudioCapture
         transcriptionService = TranscriptionService(store: store, transcriber: transcriber)
         super.init()
         refreshRecordings()
@@ -64,7 +70,9 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   AVAudioSession.InterruptionType(rawValue: rawType) == .began else { return }
             MainActor.assumeIsolated {
-                self?.stop(
+                guard let self, self.isRecording else { return }
+                RecordingDiagnostics.write("audio session interruption began")
+                self.stop(
                     statusMessage: "Запись прервана и сохранена",
                     finalState: .interrupted,
                     errorMessage: "Аудиосессия была прервана системой."
@@ -293,14 +301,25 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .allowBluetoothA2DP])
             RecordingDiagnostics.write("audio session category configured")
-        logger.info("audio session category configured")
+            logger.info("audio session category configured")
         } catch {
             logger.error("audio session category failed: \(Self.errorSummary(error), privacy: .public)")
             throw error
         }
+        var didRetryStartup = false
         do {
-            try session.setActive(true)
+            do {
+                try activateRecordingSession(session)
+            } catch let error as NSError where
+                error.domain == NSOSStatusErrorDomain &&
+                error.code == Int(AVAudioSession.ErrorCode.cannotStartPlaying.rawValue) {
+                didRetryStartup = true
+                RecordingDiagnostics.write("audio session activation retry: \(Self.errorSummary(error))")
+                try await Task.sleep(for: .milliseconds(600))
+                try activateRecordingSession(session)
+            }
         } catch {
+            RecordingDiagnostics.write("audio session activation failed: \(Self.errorSummary(error))")
             logger.error("audio session activation failed: \(Self.errorSummary(error), privacy: .public)")
             throw error
         }
@@ -316,6 +335,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
 
         let recording: Recording
         do {
+            try Task.checkCancellation()
             recording = try store.beginRecording(startedAt: .now, automaticTranscriptionPending: true)
         } catch {
             try? session.setActive(false)
@@ -329,15 +349,13 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         do {
-            let newRecorder = try AVAudioRecorder(url: url, settings: settings)
-            newRecorder.isMeteringEnabled = true
-            newRecorder.delegate = self
-            let prepared = newRecorder.prepareToRecord()
-            RecordingDiagnostics.write("recorder prepared=\(prepared)")
-            guard prepared else { throw RecordingError.recorderStartFailed }
-            let started = newRecorder.record(forDuration: maxRecordingDuration)
-            RecordingDiagnostics.write("recorder accepted start=\(started)")
-            guard started else {
+            var startedRecorder = try prepareAndStartRecorder(url: url, settings: settings)
+            if startedRecorder == nil && !didRetryStartup {
+                RecordingDiagnostics.write("recorder start retry")
+                try await Task.sleep(for: .milliseconds(600))
+                startedRecorder = try prepareAndStartRecorder(url: url, settings: settings)
+            }
+            guard let newRecorder = startedRecorder else {
                 throw RecordingError.recorderStartFailed
             }
             RecordingDiagnostics.write("recorder started")
@@ -378,8 +396,23 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         stopTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(self?.maxRecordingDuration ?? 300))
             guard !Task.isCancelled else { return }
+            RecordingDiagnostics.write("recording duration timer reached")
             self?.stop(statusMessage: "Запись сохранена", finalState: .saved)
         }
+    }
+
+    private func prepareAndStartRecorder(url: URL, settings: [String: Any]) throws -> AVAudioRecorder? {
+        let recorder = try AVAudioRecorder(url: url, settings: settings)
+        recorder.isMeteringEnabled = true
+        recorder.delegate = self
+        let prepared = recorder.prepareToRecord()
+        RecordingDiagnostics.write("recorder prepared=\(prepared)")
+        guard prepared else { throw RecordingError.recorderStartFailed }
+        let started = beginAudioCapture(recorder, maxRecordingDuration)
+        RecordingDiagnostics.write("recorder accepted start=\(started)")
+        if started { return recorder }
+        recorder.stop()
+        return nil
     }
 
     func stop() {
@@ -432,6 +465,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         Task { @MainActor [weak self] in
             guard let self, self.recorder === recorder else { return }
+            RecordingDiagnostics.write("audio recorder finished success=\(flag)")
             self.stop(
                 statusMessage: flag ? "Запись сохранена" : "Запись прервана и сохранена",
                 finalState: flag ? .saved : .interrupted

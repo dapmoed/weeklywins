@@ -205,6 +205,12 @@ The tested two-action shortcut is also available as a signed `WeeklyWins-Pause.s
 
 The owner created and assigned the two-action shortcut on the physical iPhone running iOS 27.2.1. They confirmed that the shortcut paused Bluetooth music and that a second Action Button hold saved the recording. On build 25 at 16:27:16 UTC, the journal showed an A2DP output, the built-in microphone and `otherAudio=false` at recorder start. A second intent at 16:27:23 UTC stopped it. Recording `927397DF-C159-4AF5-BFE9-3F0FFB6F2A8A` contains 6.524 seconds of audio, decoded through EOF, with completed transcription. This confirms one successful physical run of the Pause workaround. An earlier attempt at 16:25:48 UTC failed to activate the audio session with `NSOSStatusErrorDomain` code 561015905 (`!pla`). The exact shortcut setup at that earlier attempt was not established.
 
+#### Retry after intermittent start rejection
+
+Additional owner tests on build 25 showed intermittent failure and early completion with the screen locked. The journal contained separate activation refusals with `!pla` and recorder-start refusals with `otherAudio=false`, including with A2DP and with receiver output. It also contained one 6.78-second recording that stopped without a second intent. The previous journal does not identify which system callback ended that capture.
+
+Build 26 makes at most one retry after 600 ms for the documented activation error or a false start from a prepared recorder. A recorder retry creates a new recorder for the same recording file and entry. The build logs session interruption, recorder completion and timer expiry separately. It was installed on the physical iPhone for a repeat. The simulator passed the recording suite and the system Action Button test. Physical repeatability and the source of early completion remain to be verified.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.

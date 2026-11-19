@@ -4,6 +4,102 @@ import AVFoundation
 @testable import WeeklyWins
 
 final class RecordingServiceTests: XCTestCase {
+    @MainActor
+    func testRetryStartsOneRecordingAfterCannotStartPlaying() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var attempts = 0
+        let service = RecordingService(recordingDirectory: directory, activateRecordingSession: { session in
+            attempts += 1
+            if attempts == 1 {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(AVAudioSession.ErrorCode.cannotStartPlaying.rawValue))
+            }
+            try session.setActive(true)
+        })
+        defer { service.stop() }
+
+        try await service.start()
+        XCTAssertTrue(service.isRecording)
+        XCTAssertEqual(attempts, 2)
+        service.stop()
+        XCTAssertEqual(service.recordings.map(\.state), [.saved])
+    }
+
+    @MainActor
+    func testActivationRetryStopsAfterSecondFailureWithoutCreatingRecording() async {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var attempts = 0
+        let errorCode = Int(AVAudioSession.ErrorCode.cannotStartPlaying.rawValue)
+        let service = RecordingService(recordingDirectory: directory, activateRecordingSession: { _ in
+            attempts += 1
+            throw NSError(domain: NSOSStatusErrorDomain, code: errorCode)
+        })
+
+        do {
+            try await service.start()
+            XCTFail("Expected audio-session activation to fail")
+        } catch {
+            XCTAssertEqual((error as NSError).code, errorCode)
+        }
+        XCTAssertEqual(attempts, 2)
+        XCTAssertFalse(service.isRecording)
+        XCTAssertTrue(service.recordings.isEmpty)
+    }
+
+    @MainActor
+    func testRecorderRejectionRetriesWithFreshRecorderAndKeepsOneEntry() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var attempts: [AVAudioRecorder] = []
+        let service = RecordingService(recordingDirectory: directory, beginAudioCapture: { recorder, duration in
+            attempts.append(recorder)
+            return attempts.count > 1 && recorder.record(forDuration: duration)
+        })
+        defer { service.stop() }
+
+        try await service.start()
+        XCTAssertTrue(service.isRecording)
+        XCTAssertEqual(attempts.count, 2)
+        XCTAssertFalse(attempts.first === attempts.last)
+        service.stop()
+        XCTAssertEqual(service.recordings.map(\.state), [.saved])
+    }
+
+    @MainActor
+    func testFailedRecorderDoesNotRetryAfterAudioSessionAlreadyRetried() async {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var activationAttempts = 0
+        var captureAttempts = 0
+        let service = RecordingService(
+            recordingDirectory: directory,
+            activateRecordingSession: { session in
+                activationAttempts += 1
+                if activationAttempts == 1 {
+                    throw NSError(domain: NSOSStatusErrorDomain, code: Int(AVAudioSession.ErrorCode.cannotStartPlaying.rawValue))
+                }
+                try session.setActive(true)
+            },
+            beginAudioCapture: { _, _ in
+                captureAttempts += 1
+                return false
+            }
+        )
+        defer { service.stop() }
+
+        do {
+            try await service.start()
+            XCTFail("Expected the recorder to reject capture")
+        } catch {
+            XCTAssertEqual(error as? RecordingError, .recorderStartFailed)
+        }
+        XCTAssertEqual(activationAttempts, 2)
+        XCTAssertEqual(captureAttempts, 1)
+        XCTAssertFalse(service.isRecording)
+        XCTAssertEqual(service.recordings.map(\.state), [.failed])
+    }
+
     func testActionButtonIntentConformsToAudioRecordingIntent() {
         let _: any AudioRecordingIntent = ToggleRecordingIntent()
         let _: any LiveActivityIntent = ToggleRecordingIntent()
