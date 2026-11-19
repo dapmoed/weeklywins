@@ -193,6 +193,14 @@ A subsequent build 24 failure logged `otherAudio=true` and the same built-in mic
 
 Build 25 allows A2DP output while preserving the mixable play-and-record session. This lets iOS keep Bluetooth music output available without requesting a Bluetooth headset microphone. The simulator regression proves the Action Button configures both mixing and A2DP options. The signed arm64 build 25 was installed on the physical iPhone for the Bluetooth repeat. A route change and successful repeated capture on the device remain to be verified.
 
+#### Build 25 repeat and the system Pause experiment
+
+On iOS 27.2.1, the owner's repeat with Bluetooth headphones reached the intent at 16:01:01 UTC. The session activated with `MicrophoneBuiltIn` / `BluetoothA2DPOutput`, 48 kHz, one input channel, and `otherAudio=true`. Preparation succeeded and `record(forDuration:)` returned false again. A2DP selection alone did not resolve the failure. A subsequent two-second capture with `otherAudio=false` saved successfully. Its log does not establish how playback stopped.
+
+The next experiment keeps build 25 and uses the system Shortcuts action «Воспроизведение/Пауза» in «Приостановить» mode on iPhone, before WeeklyWins «Начать или остановить запись». An editable shortcut can be created with the plus button in Shortcuts. Search for `WeeklyWins` inside the new shortcut's action picker to find the recording action. Turn off «Показать при запуске» for that action, save the shortcut, and select it in the Action Button settings.
+
+On the iPhone 16 Pro Simulator with iOS 26.5, a copy of the shortcut used this order and two editor runs started and stopped WeeklyWins, saving a 17.916-second recording. No music was playing on that simulator. The physical locked run with Bluetooth media playing before the shortcut is still required to test whether system Pause restores capture.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
