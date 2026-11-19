@@ -78,7 +78,7 @@
 - [x] Compare punctuation-only splitting with contextual interpretation. Select the approach that matches all three examples, including event count, duration, completion status and linked source. See [event evaluation](../../event-evaluation.md).
 - [x] Test separate events, source linkage, unknown time and duration, category editing, merge, and deletion. The controlled five-minute Apple transcript regression verifies 13 episodes.
 - [x] Confirm that new suggestions appear in Today immediately and can be corrected later. Simulator cases save a transcript, open a new suggestion in Today, edit it and observe the updated card in all three report periods.
-- [ ] Extend the natural-note corpus with negation and earlier-day recall, and record the expected events.
+- [x] Extend the natural-note corpus with negation and earlier-day recall, and record the expected events. Two existing notes about yesterday exercised distinct completed and unfinished cases with no clock time or duration. The persisted cards and the current extractor agreed. See [event evaluation](../../event-evaluation.md).
 
 ### Task 5: Today and period reports
 
