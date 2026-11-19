@@ -34,7 +34,7 @@ Build the hosted test with `build.sh`. Connect the unlocked iPhone over Wi-Fi an
 
 ```sh
 TEST_RUNNER_RUN_DEVICE_ASR_POWER_BENCHMARK=1 \
-TEST_RUNNER_RUN_DEVICE_ASR_POWER_REPEATS=6 \
+TEST_RUNNER_RUN_DEVICE_ASR_POWER_REPEATS=4 \
 python3 scripts/device-test-session.py run --device "$device_id" --command \
   xcodebuild -xctestrun "$xctestrun" -destination "platform=iOS,id=$device_id" \
     -parallel-testing-enabled NO -test-timeouts-enabled YES \
@@ -43,8 +43,17 @@ python3 scripts/device-test-session.py run --device "$device_id" --command \
     test-without-building
 ```
 
-The test runs Apple Speech, Whisper, Whisper and Apple Speech with idle periods of at least 25 seconds between workloads and at the endpoints. It waits up to 90 extra seconds in each idle period for the phone to return to nominal thermal state. Each workload transcribes the same verified five-minute fixture the same number of times using fresh recognizers. The test checks for unplugged operation, nominal thermal state during workloads and stable brightness. It writes completed blocks incrementally to `Library/Application Support/ASRAcceptance/power-workloads.json`. Match the timestamps or `ASRPowerBenchmark` signposts to the power trace and account for unequal processing time when integrating energy. The battery percentage is a coarse cross-check. After the run, restore the standard signed build in place.
+The test runs Apple Speech, Whisper, Whisper and Apple Speech with idle periods of at least 25 seconds between workloads and at the endpoints. It waits up to 90 extra seconds in each idle period for the phone to return to nominal thermal state. Each workload transcribes the same verified five-minute fixture the same number of times using fresh recognizers. The engines use the same pause pattern between transcriptions to limit heating. The test checks for unplugged operation, nominal thermal state during workloads and stable brightness. It writes completed blocks incrementally to `Library/Application Support/ASRAcceptance/power-workloads.json`. Match the timestamps or `ASRPowerBenchmark` signposts to the power trace and account for unequal processing time when integrating energy. The battery percentage is a coarse cross-check. After the run, restore the standard signed build in place.
 
 If wireless Instruments recording stalls, set up Performance Trace in the iPhone's Developer settings. Enable Power Profiler, add the Performance Trace control to Control Center and start it before the test command. Stop it after the final idle block. Export the trace to the Mac and open it in Instruments. [Apple's steps for recording and exporting on the iPhone](https://developer.apple.com/documentation/Xcode/measuring-your-app-s-power-use-with-power-profiler).
 
 In the system power track, read the average battery percentage per hour for each complete workload and its neighboring idle intervals at matched brightness and thermal state. Multiply the workload rate minus the idle rate by the workload duration in hours, then divide by the number of transcriptions. Report both samples per recognizer, together with the idle rates. A small or noisy difference may call for more repeats.
+
+Alternatively, on an already trusted Wi-Fi connection, use the battery diagnostic sampler with Python 3.12 and uv. Start it before the workload command, leave it running until the final idle block has finished, then stop it. The sampler makes read-only queries and prints only power-source fields and timestamps.
+
+```sh
+uv run --script scripts/whisper-benchmark/sample-battery-current.py "$device_id" 1000 > battery-current.ndjson
+python3 scripts/whisper-benchmark/evaluate-battery-current.py power-workloads.json battery-current.ndjson
+```
+
+The diagnostic result uses each fresh device update once and estimates discharge power as negative battery current times battery voltage. It uses only samples inside each interval, subtracts the adjacent idle power and reports an approximate energy per transcription for each workload. Report the actual device refresh cadence and sample counts. The one-second poll interval does not improve the device's sensor refresh rate.

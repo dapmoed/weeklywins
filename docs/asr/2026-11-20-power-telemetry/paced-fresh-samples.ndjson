@@ -1,0 +1,9 @@
+{"InstantAmperage": -240, "Voltage": 4212, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 89, "UpdateTime": 1795117459, "reader_unix_seconds": 1795117459.797402, "poll_seconds": 0.0579}
+{"InstantAmperage": -85, "Voltage": 4219, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 89, "UpdateTime": 1795117479, "reader_unix_seconds": 1795117479.553563, "poll_seconds": 0.0978}
+{"InstantAmperage": -2088, "Voltage": 4093, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 89, "UpdateTime": 1795117499, "reader_unix_seconds": 1795117499.482575, "poll_seconds": 0.1001}
+{"InstantAmperage": -2169, "Voltage": 4085, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 88, "UpdateTime": 1795117501, "reader_unix_seconds": 1795117501.573015, "poll_seconds": 0.094}
+{"InstantAmperage": -116, "Voltage": 4199, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 88, "UpdateTime": 1795117521, "reader_unix_seconds": 1795117521.496345, "poll_seconds": 0.0963}
+{"InstantAmperage": -115, "Voltage": 4198, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 88, "UpdateTime": 1795117541, "reader_unix_seconds": 1795117541.4203, "poll_seconds": 0.1008}
+{"InstantAmperage": -82, "Voltage": 4201, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 88, "UpdateTime": 1795117561, "reader_unix_seconds": 1795117561.339761, "poll_seconds": 0.0976}
+{"InstantAmperage": -2488, "Voltage": 4070, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 88, "UpdateTime": 1795117581, "reader_unix_seconds": 1795117581.256674, "poll_seconds": 0.0947}
+{"InstantAmperage": -1842, "Voltage": 4079, "ExternalConnected": false, "IsCharging": false, "CurrentCapacity": 87, "UpdateTime": 1795117597, "reader_unix_seconds": 1795117596.986009, "poll_seconds": 0.0888}

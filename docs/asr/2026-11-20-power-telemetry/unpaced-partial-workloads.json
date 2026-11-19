@@ -1,0 +1,85 @@
+{
+  "blocks" : [
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 25.058612540999999,
+      "finished_at" : "2026-11-19T19:40:07.633Z",
+      "started_at" : "2026-11-19T19:39:42.575Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 49.363363792000001,
+      "finished_at" : "2026-11-19T19:40:57.002Z",
+      "started_at" : "2026-11-19T19:40:07.639Z",
+      "transcriptions" : 6,
+      "workload" : "apple"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 55.313772792000002,
+      "finished_at" : "2026-11-19T19:41:52.317Z",
+      "started_at" : "2026-11-19T19:40:57.003Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 1
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 45.772672333999999,
+      "finished_at" : "2026-11-19T19:42:38.095Z",
+      "started_at" : "2026-11-19T19:41:52.322Z",
+      "transcriptions" : 6,
+      "workload" : "whisper"
+    }
+  ],
+  "expected_blocks" : 9,
+  "fixture" : "ru-five-minute.m4a",
+  "fixture_sha256" : "faa7712283d6c5288479fc35dbc476542fb3ba9352c2d608d464696088607bf6",
+  "run_started_at" : "2026-11-19T19:39:42.574Z",
+  "system_version" : "27.2.1"
+}

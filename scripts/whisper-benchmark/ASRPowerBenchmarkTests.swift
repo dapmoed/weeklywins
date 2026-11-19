@@ -21,8 +21,10 @@ final class ASRPowerBenchmarkTests: XCTestCase {
         throw XCTSkip("Power measurements require a physical device.")
         #else
         try XCTSkipUnless(environment["RUN_DEVICE_ASR_POWER_BENCHMARK"] == "1")
-        let repeats = try XCTUnwrap(Int(environment["RUN_DEVICE_ASR_POWER_REPEATS"] ?? "6"))
+        let repeats = try XCTUnwrap(Int(environment["RUN_DEVICE_ASR_POWER_REPEATS"] ?? "4"))
         guard (1...40).contains(repeats) else { throw BenchmarkError.invalidBatch }
+        // Non-uniform gaps reduce heating and avoid locking the workloads to one battery sensor sampling phase.
+        let gaps = [5, 12, 7, 14, 9]
 
         let resources = Bundle(for: Self.self)
         let audio = try XCTUnwrap(resources.url(forResource: "ru-five-minute", withExtension: "m4a"))
@@ -74,7 +76,7 @@ final class ASRPowerBenchmarkTests: XCTestCase {
                         try await Task.sleep(for: .seconds(5))
                     }
                 case .apple, .whisper:
-                    for _ in 0..<repeats {
+                    for repetition in 0..<repeats {
                         try Task.checkCancellation()
                         try requireComparableState(batterySnapshot(screen), initialBrightness: initialBrightness)
                         let text: String
@@ -91,6 +93,9 @@ final class ASRPowerBenchmarkTests: XCTestCase {
                         }
                         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                             throw BenchmarkError.emptyTranscript
+                        }
+                        if repetition + 1 < repeats {
+                            try await Task.sleep(for: .seconds(gaps[repetition % gaps.count]))
                         }
                     }
                 }
@@ -110,7 +115,7 @@ final class ASRPowerBenchmarkTests: XCTestCase {
             let report: [String: Any] = [
                 "fixture": audio.lastPathComponent, "fixture_sha256": hash,
                 "system_version": UIDevice.current.systemVersion, "expected_blocks": sequence.count,
-                "run_started_at": runStartedAt, "blocks": results,
+                "run_started_at": runStartedAt, "pause_pattern_seconds": gaps, "blocks": results,
             ]
             try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
                 .write(to: output, options: .atomic)

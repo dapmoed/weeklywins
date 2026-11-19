@@ -1,0 +1,73 @@
+{
+  "blocks" : [
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 25.009384292,
+      "finished_at" : "2026-11-19T19:44:56.483Z",
+      "started_at" : "2026-11-19T19:44:31.473Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 56.478813625000001,
+      "finished_at" : "2026-11-19T19:45:52.968Z",
+      "started_at" : "2026-11-19T19:44:56.489Z",
+      "transcriptions" : 4,
+      "workload" : "apple"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 0.89999997615814209,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 25.007406667000001,
+      "finished_at" : "2026-11-19T19:46:17.977Z",
+      "started_at" : "2026-11-19T19:45:52.969Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    }
+  ],
+  "expected_blocks" : 9,
+  "fixture" : "ru-five-minute.m4a",
+  "fixture_sha256" : "faa7712283d6c5288479fc35dbc476542fb3ba9352c2d608d464696088607bf6",
+  "pause_pattern_seconds" : [
+    5,
+    12,
+    7,
+    14,
+    9
+  ],
+  "run_started_at" : "2026-11-19T19:44:31.473Z",
+  "system_version" : "27.2.1"
+}
