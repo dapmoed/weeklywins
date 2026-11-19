@@ -302,13 +302,12 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
 
         let session = AVAudioSession.sharedInstance()
         let startsFromBackground = !isApplicationActive()
-        let category: AVAudioSession.Category = startsFromBackground ? .record : .playAndRecord
         let categoryOptions: AVAudioSession.CategoryOptions = startsFromBackground
-            ? []
+            ? [.mixWithOthers]
             : [.mixWithOthers, .allowBluetoothA2DP]
         do {
-            try session.setCategory(category, mode: .default, options: categoryOptions)
-            RecordingDiagnostics.write("audio session category configured: \(category.rawValue)")
+            try session.setCategory(.playAndRecord, mode: .default, options: categoryOptions)
+            RecordingDiagnostics.write("audio session category configured")
             logger.info("audio session category configured")
         } catch {
             logger.error("audio session category failed: \(Self.errorSummary(error), privacy: .public)")

@@ -235,6 +235,10 @@ Build 29 requests the public input-only `.record` category in the background. Fo
 
 The category regression failed on build 28 and passed on build 29. The simulator run passed 20 focused unit tests and the system Action Button start/stop/playback test. The signed arm64 build 29 was installed on the connected iPhone for the physical comparison.
 
+The owner's build 29 repeat reached the intent at 17:05:31 UTC with permission granted. It started the preparing Live Activity and configured `.record`, but iOS rejected activation with 560557684 (`cannotInterruptOthers`). The recorder was never reached. The foreground path and five-minute behavior had not been changed, but the physical result rejects this background category as a fix for the Bluetooth scenario.
+
+Build 30 restores the mixable audio configuration from build 28 and has been installed on the iPhone. The two device traces show different policy failures with the two configurations. The Bluetooth failure remains unresolved. The previously confirmed Bluetooth-off capture remains documented above.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.

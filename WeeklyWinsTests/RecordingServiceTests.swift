@@ -16,8 +16,7 @@ final class RecordingServiceTests: XCTestCase {
             activateRecordingSession: { session in
                 let newActivities = Activity<RecordingAttributes>.activities.filter { !existingActivities.contains($0.id) }
                 XCTAssertEqual(newActivities.count, 1, "The Live Activity must already exist before the background audio session activates.")
-                XCTAssertEqual(session.category, .record, "Background capture must request the input-only recording category.")
-                XCTAssertFalse(session.categoryOptions.contains(.mixWithOthers))
+                XCTAssertTrue(session.categoryOptions.contains(.mixWithOthers))
                 XCTAssertFalse(session.categoryOptions.contains(.allowBluetoothA2DP), "Background recording must not request the Bluetooth output route.")
                 try session.setActive(true)
             }
