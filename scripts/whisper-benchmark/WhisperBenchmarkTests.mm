@@ -2,6 +2,7 @@
 #import <CommonCrypto/CommonDigest.h>
 #import <UIKit/UIKit.h>
 #import <XCTest/XCTest.h>
+#import "WhisperBenchmarkBridge.h"
 #include <memory>
 #include "whisper.h"
 
@@ -11,8 +12,7 @@ static NSDictionary *batterySnapshot(void) {
              @"thermal_state": @(NSProcessInfo.processInfo.thermalState)};
 }
 
-static NSDictionary *measure(NSBundle *bundle, NSString *name, NSURL *model) {
-    NSURL *audioURL = [bundle URLForResource:name withExtension:@"m4a"];
+NSDictionary<NSString *, id> *WWMeasureWhisper(NSURL *audioURL, NSURL *model) {
     double start = NSProcessInfo.processInfo.systemUptime;
     NSError *error = nil;
     AVAudioFile *file = [[AVAudioFile alloc] initForReading:audioURL error:&error];
@@ -55,7 +55,7 @@ static NSDictionary *measure(NSBundle *bundle, NSString *name, NSURL *model) {
     NSMutableString *hash = [NSMutableString string];
     for (unsigned char byte : bytes) [hash appendFormat:@"%02x", byte];
 
-    return @{@"fixture": [name stringByAppendingPathExtension:@"m4a"],
+    return @{@"fixture": audioURL.lastPathComponent,
              @"sha256": hash, @"audio_seconds": @(pcm.frameLength / 16000.0),
              @"provider": @"whisper.cpp v1.9.5 Base Q5_1, CPU, 4 threads",
              @"transcript": transcript, @"processing_seconds": @(elapsed),
@@ -89,7 +89,10 @@ static NSDictionary *measure(NSBundle *bundle, NSString *name, NSURL *model) {
     for (NSString *name in @[@"ru-one-minute", @"ru-five-minute"]) {
         @autoreleasepool {
             NSDictionary *before = batterySnapshot();
-            NSMutableDictionary *report = [measure(bundle, name, model) mutableCopy];
+            NSURL *audioURL = [bundle URLForResource:name withExtension:@"m4a"];
+            XCTAssertNotNil(audioURL);
+            if (!audioURL) continue;
+            NSMutableDictionary *report = [WWMeasureWhisper(audioURL, model) mutableCopy];
             report[@"model"] = manifest;
             report[@"battery_before"] = before;
             report[@"battery_after"] = batterySnapshot();

@@ -41,8 +41,10 @@ for path in WeeklyWins WeeklyWinsTests WeeklyWinsActionButtonUITests; do
     rsync -a --delete "$repo/$path/" "$path/"
 done
 mkdir -p WhisperResources
-cp "$script_dir/WhisperBenchmarkTests.mm" .
+cp "$script_dir/WhisperBenchmarkTests.mm" "$script_dir/WhisperBenchmarkBridge.h" .
+cp "$script_dir/ASRPowerBenchmarkTests.swift" .
 cp "$work/$model" "$fixtures/ru-one-minute.m4a" "$fixtures/ru-five-minute.m4a" WhisperResources/
+cp "$fixtures/fixtures.json" WhisperResources/asr-power-fixtures.json
 cp "$source_dir/LICENSE" WhisperResources/whisper.cpp-LICENSE.txt
 printf '{"revision":"%s","sha256":"%s","bytes":%s}\n' \
     "$revision" "$model_sha" "$(stat -f %z "$work/$model")" > WhisperResources/whisper-build.json
@@ -54,11 +56,13 @@ targets:
   WeeklyWinsTests:
     sources:
       - path: WhisperBenchmarkTests.mm
+      - path: ASRPowerBenchmarkTests.swift
       - path: WhisperResources
         buildPhase: resources
     settings:
       base:
         CLANG_ENABLE_OBJC_ARC: YES
+        SWIFT_OBJC_BRIDGING_HEADER: WhisperBenchmarkBridge.h
         GCC_OPTIMIZATION_LEVEL: 3
         HEADER_SEARCH_PATHS:
           - "$source_dir/include"
