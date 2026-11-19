@@ -227,6 +227,14 @@ With Bluetooth switched off in Settings, the owner repeated the same command fro
 
 Build 28 omits `allowBluetoothA2DP` for background recording only, preserves mixing and the start order from build 27, and leaves foreground options intact. The simulator background-options regression failed with build 27 and passed with this change. All 20 focused unit tests and the system Action Button UI test passed. The signed arm64 build was installed on the iPhone. The acceptance comparison keeps Bluetooth enabled on the phone, with the same connected headphones, playback and Pause shortcut. The journal will show the actual route selected for capture.
 
+Build 28 selected the receiver and built-in microphone after the music paused. The physical series still included false recorder starts, an activation failure and a separate 8.188-second successful recording. With iPhone Console streaming over USB, a further locked repeat failed at 16:57:07–08 UTC. Console tied the failure to WeeklyWins' input audio queue. iOS logged that the mixable `PlayAndRecord/Default` session lacked an assertion to start mixable playback, and `AudioSessionSetClientPlayState` returned 2003329396 (`what`). The audio session had activated and the input queue and converter had been created. The issue occurred when starting that queue.
+
+#### Input-only background capture
+
+Build 29 requests the public input-only `.record` category in the background. Foreground capture still uses mixable `.playAndRecord` with A2DP. The existing short startup retry, early Live Activity, recorder format and 300-second limit are retained. The locked physical comparison uses the same Pause shortcut. It must verify that iOS authorizes the nonmixable input session and that both Action Button presses work.
+
+The category regression failed on build 28 and passed on build 29. The simulator run passed 20 focused unit tests and the system Action Button start/stop/playback test. The signed arm64 build 29 was installed on the connected iPhone for the physical comparison.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
