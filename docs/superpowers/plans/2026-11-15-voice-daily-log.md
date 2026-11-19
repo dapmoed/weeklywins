@@ -89,7 +89,7 @@
 - [x] Test ordering, local day boundaries, timezone changes, unknown duration exclusion, and report updates after edits/deletion. ReportTests verifies distinct period ranges and persisted edits.
 - [x] Implement one query source for all periods and category grouping; pass tests. ReportView uses ReportQuery for Today and all selected periods.
 - [x] Check readable presentation and day drilldown on iPhone 16 Pro Simulator with a populated week and maximum Dynamic Type. See [design verification](../../design/verification/README.md).
-- [ ] Check readable presentation of many short events and a few long events on the physical device if needed after the Simulator verification.
+- [x] Check readable presentation of many short events and a few long events. The iPhone 16 Pro Simulator verified day, week and month with 45 mixed-duration events, including maximum Dynamic Type on the weekly screen. The conditional physical follow-up was not needed for this layout check. See [design verification](../../design/verification/README.md#a13a15-отчёты).
 
 ### Task 6: Conditional cloud text fallback
 
