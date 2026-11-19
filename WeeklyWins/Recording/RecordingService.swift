@@ -279,7 +279,10 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         completedRecordingID = nil
         isStarting = true
         status = "Запись запускается"
-        defer { isStarting = false }
+        defer {
+            if !isRecording { endRecordingActivity() }
+            isStarting = false
+        }
 
         RecordingDiagnostics.write("requesting microphone permission")
         logger.info("requesting microphone permission")
@@ -305,6 +308,9 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         } catch {
             logger.error("audio session category failed: \(Self.errorSummary(error), privacy: .public)")
             throw error
+        }
+        if !isApplicationActive() {
+            try requestRecordingActivity(preparing: true)
         }
         var didRetryStartup = false
         do {
@@ -362,7 +368,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             logger.info("recorder started")
             recorder = newRecorder
             activeRecordingID = recording.id
-            recordingStartedAt = recording.recordedAt
+            recordingStartedAt = .now
             isRecording = true
             status = "Запись идёт"
         } catch {
@@ -379,19 +385,16 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             throw error
         }
 
-        let attributes = RecordingAttributes()
-        do {
-            activity = try Activity.request(
-                attributes: attributes,
-                content: .init(state: .init(startedAt: .now), staleDate: .now.addingTimeInterval(300))
-            )
-            RecordingDiagnostics.write("recording Live Activity started")
-            logger.info("recording Live Activity started")
-        } catch {
-            RecordingDiagnostics.write("Live Activity failed \(Self.errorSummary(error))")
-            logger.error("Live Activity start failed: \(Self.errorSummary(error), privacy: .public)")
-            stop(statusMessage: "Запись сохранена", finalState: .saved)
-            throw error
+        if let activity {
+            let content = recordingActivityContent(preparing: false)
+            Task { await activity.update(content) }
+        } else {
+            do {
+                try requestRecordingActivity(preparing: false)
+            } catch {
+                stop(statusMessage: "Запись сохранена", finalState: .saved)
+                throw error
+            }
         }
         stopTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(self?.maxRecordingDuration ?? 300))
@@ -399,6 +402,29 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             RecordingDiagnostics.write("recording duration timer reached")
             self?.stop(statusMessage: "Запись сохранена", finalState: .saved)
         }
+    }
+
+    private func recordingActivityContent(preparing: Bool) -> ActivityContent<RecordingAttributes.ContentState> {
+        let start = recordingStartedAt ?? .now
+        return .init(state: .init(startedAt: start, isPreparing: preparing), staleDate: start.addingTimeInterval(maxRecordingDuration))
+    }
+
+    private func requestRecordingActivity(preparing: Bool) throws {
+        do {
+            activity = try Activity.request(attributes: RecordingAttributes(), content: recordingActivityContent(preparing: preparing))
+            RecordingDiagnostics.write("recording Live Activity started preparing=\(preparing)")
+            logger.info("recording Live Activity started")
+        } catch {
+            RecordingDiagnostics.write("Live Activity failed \(Self.errorSummary(error))")
+            logger.error("Live Activity start failed: \(Self.errorSummary(error), privacy: .public)")
+            throw error
+        }
+    }
+
+    private func endRecordingActivity() {
+        guard let activity else { return }
+        self.activity = nil
+        Task { await activity.end(nil, dismissalPolicy: .immediate) }
     }
 
     private func prepareAndStartRecorder(url: URL, settings: [String: Any]) throws -> AVAudioRecorder? {
@@ -454,10 +480,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             status = "Запись завершена, но не удалось сохранить состояние: \(error.localizedDescription)"
             logger.error("recording finalization failed: \(Self.errorSummary(error), privacy: .public)")
         }
-        if let activity {
-            Task { await activity.end(nil, dismissalPolicy: .immediate) }
-            self.activity = nil
-        }
+        endRecordingActivity()
         try? AVAudioSession.sharedInstance().setActive(false)
         resumeAutomaticTranscription(userInitiatedRecordingID: userInitiatedRecordingID)
     }

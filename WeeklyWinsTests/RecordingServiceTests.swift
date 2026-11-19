@@ -1,9 +1,29 @@
 import XCTest
 import AppIntents
 import AVFoundation
+import ActivityKit
 @testable import WeeklyWins
 
 final class RecordingServiceTests: XCTestCase {
+    @MainActor
+    func testBackgroundActivationStartsAfterLiveActivityRequest() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let existingActivities = Set(Activity<RecordingAttributes>.activities.map(\.id))
+        let service = RecordingService(
+            recordingDirectory: directory,
+            isApplicationActive: { false },
+            activateRecordingSession: { session in
+                let newActivities = Activity<RecordingAttributes>.activities.filter { !existingActivities.contains($0.id) }
+                XCTAssertEqual(newActivities.count, 1, "The Live Activity must already exist before the background audio session activates.")
+                try session.setActive(true)
+            }
+        )
+        defer { service.stop() }
+        try await service.start()
+        XCTAssertTrue(service.isRecording)
+    }
+
     @MainActor
     func testRetryStartsOneRecordingAfterCannotStartPlaying() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

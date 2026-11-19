@@ -5,15 +5,17 @@ import WidgetKit
 struct RecordingActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RecordingAttributes.self) { context in
-            Label("Идёт запись", systemImage: "waveform")
+            Label(context.state.isPreparing == true ? "Запускается…" : "Идёт запись", systemImage: "waveform")
                 .padding()
-        } dynamicIsland: { _ in
+        } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.center) { Label("Идёт запись", systemImage: "waveform") }
+                DynamicIslandExpandedRegion(.center) {
+                    Label(context.state.isPreparing == true ? "Запускается…" : "Идёт запись", systemImage: "waveform")
+                }
             } compactLeading: {
                 Image(systemName: "waveform")
             } compactTrailing: {
-                Text("REC")
+                Text(context.state.isPreparing == true ? "…" : "REC")
             } minimal: {
                 Image(systemName: "waveform")
             }

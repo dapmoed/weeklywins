@@ -211,6 +211,14 @@ Additional owner tests on build 25 showed intermittent failure and early complet
 
 Build 26 makes at most one retry after 600 ms for the documented activation error or a false start from a prepared recorder. A recorder retry creates a new recorder for the same recording file and entry. The build logs session interruption, recorder completion and timer expiry separately. It was installed on the physical iPhone for a repeat. The simulator passed the recording suite and the system Action Button test. Physical repeatability and the source of early completion remain to be verified.
 
+On the physical iPhone, build 26 saved three short Bluetooth runs after the system Pause action. The two explicitly confirmed locked runs saved 4.732 and 3.708 seconds, decoded fully, and completed transcription. Both started on the first attempt. Later in the same series, two launches with A2DP output and `otherAudio=false` returned false at both recorder-start attempts, and a third returned `!pla` at both activation attempts. This rules out treating the bounded retry as a reliable fix.
+
+#### Request Live Activity before background audio
+
+Build 27 requests the Live Activity with a preparing state before activating the audio session in the background. It updates the state after the recorder accepts capture and ends the activity on startup failure. Foreground order, the mixable A2DP options, recorder format, duration limit and retry budget are retained. This tests the ordering separately from recorder or route changes. [Apple's AudioRecordingIntent contract](https://developer.apple.com/documentation/AppIntents/AudioRecordingIntent).
+
+The ordering assertion failed on build 26 and passed with build 27. On iPhone 16 Pro Simulator, all 20 focused unit tests and the system Action Button UI test passed. The signed arm64 build was installed on the real iPhone for the same locked Bluetooth test with the existing Pause shortcut. The transient preparing label has not been captured on the Lock Screen. Physical startup and failure cleanup still need an observed result.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
