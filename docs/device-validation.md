@@ -239,6 +239,8 @@ The owner's build 29 repeat reached the intent at 17:05:31 UTC with permission g
 
 Build 30 restores the mixable audio configuration from build 28 and has been installed on the iPhone. The two device traces show different policy failures with the two configurations. The Bluetooth failure remains unresolved. The previously confirmed Bluetooth-off capture remains documented above.
 
+The signed build 30 bundle's generated App Intents metadata lists `ToggleRecordingIntent` as discoverable with background support, `openAppWhenRun=false`, and both system protocols `AudioRecording` and `SessionStarting`. The action was exported as intended. The metadata does not prove that iOS grants the live audio assertion for a particular shortcut execution. The next physical comparison is the direct WeeklyWins action after manually pausing music, with Bluetooth headphones still connected.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
