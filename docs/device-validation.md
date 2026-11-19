@@ -201,6 +201,8 @@ The next experiment keeps build 25 and uses the system Shortcuts action «Вос
 
 On the iPhone 16 Pro Simulator with iOS 26.5, a copy of the shortcut used this order and two editor runs started and stopped WeeklyWins, saving a 17.916-second recording. No music was playing on that simulator. The physical locked run with Bluetooth media playing before the shortcut is still required to test whether system Pause restores capture.
 
+The tested two-action shortcut is also available as a signed `WeeklyWins-Pause.shortcut` file at `/private/tmp/weeklywins-shortcut.LVUkeJ/WeeklyWins-Pause.shortcut`. Apple Shortcuts accepted the file on iOS 26.5 Simulator. The imported editor showed «Приостановить на iPhone» first, «Начать или остановить запись» second and «Показать при запуске» disabled. Import and the locked Bluetooth test on iOS 27.2.1 still require the owner's phone.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
