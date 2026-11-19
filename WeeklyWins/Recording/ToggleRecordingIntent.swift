@@ -8,14 +8,11 @@ struct ToggleRecordingIntent: AudioRecordingIntent, LiveActivityIntent {
     static let supportedModes: IntentModes = [.background]
     private static let logger = Logger(subsystem: "com.weeklywins.app", category: "RecordingIntent")
 
-    @Parameter(title: "Ожидать после паузы музыки", default: false)
-    var waitForPausedAudio: Bool
-
     func perform() async throws -> some IntentResult & ProvidesDialog {
         await RecordingDiagnostics.write("intent entered")
         Self.logger.info("perform entered pid=\(ProcessInfo.processInfo.processIdentifier) mode=\(String(describing: systemContext.currentMode), privacy: .public)")
         do {
-            try await RecordingService.shared.toggle(startDelay: waitForPausedAudio ? .seconds(2) : .zero)
+            try await RecordingService.shared.toggle()
             await RecordingDiagnostics.write("intent completed")
             Self.logger.info("toggle completed")
             let service = await RecordingService.shared

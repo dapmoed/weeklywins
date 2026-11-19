@@ -257,7 +257,13 @@ The experimental shortcut adds the two-second wait before both start and stop. T
 
 Build 31 exports the optional «Ожидать после паузы музыки» parameter on «Начать или остановить запись». With the parameter enabled, WeeklyWins waits two seconds before activating the audio session for a new recording. Stopping an active recording skips the wait. The parameter defaults to off so existing assignments retain their behavior.
 
-The physical comparison for build 31 is a separate shortcut with «Приостановить на iPhone» followed by the WeeklyWins action with that parameter enabled. Omit the external Wait in this comparison and keep the verified build 30 shortcut available. Check the first and second holds with the screen locked and Bluetooth music playing before the first hold. The simulator can exercise the parameter and timeline, while the locked physical run is still required to confirm that iOS grants audio activation when the wait occurs inside the intent.
+On iPhone 16 Pro with iOS 27.2.1, the owner tested a separate shortcut with «Приостановить на iPhone», followed by the WeeklyWins action with the option enabled. Bluetooth music was playing before the locked-screen test. The intent entered at 17:31:31 UTC, waited two seconds, configured the category and started the preparing Live Activity. Both activation attempts returned `NSOSStatusErrorDomain` code 561015905 (`!pla`). Recording creation did not begin.
+
+The owner restored the original shortcut with an external system Wait on the same build and process. With the same locked Bluetooth setup, the intent entered at 17:38:48 UTC, activated the audio session and started the recorder at 17:38:49 UTC. A second intent stopped the recorder at 17:38:54 UTC. The saved 5.116-second recording completed transcription. FFmpeg decoded the whole 16 kHz mono AAC file without errors. The journal establishes the timing from intent entry only.
+
+**Working Bluetooth shortcut:** «Приостановить на iPhone» → «Подождать 2 секунды» → WeeklyWins «Начать или остановить запись». Assign this shortcut to the Action Button. Both holds run the same sequence, so the second hold also waits two seconds. Automatic music resumption was not evaluated.
+
+Build 32 removes the unverified in-intent delay option and returns the application and test source to the build 30 recording behavior. The verified Bluetooth shortcut performs its pause and wait in the system Shortcuts app.
 
 ### Physical interruption and the next recording on build 25
 
