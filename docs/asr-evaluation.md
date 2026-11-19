@@ -120,3 +120,15 @@ Both reports were saved on the iPhone 16 Pro running iOS 27.2.1 on 18 November, 
 | 300 seconds | 7.909 s | 474 of 478 | 10.67% | Present |
 
 This verifies native offline processing of saved Russian audio through the current adapter at both durations. The subsequent build 22 natural locked-screen capture and offline transcription are documented in [device validation](device-validation.md#physical-build-22-action-button-recording). [Recovered reports and scores](asr/2026-11-18-native-offline/scores.json).
+
+## Existing recordings from the owner's iPhone
+
+The owner authorized use of the existing audio and transcripts. The active index contained 33 saved or interrupted audio recordings, totaling 919.484 seconds, and 12 failed capture entries without usable audio. Deleted entries were outside the sample. FFmpeg decoded all 33 files through EOF. Apple Speech had a saved transcript for 27 files and returned no recognized speech for six. The local Mac replay processed all 33 with the same multilingual Whisper Base Q5_1 model and four-thread CPU configuration as the earlier candidate benchmark. Audio and transcript contents remain outside the repository.
+
+The set contains diary notes, counting and button checks, and recordings with background speech. These are paired recognizer outputs. A word-error rate requires an independent reference and is unavailable for the full set.
+
+- In both ordinary notes about yesterday, both recognizers agreed on the action and whether it was completed. In one note their outputs differ on the object of the action. The preserved text and the current extractor were checked separately. [Event evaluation](event-evaluation.md#две-естественные-заметки-о-предыдущем-дне).
+- On all six clips for which Apple Speech returned no recognized speech, Whisper generated subtitle-credit boilerplate. Five outputs exactly matched the line produced by three silent control files synthesized at matching short durations. This is evidence of a false-positive pattern in this Whisper configuration and does not establish that the six recordings were silent.
+- The two approximately five-minute recordings yielded 596 versus 567 normalized word tokens and 88 versus 401, respectively (saved Apple Speech versus local Whisper). The first was the continuous offline diary check and its Apple transcript contains the expected ending. The second was the automatic-stop check after reboot. Whisper produced distinct timestamped text to 4:59, including apparent background speech. The word-count gap identifies a sample for further reference-based evaluation. It cannot establish how much intended dictation either engine missed.
+
+The replay supports retaining Apple Speech as the default for short diary capture. It does not settle the accuracy tradeoff on noisy five-minute recordings or measure iPhone battery impact.
