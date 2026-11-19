@@ -260,12 +260,12 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         return min(1, max(0, pow(10, recorder.averagePower(forChannel: 0) / 40)))
     }
 
-    func toggle() async throws {
+    func toggle(startDelay: Duration = .zero) async throws {
         guard !isStarting else { return }
         if isRecording {
             stop()
         } else {
-            try await start()
+            try await start(delay: startDelay)
         }
     }
 
@@ -273,7 +273,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         status = "Ошибка записи: \(error.localizedDescription)"
     }
 
-    func start() async throws {
+    func start(delay: Duration = .zero) async throws {
         guard !isRecording, !isStarting else { return }
         stopPlayback()
         completedRecordingID = nil
@@ -300,6 +300,10 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
             throw RecordingError.permissionDenied
         }
 
+        if delay > .zero {
+            RecordingDiagnostics.write("waiting before capture for paused media")
+            try await Task.sleep(for: delay)
+        }
         let session = AVAudioSession.sharedInstance()
         let startsFromBackground = !isApplicationActive()
         let categoryOptions: AVAudioSession.CategoryOptions = startsFromBackground

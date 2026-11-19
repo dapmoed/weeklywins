@@ -6,6 +6,65 @@ import ActivityKit
 
 final class RecordingServiceTests: XCTestCase {
     @MainActor
+    func testCancelDuringShortcutStartDelayLeavesNoRecording() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = RecordingService(recordingDirectory: directory)
+        let pending = Task { try await service.toggle(startDelay: .seconds(60)) }
+        defer {
+            pending.cancel()
+            service.stop()
+        }
+
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertTrue(service.isStarting)
+        XCTAssertFalse(service.isRecording)
+        pending.cancel()
+        let result = await pending.result
+        guard case .failure(let error) = result else {
+            return XCTFail("Cancelling the delay should cancel the start")
+        }
+        XCTAssertTrue(error is CancellationError)
+        XCTAssertFalse(service.isStarting)
+        XCTAssertTrue(service.recordings.isEmpty)
+    }
+
+    @MainActor
+    func testShortcutStopIgnoresStartDelay() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = RecordingService(recordingDirectory: directory)
+        try await service.start()
+        defer { service.stop() }
+
+        let stopped = expectation(description: "Stop completes without the startup delay")
+        let operation = Task {
+            defer { stopped.fulfill() }
+            try await service.toggle(startDelay: .seconds(60))
+        }
+        await fulfillment(of: [stopped], timeout: 2)
+        operation.cancel()
+        try await operation.value
+        XCTAssertFalse(service.isRecording)
+        XCTAssertEqual(service.recordings.map(\.state), [.saved])
+    }
+
+    @MainActor
+    func testShortcutPauseOptionWaitsBeforeStarting() async throws {
+        let service = RecordingService.shared
+        service.stop()
+        defer { service.stop() }
+        let intent = ToggleRecordingIntent()
+        intent.waitForPausedAudio = true
+        let clock = ContinuousClock()
+        let began = clock.now
+
+        _ = try await intent.perform()
+        XCTAssertGreaterThanOrEqual(began.duration(to: clock.now), .seconds(2))
+        XCTAssertTrue(service.isRecording)
+    }
+
+    @MainActor
     func testBackgroundActivationStartsAfterLiveActivityRequest() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

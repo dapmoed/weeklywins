@@ -253,6 +253,12 @@ The owner confirmed three physical build 30 runs with the sequence Pause, Wait 2
 
 The experimental shortcut adds the two-second wait before both start and stop. These short runs were away from automatic stop at five minutes. They do not establish behavior when a stop request crosses that boundary, or automatic playback resume.
 
+#### Two-second wait at startup only
+
+Build 31 exports the optional «Ожидать после паузы музыки» parameter on «Начать или остановить запись». With the parameter enabled, WeeklyWins waits two seconds before activating the audio session for a new recording. Stopping an active recording skips the wait. The parameter defaults to off so existing assignments retain their behavior.
+
+The physical comparison for build 31 is a separate shortcut with «Приостановить на iPhone» followed by the WeeklyWins action with that parameter enabled. Omit the external Wait in this comparison and keep the verified build 30 shortcut available. Check the first and second holds with the screen locked and Bluetooth music playing before the first hold. The simulator can exercise the parameter and timeline, while the locked physical run is still required to confirm that iOS grants audio activation when the wait occurs inside the intent.
+
 ### Physical interruption and the next recording on build 25
 
 During the owner's manual interruption test, the device journal logged a successful Action Button start at 15:39:45 UTC and a stop at 15:40:06 UTC without a second intent. Recording `BF804577-66BB-4414-849A-B4DE5E7EA509` is persisted as interrupted with 21.18 seconds of audio and completed transcription.
