@@ -35,6 +35,12 @@ async def collect(device, seconds):
                     if raw is None:
                         raise RuntimeError("The iPhone did not report battery state.")
                     sample = {key: raw.get(key) for key in BATTERY_FIELDS}
+                    telemetry = raw.get("PowerTelemetryData", {})
+                    for key in (
+                        "AccumulatedBatteryDischarge", "BatteryDischargeAccumulatorCount",
+                        "BatteryPower", "SystemLoad", "PowerTelemetryErrorCount",
+                    ):
+                        sample[key] = telemetry.get(key)
                     sample["reader_unix_seconds"] = round((started + finished) / 2, 6)
                     sample["poll_seconds"] = round(finished - started, 4)
                     print(json.dumps(sample), flush=True)
