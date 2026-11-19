@@ -161,6 +161,14 @@ On iPhone 16 Pro Simulator with iOS 26.5, the recording service received a synth
 
 The build 22 checks used the iPhone 16 Pro on iOS 27.2.1. The ordinary and force-quit runs logged intent entry and capture start in the same UTC second. After reboot, intent entry was logged at 07:12:51 UTC and capture at 07:12:52 UTC. The journal has whole-second resolution and starts at intent entry. The time of the physical hold was not recorded, so these timestamps do not measure hold-to-capture latency.
 
+For the physical timing run, film the locked iPhone from the side with a second device. Keep the Action Button and the screen visible from before the first hold until after the second hold. Say a few distinct words or make varied taps close to both microphones while WeeklyWins records. Keep the original external video with its audio and the original WeeklyWins recording. Identify the first video frame showing the button depressed, with frame numbering starting at zero.
+
+```sh
+python3 scripts/measure-action-button-latency.py camera.mp4 saved.m4a --press-frame 30
+```
+
+The script uses FFmpeg, FFprobe and NumPy to align the two audio streams. It reports the interval from the video frames that bracket the press to the first decodable sample of the saved audio. Capture and video times share the camera timeline. Camera audio/video sync and the distance between microphones still affect the estimate. Record the camera frame rate, iOS and app versions, saved duration, whether the screen requested an unlock, and at least three successful timing runs. The previous lock-screen acceptance and this pending timing check are separate.
+
 ### Five-minute automatic stop on build 23
 
 The opt-in `testFiveMinuteAutomaticStopReturnsToTimeline` passed in 308.135 seconds on iPhone 16 Pro Simulator with iOS 26.5. The UI returned from the recorder automatically and showed 5:00 in the recording list. The isolated manifest contained one saved entry, `CCF76BC4-0FE9-410D-B885-734ED90A1D8C`, with duration 299.9 seconds. FFprobe measured 300.032 seconds of 16 kHz mono AAC and FFmpeg decoded the file to completion. Simulator transcription reported “Failed to initialize recognizer”, and the saved audio remained available. The original Simulator data was restored. Log at /private/tmp/weeklywins-build23-five-minute.log. The continuous physical offline test remains tracked separately in the plan.
