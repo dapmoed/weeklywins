@@ -4,6 +4,7 @@ struct StudioRootView: View {
     @ObservedObject private var service = RecordingService.shared
     @State private var recorderPresentation: RecorderPresentation?
     @State private var showsSavedAudio = false
+    @State private var savedAudioToOpen: Recording?
     @State private var selectedTab = 0
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
@@ -38,14 +39,8 @@ struct StudioRootView: View {
                 ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
             }
             VStack(spacing: 0) {
-                if showsSavedAudio {
-                    Label("Аудио сохранено", systemImage: "checkmark.circle")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(StudioTheme.mint)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(StudioTheme.surface, in: Capsule())
-                        .padding(.horizontal, 20)
+                if showsSavedAudio, let recording = service.recordings.first(where: { $0.id == service.completedRecordingID }) {
+                    savedAudioConfirmation(for: recording)
                 }
                 if selectedTab != 0 || service.isRecording { bottomBar }
                 Divider().overlay(StudioTheme.surface)
@@ -63,13 +58,46 @@ struct StudioRootView: View {
         .fullScreenCover(item: $recorderPresentation) { presentation in
             StudioRecorderView(service: service, preparesOnAppear: presentation == .prepare)
         }
+        .sheet(item: $savedAudioToOpen) { recording in
+            TranscriptView(recording: recording, recordingService: service)
+        }
         .task(id: service.completedRecordingID) {
             showsSavedAudio = service.completedRecordingID != nil && scenePhase == .active
             guard showsSavedAudio else { return }
-            do { try await Task.sleep(for: .seconds(2.5)) }
+            do { try await Task.sleep(for: .seconds(6)) }
             catch { return }
             showsSavedAudio = false
         }
+    }
+
+    private func savedAudioConfirmation(for recording: Recording) -> some View {
+        Button {
+            savedAudioToOpen = recording
+            showsSavedAudio = false
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    Label("Аудио сохранено", systemImage: "checkmark.circle")
+                    Text("Открыть").fontWeight(.bold)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Аудио сохранено", systemImage: "checkmark.circle")
+                    Text("Открыть").fontWeight(.bold)
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(StudioTheme.mint)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 20))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .accessibilityLabel("Аудио сохранено, открыть запись")
+        .accessibilityIdentifier("open-saved-audio")
     }
 
     private func openRecorder() {

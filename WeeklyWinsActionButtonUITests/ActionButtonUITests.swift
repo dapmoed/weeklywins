@@ -4,6 +4,77 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testDayAuditKeepsFailuresGroupedAndCategoryFilterReachable() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
+                          "Run on the day timeline fixture with three failed transcriptions.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let summary = app.buttons["day-transcription-failures"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertEqual(summary.label, "3 записи требуют внимания")
+        let retry = app.buttons.matching(identifier: "Повторить расшифровку")
+        XCTAssertEqual(retry.count, 0)
+        XCTAssertTrue(app.staticTexts["Подготовил отчёт"].isHittable)
+        let unclassified = app.buttons["Без категории"]
+        XCTAssertTrue(unclassified.isHittable)
+        let collapsed = XCTAttachment(screenshot: app.screenshot())
+        collapsed.name = "A02-reaudit-collapsed-failures"
+        collapsed.lifetime = .keepAlways
+        add(collapsed)
+
+        summary.tap()
+        XCTAssertTrue(retry.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(retry.count, 3)
+        XCTAssertTrue(retry.firstMatch.isHittable)
+        summary.tap()
+        XCTAssertTrue(retry.firstMatch.waitForNonExistence(timeout: 5))
+
+        unclassified.tap()
+        XCTAssertFalse(app.staticTexts["Подготовил отчёт"].exists)
+        let calendar = Calendar.current
+        let now = Date.now
+        let offset = calendar.component(.day, from: now) == 1 ? 1 : -1
+        let otherDay = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: now))
+        app.buttons["Выбрать день"].tap()
+        XCTAssertTrue(app.navigationBars["Выбор даты"].waitForExistence(timeout: 5))
+        let emptyDay = app.datePickers["Дата"].buttons.containing(
+            .staticText, identifier: String(calendar.component(.day, from: otherDay))
+        ).firstMatch
+        emptyDay.tap()
+        app.buttons["Готово"].tap()
+        XCTAssertTrue(app.staticTexts["Нет дел в этой категории"].waitForExistence(timeout: 5))
+        app.buttons["reset-category-filter"].tap()
+        XCTAssertTrue(app.staticTexts["В этот день нет событий"].waitForExistence(timeout: 5))
+        app.buttons["return-to-today"].tap()
+        app.buttons["Открыть аудио: Подготовил отчёт"].tap()
+        XCTAssertTrue(app.buttons["Прослушать"].waitForExistence(timeout: 5))
+        app.buttons["recording-details-back"].tap()
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        let categoryMenu = app.buttons["Категория"]
+        XCTAssertTrue(categoryMenu.waitForExistence(timeout: 5))
+        XCTAssertTrue(categoryMenu.isHittable)
+        XCTAssertTrue(summary.isHittable)
+        XCTAssertEqual(retry.count, 0)
+        let largestText = XCTAttachment(screenshot: app.screenshot())
+        largestText.name = "A02-reaudit-largest-text"
+        largestText.lifetime = .keepAlways
+        add(largestText)
+        categoryMenu.tap()
+        XCTAssertTrue(unclassified.waitForExistence(timeout: 5))
+        unclassified.tap()
+        XCTAssertFalse(app.staticTexts["Подготовил отчёт"].exists)
+    }
+
+    @MainActor
     func testDayTimelineKeepsFloatingRecordButtonAndLastCardReachable() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
                           "Run on a disposable Simulator seeded with the long day timeline fixture.")
@@ -610,8 +681,10 @@ final class ActionButtonUITests: XCTestCase {
         stop.tap()
         XCTAssertTrue(datePicker.waitForExistence(timeout: 5))
         XCTAssertEqual(datePicker.value as? String, selectedLabel)
-        openRecordingsAfterSaving(app)
-        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        let savedAudio = app.buttons["open-saved-audio"]
+        XCTAssertTrue(savedAudio.waitForExistence(timeout: 5))
+        savedAudio.tap()
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
@@ -620,7 +693,6 @@ final class ActionButtonUITests: XCTestCase {
         editor.typeText(title + ".")
         app.buttons["save-transcript"].tap()
         app.buttons["recording-details-back"].tap()
-        app.buttons["studio-tab-0"].tap()
         XCTAssertEqual(datePicker.value as? String, selectedLabel)
         let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         XCTAssertFalse(card.exists)
@@ -813,13 +885,15 @@ final class ActionButtonUITests: XCTestCase {
         capture.lifetime = .keepAlways
         add(capture)
         app.buttons["recorder-stop"].tap()
-        let savedAudio = app.staticTexts["Аудио сохранено"]
+        let savedAudio = app.buttons["open-saved-audio"]
         XCTAssertTrue(savedAudio.waitForExistence(timeout: 5), app.debugDescription)
         let confirmation = XCTAttachment(screenshot: app.screenshot())
         confirmation.name = "A06-audio-saved"
         confirmation.lifetime = .keepAlways
         add(confirmation)
-        XCTAssertTrue(savedAudio.waitForNonExistence(timeout: 5))
+        savedAudio.tap()
+        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        app.buttons["recording-details-back"].tap()
         app.buttons["studio-tab-1"].tap()
 
         let recordingRow = app.buttons.matching(identifier: "recording-row").firstMatch
@@ -860,8 +934,9 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertLessThan(event.frame.maxY, startRecording.frame.minY - 12)
         let audio = app.buttons["Открыть аудио: " + eventTitle]
         XCTAssertTrue(audio.isHittable)
-        XCTAssertGreaterThanOrEqual(audio.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(audio.frame.height, 44)
+        // Allow for floating-point error in the accessibility frame.
+        XCTAssertGreaterThanOrEqual(audio.frame.width, 44 - 0.01)
+        XCTAssertGreaterThanOrEqual(audio.frame.height, 44 - 0.01)
         audio.tap()
         let sourceText = app.staticTexts["transcript-preview"]
         XCTAssertTrue(sourceText.waitForExistence(timeout: 5))

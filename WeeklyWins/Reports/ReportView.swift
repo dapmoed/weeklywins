@@ -13,6 +13,7 @@ struct ReportView: View {
     @State private var selectedTimeZone = TimeZone.current
     @State private var parentReport: (period: ReportPeriod, date: Date)?
     @State private var isDayScrolling = false
+    @State private var showDayFailures = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let isToday: Bool
@@ -42,7 +43,7 @@ struct ReportView: View {
                             SettingsButton()
                         }
                     }
-                    CategoryFilter(category: $category)
+                    CategoryFilter(category: $category, compact: isToday)
                     if isToday { processingRecordings }
                     if !isToday {
                         reportPeriodPicker
@@ -79,7 +80,7 @@ struct ReportView: View {
                     }
                     if items.isEmpty {
                         if isToday {
-                            ContentUnavailableView("Нет событий", systemImage: "list.bullet", description: Text("Расскажите, что уже сделали. События появятся после расшифровки."))
+                            dayEmptyState
                         } else {
                             ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar")
                         }
@@ -107,6 +108,9 @@ struct ReportView: View {
             .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
             .toolbar(.hidden, for: .navigationBar)
             .onAppear { service.refreshRecordings(); refreshCalendarContext() }
+            .onChange(of: date) { previous, current in
+                if !Calendar.current.isDate(previous, inSameDayAs: current) { showDayFailures = false }
+            }
             .onChange(of: scenePhase) { _, phase in if phase == .active { refreshCalendarContext() } }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshFollowingToday() }
             .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
@@ -140,6 +144,19 @@ struct ReportView: View {
             .sheet(item: $selectedRecording) { recording in
                 TranscriptView(recording: recording, recordingService: service)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var dayEmptyState: some View {
+        if category != nil {
+            ContentUnavailableView("Нет дел в этой категории", systemImage: "line.3.horizontal.decrease",
+                                   description: Text("Выберите другую категорию или сбросьте фильтр."))
+        } else if Calendar.current.isDateInToday(date) {
+            ContentUnavailableView("Нет событий", systemImage: "list.bullet",
+                                   description: Text("Расскажите, что уже сделали. События появятся после расшифровки."))
+        } else {
+            ContentUnavailableView("В этот день нет событий", systemImage: "list.bullet")
         }
     }
 
@@ -232,7 +249,7 @@ struct ReportView: View {
                     .contentShape(Rectangle())
             }.buttonStyle(.plain)
             Button { selectedRecording = entry.recording } label: {
-                Image(systemName: "play.fill")
+                Image(systemName: "waveform")
                     .font(.system(size: 16))
                     .foregroundStyle(StudioTheme.mint)
                     .frame(width: 34, height: 34)
@@ -299,36 +316,87 @@ struct ReportView: View {
         }
     }
 
+    @ViewBuilder
     private var processingRecordings: some View {
         let recordings = service.recordings.filter {
             Calendar.current.isDate($0.recordedAt, inSameDayAs: date)
                 && ($0.automaticTranscriptionPending == true || $0.processingState == .processing || $0.processingState == .failed)
                 && $0.state != .recording && $0.state != .failed
         }
-        return ForEach(recordings) { recording in
-            HStack(alignment: .top, spacing: 12) {
-                Button { selectedRecording = recording } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(processingTitle(for: recording)) \(recording.recordedAt.formatted(.dateTime.hour().minute()))")
-                            .font(.subheadline.weight(.semibold))
-                        if let message = recording.errorMessage {
-                            Text(message).font(.footnote).multilineTextAlignment(.leading)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.plain)
-                if recording.processingState == .failed {
-                    Button {
-                        Task { _ = try? await service.transcribe(recordingID: recording.id) }
-                    } label: {
-                        Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Повторить расшифровку")
-                    .disabled(!service.transcribingRecordingIDs.isEmpty)
-                }
-            }
-            .foregroundStyle(recording.processingState == .failed ? StudioTheme.coral : StudioTheme.mint)
-            .padding(14).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        let failures = recordings.filter { $0.processingState == .failed }
+        ForEach(recordings.filter { $0.processingState != .failed }) { processingRow($0) }
+        if failures.count > 1 {
+            failureSummary(count: failures.count)
         }
+        if failures.count == 1 || showDayFailures {
+            ForEach(failures) { processingRow($0) }
+        }
+    }
+
+    private func failureSummary(count: Int) -> some View {
+        let lastDigit = count % 10
+        let hasTeenEnding = (11...14).contains(count % 100)
+        let title: String
+        if !hasTeenEnding && lastDigit == 1 {
+            title = "\(count) запись требует внимания"
+        } else if !hasTeenEnding && (2...4).contains(lastDigit) {
+            title = "\(count) записи требуют внимания"
+        } else {
+            title = "\(count) записей требуют внимания"
+        }
+        return Button { showDayFailures.toggle() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 16))
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Image(systemName: showDayFailures ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(minHeight: 44)
+            .foregroundStyle(StudioTheme.coral)
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(showDayFailures ? "Развёрнуто" : "Свёрнуто")
+        .accessibilityHint("Ошибки расшифровки")
+        .accessibilityIdentifier("day-transcription-failures")
+    }
+
+    private func processingRow(_ recording: Recording) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Button { selectedRecording = recording } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(processingTitle(for: recording)) \(recording.recordedAt.formatted(.dateTime.hour().minute()))")
+                        .font(.subheadline.weight(.semibold))
+                    if recording.processingState == .failed {
+                        Text("Можно повторить расшифровку.")
+                            .font(.footnote).multilineTextAlignment(.leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            if recording.processingState == .failed {
+                Button {
+                    Task { _ = try? await service.transcribe(recordingID: recording.id) }
+                } label: {
+                    Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Повторить расшифровку")
+                .disabled(!service.transcribingRecordingIDs.isEmpty)
+            }
+        }
+        .foregroundStyle(recording.processingState == .failed ? StudioTheme.coral : StudioTheme.mint)
+        .padding(14).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func processingTitle(for recording: Recording) -> String {
