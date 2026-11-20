@@ -6,8 +6,7 @@ struct EventReviewView: View {
     @State private var draft: EventReviewDraft
     @State private var errorMessage: String?
     @State private var confirmClose = false
-    @State private var deletedEvent: DiaryEvent?
-    @State private var deletedIndex = 0
+    @State private var restoredEventID: UUID?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     private let drafts = EventReviewDraftStore()
@@ -21,7 +20,9 @@ struct EventReviewView: View {
                        ?? EventReviewDraft(baseline: baseline, events: events))
     }
 
-    private var hasChanges: Bool { draft.events != draft.baseline || draft.mergeProposal != nil }
+    private var hasChanges: Bool {
+        draft.events != draft.baseline || draft.mergeProposal != nil || draft.hasDeletedEvents
+    }
 
     private var mergingIndex: Int? {
         guard let id = draft.mergingEventID,
@@ -30,30 +31,15 @@ struct EventReviewView: View {
     }
 
     var body: some View {
-        List {
-            ForEach(draft.events) { event in
-                Section {
-                    DisclosureGroup {
-                        ReviewEventFields(event: binding(for: event), defaultDate: recording.recordedAt)
-                        DisclosureGroup("Исходный текст") { Text(event.sourceText) }
-                        if draft.events.first?.id != event.id {
-                            Button("Объединить с предыдущим") { prepareMerge(event.id) }
-                        }
-                        Button("Удалить событие", role: .destructive) { delete(event.id) }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(event.text.isEmpty ? "Новое дело" : event.text)
-                                .foregroundStyle(StudioTheme.text)
-                            Text(event.category.title)
-                                .font(.subheadline).foregroundStyle(StudioTheme.categoryColor(event.category))
-                        }.padding(.vertical, 8)
+        ScrollViewReader { scroll in
+            eventList
+                .safeAreaInset(edge: .bottom, spacing: 0) { footer }
+                .onChange(of: restoredEventID) { _, id in
+                    if let id {
+                        scroll.scrollTo(id, anchor: .center)
+                        restoredEventID = nil
                     }
-                }.listRowBackground(StudioTheme.surface)
-            }
-            if deletedEvent != nil {
-                Button("Отменить удаление") { undoDelete() }
-            }
-            if let errorMessage { Text(errorMessage).foregroundStyle(StudioTheme.coral) }
+                }
         }
         .scrollContentBackground(.hidden).background(StudioTheme.background)
         .navigationTitle("События").navigationBarTitleDisplayMode(.inline)
@@ -65,15 +51,6 @@ struct EventReviewView: View {
                     else { drafts.remove(recordingID: recording.id); dismiss() }
                 }
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 16) {
-                Button("Добавить дело") {
-                    draft.events.append(DiaryEvent(recordingID: recording.id, sourceText: recording.transcript ?? "", text: ""))
-                }.frame(maxWidth: .infinity, minHeight: 44)
-                Button("Готово") { save() }
-                    .buttonStyle(.borderedProminent).foregroundStyle(StudioTheme.background).frame(minHeight: 44)
-            }.padding().background(StudioTheme.background)
         }
         .tint(StudioTheme.mint)
         .interactiveDismissDisabled(hasChanges)
@@ -94,13 +71,90 @@ struct EventReviewView: View {
                 get: { draft.mergeProposal ?? proposal },
                 set: { draft.mergeProposal = $0 }
             ), sourceTexts: mergeSources(fallback: proposal.sourceText), defaultDate: recording.recordedAt) { merged in
-                guard let index = mergingIndex else { return }
-                draft.events[index - 1] = merged
-                draft.events.remove(at: index)
-                draft.mergeProposal = nil
-                draft.mergingEventID = nil
+                guard let id = draft.mergingEventID else { return }
+                draft.confirmMerge(merged, mergingEventID: id)
             }
         }
+    }
+
+    private var eventList: some View {
+        List {
+            ForEach(draft.events) { event in
+                Section {
+                    DisclosureGroup {
+                        ReviewEventFields(event: binding(for: event), defaultDate: recording.recordedAt)
+                        DisclosureGroup("Исходный текст") { Text(event.sourceText) }
+                        if draft.events.first?.id != event.id {
+                            Button("Объединить с предыдущим") { prepareMerge(event.id) }
+                        }
+                        Button("Удалить событие", role: .destructive) {
+                            draft.deleteEvent(id: event.id)
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(event.text.isEmpty ? "Новое дело" : event.text)
+                                .foregroundStyle(StudioTheme.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                            metadata(for: event)
+                                .font(.subheadline.monospacedDigit())
+                                .foregroundStyle(StudioTheme.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }.padding(.vertical, 8)
+                    }.id(event.id)
+                }.listRowBackground(StudioTheme.surface)
+            }
+            if let errorMessage { Text(errorMessage).foregroundStyle(StudioTheme.coral) }
+        }
+    }
+
+    private func metadata(for event: DiaryEvent) -> Text {
+        let category = Text(event.category.title).foregroundStyle(StudioTheme.categoryColor(event.category))
+        let status = event.completion == .notCompleted ? " · \(event.completion.title)" : ""
+        let duration = event.duration.map { " · \(StudioTheme.duration($0))" } ?? ""
+        return Text("\(category)\(status)\(duration)")
+    }
+
+    private var footer: some View {
+        VStack(spacing: 8) {
+            if draft.hasDeletedEvents {
+                Button {
+                    restoredEventID = draft.undoDeletion()
+                } label: {
+                    Label("Отменить удаление", systemImage: "arrow.uturn.backward")
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(StudioTheme.mint)
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+                .accessibilityIdentifier("review-undo-deletion")
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) {
+                    addButton
+                    doneButton
+                }
+                VStack(spacing: 8) {
+                    addButton
+                    doneButton
+                }
+            }
+        }.padding().background(StudioTheme.background)
+    }
+
+    private var addButton: some View {
+        Button("Добавить дело") {
+            draft.addEvent(DiaryEvent(recordingID: recording.id, sourceText: recording.transcript ?? "", text: ""))
+        }.frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var doneButton: some View {
+        Button("Готово") { save() }
+            .buttonStyle(.borderedProminent).foregroundStyle(StudioTheme.background).frame(minHeight: 44)
     }
 
     private func mergeSources(fallback: String) -> [String] {
@@ -111,10 +165,7 @@ struct EventReviewView: View {
     private func binding(for event: DiaryEvent) -> Binding<DiaryEvent> {
         Binding(
             get: { draft.events.first(where: { $0.id == event.id }) ?? event },
-            set: { updated in
-                guard let index = draft.events.firstIndex(where: { $0.id == event.id }) else { return }
-                draft.events[index] = updated
-            }
+            set: { draft.updateEvent($0) }
         )
     }
 
@@ -135,18 +186,6 @@ struct EventReviewView: View {
             drafts.remove(recordingID: recording.id)
             dismiss()
         } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func delete(_ id: UUID) {
-        guard let index = draft.events.firstIndex(where: { $0.id == id }) else { return }
-        deletedIndex = index
-        deletedEvent = draft.events.remove(at: index)
-    }
-
-    private func undoDelete() {
-        guard let deletedEvent else { return }
-        draft.events.insert(deletedEvent, at: min(deletedIndex, draft.events.count))
-        self.deletedEvent = nil
     }
 
     private func prepareMerge(_ id: UUID) {

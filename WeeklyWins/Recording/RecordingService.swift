@@ -36,6 +36,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     private var automaticResumeRequested = false
     private var player: AVAudioPlayer?
     private var playbackTask: Task<Void, Never>?
+    private var isPlaybackSessionActive = false
     private var recorder: AVAudioRecorder?
     private var activity: Activity<RecordingAttributes>?
     private var stopTask: Task<Void, Never>?
@@ -185,54 +186,72 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         }
     }
 
-    func playRecording(id: UUID) throws {
-        guard !isRecording, !isStarting else { return }
-        stopPlayback()
+    func preparePlayback(id: UUID) throws {
+        guard !isRecording, !isStarting, playingRecordingID != id else { return }
         guard let recording = store.recordings.first(where: { $0.id == id && $0.deletedAt == nil }) else {
             throw RecordingStoreError.recordingNotFound
         }
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .spokenAudio)
-        try session.setActive(true)
-        do {
-            let newPlayer = try AVAudioPlayer(contentsOf: store.fileURL(for: recording))
-            guard newPlayer.play() else { throw RecordingError.playbackFailed }
-            player = newPlayer
-            playingRecordingID = id
-            isAudioPlaying = true
-            playbackPosition = 0
-            playbackDuration = newPlayer.duration
-            playbackTask = Task { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .milliseconds(200))
-                    guard !Task.isCancelled else { return }
-                    guard let self else { return }
-                    guard self.isAudioPlaying else { continue }
-                    self.playbackPosition = self.player?.currentTime ?? 0
-                    guard self.player?.isPlaying == true else {
-                        self.stopPlayback()
-                        return
-                    }
-                }
-            }
-        } catch {
-            try? session.setActive(false)
-            throw error
-        }
+        let url = store.fileURL(for: recording)
+        guard FileManager.default.fileExists(atPath: url.path) else { throw RecordingStoreError.audioFileMissing }
+        let newPlayer = try AVAudioPlayer(contentsOf: url)
+        guard newPlayer.duration.isFinite, newPlayer.duration > 0 else { throw RecordingError.playbackFailed }
+
+        stopPlayback()
+        player = newPlayer
+        playingRecordingID = id
+        playbackDuration = newPlayer.duration
+    }
+
+    func playRecording(id: UUID) throws {
+        guard !isRecording, !isStarting else { return }
+        stopPlayback()
+        try preparePlayback(id: id)
+        try startPlayback()
     }
 
     func togglePlayback(id: UUID) throws {
         guard !isRecording, !isStarting else { return }
-        if playingRecordingID == id, let player {
-            if isAudioPlaying {
-                player.pause()
-                playbackPosition = player.currentTime
-                isAudioPlaying = false
-            } else {
-                guard player.play() else { throw RecordingError.playbackFailed }
-                isAudioPlaying = true
+        try preparePlayback(id: id)
+        if isAudioPlaying, let player {
+            player.pause()
+            playbackPosition = player.currentTime
+            isAudioPlaying = false
+            playbackTask?.cancel()
+            playbackTask = nil
+        } else {
+            try startPlayback()
+        }
+    }
+
+    private func startPlayback() throws {
+        guard let player else { return }
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .spokenAudio)
+            try session.setActive(true)
+            isPlaybackSessionActive = true
+            if playbackPosition >= playbackDuration { seekPlayback(to: 0) }
+            guard player.play() else { throw RecordingError.playbackFailed }
+        } catch {
+            deactivatePlaybackSession()
+            throw error
+        }
+        isAudioPlaying = true
+        playbackTask?.cancel()
+        playbackTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+                guard !Task.isCancelled, let self, let player = self.player else { return }
+                guard player.isPlaying else {
+                    self.isAudioPlaying = false
+                    self.seekPlayback(to: 0)
+                    self.playbackTask = nil
+                    self.deactivatePlaybackSession()
+                    return
+                }
+                self.playbackPosition = player.currentTime
             }
-        } else { try playRecording(id: id) }
+        }
     }
 
     func seekPlayback(to time: TimeInterval) {
@@ -251,6 +270,12 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         isAudioPlaying = false
         playbackPosition = 0
         playbackDuration = 0
+        deactivatePlaybackSession()
+    }
+
+    private func deactivatePlaybackSession() {
+        guard isPlaybackSessionActive else { return }
+        isPlaybackSessionActive = false
         try? AVAudioSession.sharedInstance().setActive(false)
     }
 

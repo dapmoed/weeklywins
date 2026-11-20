@@ -15,10 +15,14 @@ struct TranscriptView: View {
     @State private var editingTranscript: Bool
     @FocusState private var editorFocused: Bool
     @State private var showEvents = false
+    @State private var showFullTranscript = false
     @State private var showSettings = false
     @State private var confirmDeletion = false
+    @State private var audioUnavailableMessage: String?
     @State private var isSeeking = false
     @State private var seekPosition: TimeInterval = 0
+    @State private var previewHeight: CGFloat = 0
+    @State private var fullTranscriptHeight: CGFloat = 0
     private let drafts = TranscriptDraftStore()
 
     init(recording: Recording, recordingService: RecordingService) {
@@ -34,6 +38,7 @@ struct TranscriptView: View {
     private var isBusy: Bool { isTranscribing || recordingService.transcribingRecordingIDs.contains(recording.id) }
     private var hasChanges: Bool { transcript != savedText }
     private var isLoaded: Bool { recordingService.playingRecordingID == recording.id }
+    private var isAudioBlocked: Bool { recordingService.isRecording || recordingService.isStarting }
     private var editorTitleInContent: Bool { editingTranscript && dynamicTypeSize.isAccessibilitySize }
 
     var body: some View {
@@ -95,6 +100,13 @@ struct TranscriptView: View {
             }
             .interactiveDismissDisabled(hasChanges)
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showFullTranscript) { fullTranscript }
+            .task(id: isAudioBlocked) {
+                if !isAudioBlocked { prepareAudio() }
+            }
+            .onChange(of: isLoaded) { _, loaded in
+                if !loaded { isSeeking = false }
+            }
             .onChange(of: transcript) { previous, _ in persistDraft(previousText: previous) }
             .onChange(of: recordingService.transcribingRecordingIDs) { _, ids in
                 if !ids.contains(recording.id), !hasChanges {
@@ -142,17 +154,20 @@ struct TranscriptView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Записано \(recording.recordedAt.formatted(.dateTime.day().month(.wide).year().hour().minute().locale(Locale(identifier: "ru_RU"))))")
                     .font(.subheadline).foregroundStyle(StudioTheme.secondary)
-                player
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Расшифровка").font(.headline).accessibilityAddTraits(.isHeader)
-                    Text(savedText.isEmpty ? "Здесь появится расшифровка записи" : savedText)
-                        .foregroundStyle(savedText.isEmpty ? StudioTheme.secondary : StudioTheme.text)
-                        .textSelection(.enabled)
-                        .accessibilityIdentifier("transcript-preview")
+                if let audioUnavailableMessage {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(audioUnavailableMessage).font(.headline)
+                            .accessibilityIdentifier("recording-audio-unavailable")
+                        Text("Текст и события можно добавить вручную.")
+                            .font(.subheadline).foregroundStyle(StudioTheme.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                } else {
+                    player
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                transcriptPreview
                 if let message = errorMessage ?? currentRecording.errorMessage {
                     Text(message).font(.footnote).foregroundStyle(StudioTheme.coral)
                 }
@@ -163,16 +178,73 @@ struct TranscriptView: View {
                 if isBusy {
                     ProgressView("Расшифровывается…")
                         .frame(minHeight: 44)
-                } else {
+                } else if audioUnavailableMessage == nil {
                     Button(savedText.isEmpty ? "Расшифровать" : "Расшифровать заново") {
                         if savedText.isEmpty && !hasChanges { Task { await transcribe() } }
                         else { confirmTranscription = true }
                     }
                     .frame(minHeight: 44)
                 }
-                if currentRecording.processingState == .failed {
+                if currentRecording.processingState == .failed && audioUnavailableMessage == nil {
                     Button("Настройки распознавания") { showSettings = true }
                         .frame(minHeight: 44)
+                }
+            }
+        }
+    }
+
+    private var transcriptPreview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Расшифровка").font(.headline).accessibilityAddTraits(.isHeader)
+            Text(savedText.isEmpty ? emptyTranscriptMessage : savedText)
+                .foregroundStyle(savedText.isEmpty ? StudioTheme.secondary : StudioTheme.text)
+                .lineLimit(savedText.isEmpty ? nil : dynamicTypeSize.isAccessibilitySize ? 2 : 4)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { previewHeight = $0 }
+                .background(alignment: .topLeading) {
+                    if !savedText.isEmpty {
+                        Text(savedText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullTranscriptHeight = $0 }
+                            .hidden()
+                    }
+                }
+                .textSelection(.enabled)
+                .accessibilityIdentifier("transcript-preview")
+            if !savedText.isEmpty, fullTranscriptHeight > previewHeight + 1 {
+                Button("Показать весь текст") { showFullTranscript = true }
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("show-full-transcript")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var emptyTranscriptMessage: String {
+        audioUnavailableMessage == nil ? "Здесь появится расшифровка записи" : "Расшифровки нет"
+    }
+
+    private var fullTranscript: some View {
+        NavigationStack {
+            ScrollView {
+                Text(savedText)
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("full-transcript")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .padding(20)
+            }
+            .background(StudioTheme.background)
+            .foregroundStyle(StudioTheme.text)
+            .navigationTitle("Расшифровка")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Готово") { showFullTranscript = false }
                 }
             }
         }
@@ -215,15 +287,23 @@ struct TranscriptView: View {
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
             }
-            HStack(spacing: 12) {
-                playButton
-                if !dynamicTypeSize.isAccessibilitySize { Text("Аудио").accessibilityHidden(true) }
-                Spacer(minLength: 4)
-                Text(timeText(playbackPosition) + " / " + timeText(playbackDuration))
-                    .font(.caption.monospacedDigit())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .foregroundStyle(StudioTheme.secondary)
+            Group {
+                if let audioUnavailableMessage {
+                    Text(audioUnavailableMessage)
+                        .font(.caption).foregroundStyle(StudioTheme.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                } else {
+                    HStack(spacing: 12) {
+                        playButton
+                        if !dynamicTypeSize.isAccessibilitySize { Text("Аудио").accessibilityHidden(true) }
+                        Spacer(minLength: 4)
+                        Text(timeText(playbackPosition) + " / " + timeText(playbackDuration))
+                            .font(.caption.monospacedDigit())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .foregroundStyle(StudioTheme.secondary)
+                    }
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -256,8 +336,14 @@ struct TranscriptView: View {
         }
     }
 
-    private var playbackPosition: TimeInterval { isLoaded ? recordingService.playbackPosition : 0 }
-    private var playbackDuration: TimeInterval { isLoaded ? recordingService.playbackDuration : recording.duration ?? 0 }
+    private var playbackPosition: TimeInterval {
+        if isSeeking { return seekPosition }
+        return isLoaded ? recordingService.playbackPosition : 0
+    }
+    private var playbackDuration: TimeInterval {
+        let duration = isLoaded ? recordingService.playbackDuration : currentRecording.duration ?? 0
+        return duration.isFinite ? max(0, duration) : 0
+    }
     private var isPlaying: Bool { isLoaded && recordingService.isAudioPlaying }
 
     private var playButton: some View {
@@ -270,7 +356,7 @@ struct TranscriptView: View {
                 .foregroundStyle(StudioTheme.background).background(StudioTheme.mint, in: Circle())
         }
         .accessibilityLabel(isPlaying ? "Пауза" : "Прослушать")
-        .disabled(recordingService.isRecording || recordingService.isStarting)
+        .disabled(isAudioBlocked || !isLoaded)
     }
 
     private var player: some View {
@@ -278,14 +364,20 @@ struct TranscriptView: View {
             HStack {
                 playButton
                 Slider(value: Binding(
-                    get: { isSeeking ? seekPosition : playbackPosition },
-                    set: { seekPosition = $0 }
-                ), in: 0...max(0.1, playbackDuration), onEditingChanged: { editing in
+                    get: { playbackPosition },
+                    set: { position in
+                        if isSeeking { seekPosition = position }
+                        else if isLoaded { recordingService.seekPlayback(to: position) }
+                    }
+                ), in: 0...(playbackDuration > 0 ? playbackDuration : 1), onEditingChanged: { editing in
                     if editing { seekPosition = playbackPosition }
-                    else { recordingService.seekPlayback(to: seekPosition) }
+                    else if isLoaded { recordingService.seekPlayback(to: seekPosition) }
                     isSeeking = editing
                 })
-                .disabled(!isLoaded).accessibilityLabel("Позиция аудио")
+                .disabled(isAudioBlocked || !isLoaded)
+                .accessibilityLabel("Позиция аудио")
+                .accessibilityValue(timeText(playbackPosition))
+                .accessibilityIdentifier("recording-playback-position")
             }
             HStack {
                 Text(timeText(playbackPosition))
@@ -295,15 +387,25 @@ struct TranscriptView: View {
         }.padding(16).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
     }
 
+    private func prepareAudio() {
+        do {
+            try recordingService.preparePlayback(id: recording.id)
+            audioUnavailableMessage = nil
+        } catch RecordingStoreError.audioFileMissing where currentRecording.state == .failed {
+            audioUnavailableMessage = "Аудио не сохранилось"
+        } catch {
+            audioUnavailableMessage = "Аудио недоступно"
+        }
+    }
+
     private func closeEditor() {
         editorFocused = false
         editingTranscript = false
     }
 
     private func timeText(_ time: TimeInterval) -> String {
-        guard time.isFinite else { return "—" }
-        let seconds = max(0, Int(time))
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+        guard let seconds = Int(exactly: time.rounded(.down)), seconds >= 0 else { return "—" }
+        return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
     }
 
     private func persistDraft(previousText: String? = nil) {

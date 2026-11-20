@@ -4,6 +4,162 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testRedesignAuditLongRecordingAndSearch() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_REDESIGN_AUDIT_FIXTURE"] == "1",
+                          "Run with the AUDIT8, AUDIT60 and AUDIT300 recording fixture.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        let search = app.textFields["recording-search"]
+        let row = app.buttons.matching(identifier: "recording-row").firstMatch
+        let play = app.buttons["Прослушать"]
+        let position = app.sliders["recording-playback-position"]
+        for marker in ["AUDIT8", "AUDIT60", "AUDIT300"] {
+            search.tap()
+            search.typeText(marker)
+            XCTAssertTrue(app.keyboards.firstMatch.exists)
+            XCTAssertFalse(app.buttons["studio-tab-1"].exists)
+            XCTAssertLessThan(row.label.count, 220)
+            XCTAssertTrue(row.label.contains(marker))
+            row.tap()
+            XCTAssertTrue(play.waitForExistence(timeout: 5))
+            XCTAssertTrue(position.isEnabled)
+            if marker != "AUDIT8" {
+                let startPosition = position.value as? String
+                position.adjust(toNormalizedSliderPosition: 0.72)
+                XCTAssertNotEqual(position.value as? String, startPosition)
+                XCTAssertTrue(play.isHittable)
+            }
+            play.tap()
+            XCTAssertTrue(app.buttons["Пауза"].waitForExistence(timeout: 5))
+            app.buttons["Пауза"].tap()
+            if marker == "AUDIT300" {
+                XCTAssertTrue(app.buttons["Изменить текст"].isHittable)
+                XCTAssertTrue(app.buttons["События"].isHittable)
+                let full = app.buttons["show-full-transcript"]
+                XCTAssertTrue(full.isHittable)
+                let details = XCTAttachment(screenshot: app.screenshot())
+                details.name = "A08-reaudit-long-recording"
+                details.lifetime = .keepAlways
+                add(details)
+                full.tap()
+                let fullText = app.staticTexts["full-transcript"]
+                XCTAssertTrue(fullText.waitForExistence(timeout: 5))
+                XCTAssertGreaterThan(fullText.label.count, 1_000)
+                app.buttons["Готово"].tap()
+                app.buttons["Изменить текст"].tap()
+                let editor = app.textViews["transcriptEditor"]
+                XCTAssertTrue(editor.waitForExistence(timeout: 5))
+                editor.tap()
+                XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+                app.buttons["transcript-keyboard-done"].tap()
+                XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+                app.buttons["Отмена"].tap()
+                app.buttons["События"].tap()
+                let list = app.collectionViews.firstMatch
+                let first = list.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "AUDIT300 Сегодня")).firstMatch
+                let second = list.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "посмотрел список")).firstMatch
+                let undo = app.buttons["review-undo-deletion"]
+                for event in [first, second] {
+                    for _ in 0..<4 where !event.isHittable { list.swipeDown(velocity: .slow) }
+                    event.tap()
+                    let delete = list.buttons["Удалить событие"].firstMatch
+                    for _ in 0..<4 where !delete.isHittable { list.swipeUp(velocity: .slow) }
+                    delete.tap()
+                    XCTAssertTrue(undo.isHittable)
+                }
+                let undoScreenshot = XCTAttachment(screenshot: app.screenshot())
+                undoScreenshot.name = "A10-reaudit-undo"
+                undoScreenshot.lifetime = .keepAlways
+                add(undoScreenshot)
+                undo.tap()
+                XCTAssertTrue(second.waitForExistence(timeout: 5))
+                XCTAssertTrue(undo.isHittable)
+                undo.tap()
+                XCTAssertTrue(first.waitForExistence(timeout: 5))
+                XCTAssertFalse(undo.exists)
+                app.buttons["Назад"].tap()
+            }
+            app.buttons["recording-details-back"].tap()
+            XCTAssertTrue(search.waitForExistence(timeout: 5))
+            XCTAssertFalse(app.keyboards.firstMatch.exists)
+            app.buttons["Очистить поиск"].tap()
+        }
+    }
+
+    @MainActor
+    func testRedesignAuditReportsAtLargestTextSize() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_REDESIGN_AUDIT_FIXTURE"] == "1",
+                          "Run with the week of populated reports.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+        let report = app.scrollViews["period-report"]
+        let period = app.buttons["Выбрать период"]
+        XCTAssertTrue(period.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(period.frame.height, 43.99)
+        let count = app.descendants(matching: .any)["report-completed-count"]
+        let duration = app.descendants(matching: .any)["report-total-duration"]
+        for _ in 0..<4 where !count.isHittable { report.swipeUp(velocity: .slow) }
+        XCTAssertTrue(count.isHittable)
+        XCTAssertGreaterThan(duration.frame.minY, count.frame.minY)
+        let summary = XCTAttachment(screenshot: app.screenshot())
+        summary.name = "A13-reaudit-largest-text"
+        summary.lifetime = .keepAlways
+        add(summary)
+
+        for (title, identifier, back, name) in [
+            ("Неделя", "report-week-day", "Вернуться к отчёту за неделю", "A14"),
+            ("Месяц", "report-month-day", "Вернуться к отчёту за месяц", "A15")
+        ] {
+            let choice = app.buttons[title]
+            for _ in 0..<5 where !choice.isHittable { report.swipeDown(velocity: .fast) }
+            choice.tap()
+            let day = app.buttons.matching(identifier: identifier).firstMatch
+            for _ in 0..<6 where !day.isHittable { report.swipeUp(velocity: .slow) }
+            XCTAssertTrue(day.isHittable)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "\(name)-reaudit-largest-text"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            day.tap()
+            let returnToReport = app.buttons[back]
+            XCTAssertTrue(returnToReport.waitForExistence(timeout: 5))
+            for _ in 0..<4 where !returnToReport.isHittable { report.swipeUp(velocity: .slow) }
+            returnToReport.tap()
+            XCTAssertTrue(choice.isSelected)
+        }
+    }
+
+    @MainActor
+    func testRedesignAuditMissingAudioStillAllowsManualEditing() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_REDESIGN_AUDIT_FIXTURE"] == "1",
+                          "Run with the failed recording fixture without an audio file.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+        let failed = app.buttons.matching(identifier: "recording-row").matching(
+            NSPredicate(format: "label CONTAINS %@", "длительность не определена")
+        ).firstMatch
+        let list = app.scrollViews.firstMatch
+        for _ in 0..<6 where !failed.isHittable { list.swipeUp(velocity: .slow) }
+        XCTAssertTrue(failed.isHittable)
+        failed.tap()
+        XCTAssertTrue(app.staticTexts["recording-audio-unavailable"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Прослушать"].exists)
+        XCTAssertFalse(app.sliders["recording-playback-position"].exists)
+        app.buttons["Изменить текст"].tap()
+        XCTAssertTrue(app.textViews["transcriptEditor"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testDayAuditKeepsFailuresGroupedAndCategoryFilterReachable() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
                           "Run on the day timeline fixture with three failed transcriptions.")
@@ -735,6 +891,38 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testOnboardingOffersMicrophoneThenSkipAfterDenial() throws {
+        #if targetEnvironment(simulator)
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_ONBOARDING_PERMISSION_FIXTURE"] == "1",
+                          "Run on a clean Simulator with microphone permission undetermined.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["Начать"].tap()
+        let microphone = app.buttons["Проверить микрофон"]
+        let skip = app.buttons["Продолжить без записи"]
+        XCTAssertTrue(microphone.waitForExistence(timeout: 5))
+        XCTAssertTrue(microphone.isHittable)
+        XCTAssertGreaterThanOrEqual(microphone.frame.height, 55)
+        XCTAssertGreaterThan(skip.frame.minY, microphone.frame.minY)
+        microphone.tap()
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let prompt = springboard.alerts.firstMatch
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.buttons.matching(NSPredicate(format: "label IN %@", [
+            "Не разрешать", "Не разрешить", "Don’t Allow", "Don't Allow"
+        ])).firstMatch.tap()
+        let settings = app.buttons["Открыть настройки iPhone"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertTrue(settings.isHittable)
+        XCTAssertTrue(skip.isHittable)
+        skip.tap()
+        XCTAssertTrue(app.buttons["day-floating-record"].waitForExistence(timeout: 5))
+        #endif
+    }
+
+    @MainActor
     func testTranscriptDraftSurvivesAppRelaunchAndCanBeDiscarded() throws {
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
@@ -801,12 +989,17 @@ final class ActionButtonUITests: XCTestCase {
         search.tap()
         search.typeText(marker)
         XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 1)
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        XCTAssertFalse(app.buttons["studio-tab-1"].exists)
+        XCTAssertFalse(app.buttons["Записать"].exists)
         let searchResults = XCTAttachment(screenshot: app.screenshot())
         searchResults.name = "A07-recording-search-keyboard"
         searchResults.lifetime = .keepAlways
         add(searchResults)
         search.typeText("\n")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["studio-tab-1"].isHittable)
+        XCTAssertTrue(app.buttons["Записать"].isHittable)
         XCTAssertEqual(app.buttons.matching(identifier: "recording-row").count, 1)
         app.buttons["Действия записи"].firstMatch.tap()
         app.buttons["Удалить запись"].tap()

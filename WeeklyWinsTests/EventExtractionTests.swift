@@ -288,6 +288,32 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertNil(store.load(recordingID: id))
     }
 
+    func testReviewDraftUndoKeepsOriginalOrderAfterReopening() throws {
+        let suite = "review-drafts-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let recordingID = UUID()
+        let original = (1...23).map { index in
+            DiaryEvent(recordingID: recordingID, sourceText: "Дело \(index)", text: "Дело \(index)")
+        }
+        var draft = EventReviewDraft(baseline: original, events: original)
+        draft.deleteEvent(id: original[1].id)
+        draft.deleteEvent(id: original[2].id)
+        var merged = original[0]
+        merged.text += ". " + original[3].text
+        XCTAssertTrue(draft.confirmMerge(merged, mergingEventID: original[3].id))
+        let added = DiaryEvent(recordingID: recordingID, sourceText: "Новое дело", text: "Новое дело")
+        draft.addEvent(added)
+
+        let store = EventReviewDraftStore(defaults: defaults)
+        try store.save(draft, recordingID: recordingID)
+        var restored = try XCTUnwrap(store.load(recordingID: recordingID))
+        XCTAssertEqual(restored.undoDeletion(), original[2].id)
+        XCTAssertEqual(restored.undoDeletion(), original[1].id)
+        XCTAssertFalse(restored.hasDeletedEvents)
+        XCTAssertEqual(restored.events, [merged, original[1], original[2]] + Array(original.dropFirst(4)) + [added])
+    }
+
     @MainActor
     func testStaleReviewCannotOverwriteNewerEventChanges() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

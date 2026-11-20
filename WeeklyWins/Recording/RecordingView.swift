@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct RecordingView: View {
+    var searchFocused: FocusState<Bool>.Binding
     @ObservedObject private var recorder = RecordingService.shared
     @State private var selectedRecording: Recording?
     @State private var deletionCandidate: Recording?
     @State private var showDeleteConfirmation = false
     @State private var query = ""
     @State private var error: String?
-    @FocusState private var searchFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var recordingsByDay: [Date: [Recording]] {
@@ -28,9 +28,9 @@ struct RecordingView: View {
                 Image(systemName: "magnifyingglass").font(.system(size: 17)).foregroundStyle(StudioTheme.secondary)
                 TextField("Текст или дата", text: $query)
                     .accessibilityIdentifier("recording-search")
-                    .focused($searchFocused)
+                    .focused(searchFocused)
                     .submitLabel(.search)
-                    .onSubmit { searchFocused = false }
+                    .onSubmit { searchFocused.wrappedValue = false }
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -61,15 +61,20 @@ struct RecordingView: View {
                                 .accessibilityAddTraits(.isHeader)
                                 .padding(.top, 8)
                             ForEach(groups[day] ?? []) { recording in
+                                let row = RecordingRow(recording: recording)
                                 HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 0) {
-                                    Button { selectedRecording = recording } label: {
-                                        RecordingRow(recording: recording)
+                                    Button {
+                                        openRecording(recording)
+                                    } label: {
+                                        row
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityLabel(row.accessibilitySummary)
                                     .accessibilityIdentifier("recording-row")
                                     Menu {
-                                        Button("Открыть запись") { selectedRecording = recording }
+                                        Button("Открыть запись") { openRecording(recording) }
                                         Button("Удалить запись", role: .destructive) {
+                                            searchFocused.wrappedValue = false
                                             deletionCandidate = recording
                                             showDeleteConfirmation = true
                                         }
@@ -109,11 +114,26 @@ struct RecordingView: View {
             Button("Готово") { error = nil }
         } message: { Text(error ?? "") }
     }
+
+    private func openRecording(_ recording: Recording) {
+        searchFocused.wrappedValue = false
+        selectedRecording = recording
+    }
 }
 
 private struct RecordingRow: View {
     let recording: Recording
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var accessibilitySummary: String {
+        var parts = [title, durationText, statusText]
+        if let transcript = recording.transcript {
+            let preview = transcript.prefix(110).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !preview.isEmpty { parts.append(preview + (transcript.count > 110 ? "…" : "")) }
+        }
+        return parts.joined(separator: ", ")
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             if !dynamicTypeSize.isAccessibilitySize {
@@ -121,7 +141,7 @@ private struct RecordingRow: View {
                     .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("Запись в \(recording.recordedAt.formatted(.dateTime.hour().minute()))")
+                Text(title)
                     .font(.headline)
                     .accessibilityIdentifier("recording-title-\(recording.id.uuidString)")
                 Text("Аудио · \(durationText)").font(.caption).foregroundStyle(StudioTheme.secondary)
@@ -136,6 +156,10 @@ private struct RecordingRow: View {
         .contentShape(Rectangle())
     }
 
+    private var title: String {
+        "Запись в \(recording.recordedAt.formatted(.dateTime.hour().minute()))"
+    }
+
     private var durationText: String {
         guard let duration = recording.duration, duration.isFinite else { return "длительность не определена" }
         let seconds = max(0, Int(duration.rounded()))
@@ -143,7 +167,6 @@ private struct RecordingRow: View {
     }
 
     private var statusText: String {
-        if let error = recording.errorMessage { return error }
         if recording.state != .saved { return recording.state.displayName }
         switch recording.processingState {
         case .pending: return recording.automaticTranscriptionPending == true ? "Ожидает расшифровки" : "Готова к расшифровке"

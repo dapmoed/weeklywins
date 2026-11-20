@@ -6,6 +6,7 @@ struct StudioRootView: View {
     @State private var showsSavedAudio = false
     @State private var savedAudioToOpen: Recording?
     @State private var selectedTab = 0
+    @FocusState private var isRecordingSearchFocused: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -35,20 +36,22 @@ struct StudioRootView: View {
         VStack(spacing: 0) {
             TabView(selection: $selectedTab) {
                 ReportView(isToday: true, onStartRecording: openRecorder).tag(0).toolbar(.hidden, for: .tabBar)
-                RecordingView().tag(1).toolbar(.hidden, for: .tabBar)
+                RecordingView(searchFocused: $isRecordingSearchFocused).tag(1).toolbar(.hidden, for: .tabBar)
                 ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
             }
             VStack(spacing: 0) {
                 if showsSavedAudio, let recording = service.recordings.first(where: { $0.id == service.completedRecordingID }) {
                     savedAudioConfirmation(for: recording)
                 }
-                if selectedTab != 0 || service.isRecording { bottomBar }
-                Divider().overlay(StudioTheme.surface)
-                HStack {
-                    tab("Сегодня", icon: "calendar", index: 0)
-                    tab("Записи", icon: "waveform", index: 1)
-                    tab("Отчёты", icon: "chart.bar.fill", index: 2)
-                }.padding(.top, 12).padding(.bottom, 5)
+                if service.isRecording || (selectedTab != 0 && !isRecordingSearchFocused) { bottomBar }
+                if !isRecordingSearchFocused {
+                    Divider().overlay(StudioTheme.surface)
+                    HStack {
+                        tab("Сегодня", icon: "calendar", index: 0)
+                        tab("Записи", icon: "waveform", index: 1)
+                        tab("Отчёты", icon: "chart.bar.fill", index: 2)
+                    }.padding(.top, 12).padding(.bottom, 5)
+                }
             }.background(StudioTheme.background)
         }
         .background(StudioTheme.background.ignoresSafeArea())
@@ -109,7 +112,7 @@ struct StudioRootView: View {
             VStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 23))
                 Text(title).font(.caption.weight(.medium))
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .lineLimit(1).minimumScaleFactor(0.7)
             }.frame(maxWidth: .infinity).frame(minHeight: 48)
                 .foregroundStyle(selectedTab == index ? StudioTheme.mint : StudioTheme.secondary)
         }

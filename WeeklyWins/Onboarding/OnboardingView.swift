@@ -23,15 +23,6 @@ struct OnboardingView: View {
                             .foregroundStyle(StudioTheme.secondary)
                         Label(microphoneGranted ? "Микрофон разрешён" : permissionDenied ? "Доступ к микрофону отклонён" : "Разрешите доступ к микрофону", systemImage: microphoneGranted ? "checkmark.circle" : "mic")
                             .foregroundStyle(microphoneGranted ? StudioTheme.mint : StudioTheme.text)
-                        if permissionDenied {
-                            Button("Открыть настройки iPhone") {
-                                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                            }.buttonStyle(.bordered)
-                        } else if !microphoneGranted {
-                            Button(requestingPermission ? "Запрашивается доступ…" : "Проверить микрофон") {
-                                Task { await requestMicrophone() }
-                            }.buttonStyle(.borderedProminent).disabled(requestingPermission)
-                        }
                         if microphoneGranted {
                             NavigationLink("Настроить кнопку действия") { ActionButtonGuideView(offersTrial: false) }
                                 .frame(minHeight: 44)
@@ -56,15 +47,19 @@ struct OnboardingView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    Button(showsMicrophone ? microphoneGranted ? "Сделать пробную запись" : "Продолжить без записи" : "Начать") {
-                        if !showsMicrophone { showsMicrophone = true }
-                        else { onFinish(microphoneGranted) }
-                    }
-                    .font(.headline).frame(maxWidth: .infinity, minHeight: 56)
-                    .foregroundStyle(StudioTheme.background).background(StudioTheme.mint, in: Capsule())
+                    Button(action: activatePrimaryAction) {
+                        Text(primaryActionTitle)
+                            .font(.headline).multilineTextAlignment(.center)
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .foregroundStyle(StudioTheme.background)
+                            .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: 26))
+                    }.buttonStyle(.plain)
                     .disabled(requestingPermission)
-                    if showsMicrophone && microphoneGranted {
-                        Button("Перейти в дневник") { onFinish(false) }.frame(minHeight: 44)
+                    if showsMicrophone {
+                        Button(microphoneGranted ? "Перейти в дневник" : "Продолжить без записи") { onFinish(false) }
+                            .frame(minHeight: 44)
+                            .disabled(requestingPermission)
                     }
                 }.padding(24).background(StudioTheme.background)
             }
@@ -76,6 +71,25 @@ struct OnboardingView: View {
         }
         .preferredColorScheme(.dark).tint(StudioTheme.mint)
         .environment(\.locale, Locale(identifier: "ru_RU"))
+    }
+
+    private var primaryActionTitle: String {
+        if !showsMicrophone { return "Начать" }
+        if microphoneGranted { return "Сделать пробную запись" }
+        if permissionDenied { return "Открыть настройки iPhone" }
+        return requestingPermission ? "Запрашивается доступ…" : "Проверить микрофон"
+    }
+
+    private func activatePrimaryAction() {
+        if !showsMicrophone {
+            showsMicrophone = true
+        } else if microphoneGranted {
+            onFinish(true)
+        } else if permissionDenied {
+            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        } else {
+            Task { await requestMicrophone() }
+        }
     }
 
     @MainActor
