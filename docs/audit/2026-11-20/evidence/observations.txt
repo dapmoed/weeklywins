@@ -1,0 +1,34 @@
+Этап 1 — iPhone 16 Pro, iOS 26.5
+Test Case '-[WeeklyWinsActionButtonUITests.ActionButtonUITests testFreshInstallOnboardingStartsTrialRecordingAndDoesNotRepeat]' passed (16.869 seconds).
+Test Case '-[WeeklyWinsActionButtonUITests.ActionButtonUITests testRecorderControlsRemainReachableAtLargestTextSize]' passed (8.241 seconds).
+Test Case '-[WeeklyWinsActionButtonUITests.ActionButtonUITests testRecordingSearchAndConfirmedDeletion]' passed (25.923 seconds).
+Test Case '-[WeeklyWinsActionButtonUITests.ActionButtonUITests testReportChartOpensDayAndReturnsToWeek]' passed (41.125 seconds).
+** TEST EXECUTE SUCCEEDED **
+
+Расширенный прогон — iPhone 16 Pro
+AUDIT AUDIT8 slider-before-play=false
+AUDIT AUDIT60 slider-before-play=false
+AUDIT AUDIT300 slider-before-play=false
+Test Case '-[WeeklyWinsActionButtonUITests.DepthAuditUITests testAudioAndTranscriptMatrix]' passed (49.668 seconds).
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("Записано")
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("Сегодня")
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("Отчёты")
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("Записи")
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("AUDIT8 Купил хлеб")
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("Без категории · Без длительности")
+AUDIT accessibility XCUIAccessibilityAuditType(rawValue: 65536) Dynamic Type font sizes are partially unsupported Optional("02:00")
+Test Case '-[WeeklyWinsActionButtonUITests.DepthAuditUITests testDefaultTodayAndAccessibility]' passed (9.233 seconds).
+AUDIT date button frame: (20.0, 175.66666666666666, 243.33333333333331, 63.33333333333334)
+Test Case '-[WeeklyWinsActionButtonUITests.DepthAuditUITests testLargestTextAndDenseReports]' passed (10.107 seconds).
+** TEST EXECUTE SUCCEEDED **
+
+Расширенный прогон — iPhone SE 3
+AUDIT date button frame: (20.0, 134.0, 243.5, 63.5)
+Test Case '-[WeeklyWinsActionButtonUITests.DepthAuditUITests testLargestTextAndDenseReports]' passed (11.902 seconds).
+** TEST EXECUTE SUCCEEDED **
+
+Дополнительные измерения дерева iPhone 16 Pro
+Кнопка Выбрать день при стандартном шрифте: 81.0 × 20.3 pt.
+Доступная подпись карточки записи AUDIT300: 3423 символа.
+После перемотки на ~72%: 44.55 с и 223.88 с на минутной и длинной записи (во время воспроизведения).
+Повторный импорт без маркера поиска: 2/86/472 слова → 1/6/23 события.
