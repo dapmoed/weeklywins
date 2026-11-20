@@ -34,7 +34,7 @@ Build the hosted test with `build.sh`. Connect the unlocked iPhone over Wi-Fi an
 
 ```sh
 TEST_RUNNER_RUN_DEVICE_ASR_POWER_BENCHMARK=1 \
-TEST_RUNNER_RUN_DEVICE_ASR_POWER_REPEATS=4 \
+TEST_RUNNER_RUN_DEVICE_ASR_POWER_REPEATS=2 \
 python3 scripts/device-test-session.py run --device "$device_id" --command \
   xcodebuild -xctestrun "$xctestrun" -destination "platform=iOS,id=$device_id" \
     -parallel-testing-enabled NO -test-timeouts-enabled YES \
@@ -43,7 +43,7 @@ python3 scripts/device-test-session.py run --device "$device_id" --command \
     test-without-building
 ```
 
-The test runs Apple Speech, Whisper, Whisper and Apple Speech with idle periods of at least 25 seconds between workloads and at the endpoints. It waits up to 90 extra seconds in each idle period for the phone to return to nominal thermal state. Each workload transcribes the same verified five-minute fixture the same number of times using fresh recognizers. The engines use the same pause pattern between transcriptions to limit heating. The test checks for unplugged operation, nominal thermal state during workloads and stable brightness. It writes completed blocks incrementally to `Library/Application Support/ASRAcceptance/power-workloads.json`. Match the timestamps or `ASRPowerBenchmark` signposts to the power trace and account for unequal processing time when integrating energy. The battery percentage is a coarse cross-check. After the run, restore the standard signed build in place.
+The test runs Apple Speech, Whisper, Whisper and Apple Speech with idle periods of at least 60 seconds between workloads and at the endpoints. It waits up to 90 extra seconds in each idle period for the phone to return to nominal thermal state. Each workload transcribes the same verified five-minute fixture the same number of times using fresh recognizers. The engines use the same pause pattern between transcriptions to limit heating. The test checks for unplugged operation, nominal thermal state during workloads and stable brightness. It writes completed blocks incrementally to `Library/Application Support/ASRAcceptance/power-workloads.json`. Match the timestamps or `ASRPowerBenchmark` signposts to the power trace and account for unequal processing time when integrating energy. The battery percentage is a coarse cross-check. After the run, restore the standard signed build in place.
 
 If wireless Instruments recording stalls, set up Performance Trace in the iPhone's Developer settings. Enable Power Profiler, add the Performance Trace control to Control Center and start it before the test command. Stop it after the final idle block. Export the trace to the Mac and open it in Instruments. [Apple's steps for recording and exporting on the iPhone](https://developer.apple.com/documentation/Xcode/measuring-your-app-s-power-use-with-power-profiler).
 
@@ -53,7 +53,7 @@ Alternatively, on an already trusted Wi-Fi connection, use the battery diagnosti
 
 ```sh
 uv run --script scripts/whisper-benchmark/sample-battery-current.py "$device_id" 1000 > battery-current.ndjson
-python3 scripts/whisper-benchmark/evaluate-battery-current.py power-workloads.json battery-current.ndjson
+python3 scripts/whisper-benchmark/evaluate-battery-current.py --cumulative power-workloads.json battery-current.ndjson
 ```
 
-The diagnostic result uses each fresh device update once and estimates discharge power as negative battery current times battery voltage. It uses only samples inside each interval, subtracts the adjacent idle power and reports an approximate energy per transcription for each workload. Report the actual device refresh cadence and sample counts. The one-second poll interval does not improve the device's sensor refresh rate.
+The cumulative method brackets each workload with counter readings in the neighboring idle periods. It subtracts the estimated idle energy over the entire bracket, then divides by the number of transcriptions. It requires the full matched sequence, fresh readings before and after each workload, valid counter progression and two readings within each idle block. For older captures with only current and voltage, omit `--cumulative` to use the previous approximate method. Report the device refresh cadence and the variation between blocks. One-second polling only observes the device's updates as they arrive.

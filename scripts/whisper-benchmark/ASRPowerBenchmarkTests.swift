@@ -21,8 +21,9 @@ final class ASRPowerBenchmarkTests: XCTestCase {
         throw XCTSkip("Power measurements require a physical device.")
         #else
         try XCTSkipUnless(environment["RUN_DEVICE_ASR_POWER_BENCHMARK"] == "1")
-        let repeats = try XCTUnwrap(Int(environment["RUN_DEVICE_ASR_POWER_REPEATS"] ?? "4"))
+        let repeats = try XCTUnwrap(Int(environment["RUN_DEVICE_ASR_POWER_REPEATS"] ?? "2"))
         guard (1...40).contains(repeats) else { throw BenchmarkError.invalidBatch }
+        let idleSeconds = 60
         // Non-uniform gaps reduce heating and avoid locking the workloads to one battery sensor sampling phase.
         let gaps = [5, 12, 7, 14, 9]
 
@@ -67,7 +68,7 @@ final class ASRPowerBenchmarkTests: XCTestCase {
                 defer { signposts.endInterval("ASR workload", interval) }
                 switch workload {
                 case .idle:
-                    try await Task.sleep(for: .seconds(25))
+                    try await Task.sleep(for: .seconds(idleSeconds))
                     let deadline = clock.now.advanced(by: .seconds(90))
                     while ProcessInfo.processInfo.thermalState != .nominal {
                         try requireComparableState(batterySnapshot(screen), initialBrightness: initialBrightness,
@@ -115,7 +116,8 @@ final class ASRPowerBenchmarkTests: XCTestCase {
             let report: [String: Any] = [
                 "fixture": audio.lastPathComponent, "fixture_sha256": hash,
                 "system_version": UIDevice.current.systemVersion, "expected_blocks": sequence.count,
-                "run_started_at": runStartedAt, "pause_pattern_seconds": gaps, "blocks": results,
+                "run_started_at": runStartedAt, "minimum_idle_seconds": idleSeconds,
+                "pause_pattern_seconds": gaps, "blocks": results,
             ]
             try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
                 .write(to: output, options: .atomic)
