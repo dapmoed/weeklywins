@@ -167,7 +167,19 @@ For the physical timing run, film the locked iPhone from the side with a second 
 python3 scripts/measure-action-button-latency.py camera.mp4 saved.m4a --press-frame 30
 ```
 
-The script uses FFmpeg, FFprobe and NumPy to align the two audio streams. It reports the interval from the video frames that bracket the press to the first decodable sample of the saved audio. Capture and video times share the camera timeline. Camera audio/video sync and the distance between microphones still affect the estimate. Record the camera frame rate, iOS and app versions, saved duration, whether the screen requested an unlock, and at least three successful timing runs. The previous lock-screen acceptance and this pending timing check are separate.
+The script uses FFmpeg, FFprobe and NumPy to align the two audio streams. It reports the interval from the video frames that bracket the press to the first decodable sample of the saved audio. Capture and video times share the camera timeline. Camera audio/video sync and the distance between microphones still affect the estimate. Record the camera frame rate, iOS and app versions, saved duration, whether the screen requested an unlock, and at least three successful timing runs.
+
+### Physical Action Button latency on build 32
+
+On 20 November, the owner filmed three starts and stops on the physical iPhone 16 Pro running iOS 27.2.1 with WeeklyWins 0.1.0 (32). The video shows the Lock Screen and its shortcut activity during the holds. No unlock prompt appeared. Three new recordings appeared in the device manifest, all saved with completed transcription. FFmpeg decoded the full 16 kHz mono AAC audio for each recording.
+
+| Run | Press to first decodable audio | Saved duration | AAC container duration |
+| --- | ---: | ---: | ---: |
+| 1 | 2.84 s | 15.164 s | 15.296 s |
+| 2 | 2.63 s | 14.588 s | 14.720 s |
+| 3 | 2.65 s | 11.452 s | 11.584 s |
+
+The camera averaged 27.12 frames per second. The finger obscures button travel, so the press times use the audible clicks during visible hand movement. Each click precedes the shortcut indicator by roughly half a second. The loudest 10 ms high-pass audio interval around each click provides the press timestamp. Six to eight matching audio windows per run locate the first saved audio on the same camera timeline. Their offsets agree within 4.5 ms. The values are estimates because the click marks the press acoustically and sound travels between the phone and camera microphones. The timing applies to the assigned shortcut as filmed. [Timing data and source hashes](recording/2026-11-20-action-button-timing.json).
 
 ### Five-minute automatic stop on build 23
 

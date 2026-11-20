@@ -1,0 +1,81 @@
+{
+  "device_model": "iPhone 16 Pro",
+  "ios_version": "27.2.1",
+  "app_release": "0.1.0",
+  "app_build": "32",
+  "video_sha256": "2799637f7812471d65be3c42593c081e9d4012b7016005be8904b8957eb29151",
+  "average_video_rate_fps": 27.122321670735015,
+  "press_marker": "Audible button press transient in camera audio with hand movement and subsequent shortcut activity visible in video.",
+  "capture_marker": "First decodable sample aligned to camera audio",
+  "runs": [
+    {
+      "recording_id": "5A0E3FAA-7D6A-4A67-A14D-815B5A91654A",
+      "recording_sha256": "9c36bd04e870978c1889c5b2fc45720750a19b848ee92395465ea64167f1ca5a",
+      "recording_timestamp_utc": "2026-11-20T03:44:49.623341+00:00",
+      "press_click_interval_seconds": [
+        5.939796,
+        5.949796
+      ],
+      "capture_start_video_seconds": 8.785296,
+      "aligned_windows": 6,
+      "alignment_spread_seconds": 0.0045,
+      "press_to_capture_seconds": 2.8405,
+      "latency_bracket_seconds": [
+        2.832375,
+        2.846875
+      ],
+      "saved_duration_seconds": 15.164,
+      "aac_container_duration_seconds": 15.296,
+      "fully_decodes": true,
+      "recording_state": "saved",
+      "transcription_state": "completed",
+      "unlock_prompt_observed": false
+    },
+    {
+      "recording_id": "17C09A42-E6D8-46A3-9326-50ACAECAD695",
+      "recording_sha256": "0787a737e1353bbea55009216c2d0d3cce430287722a2e99eb23101cb5de7952",
+      "recording_timestamp_utc": "2026-11-20T03:45:13.414137+00:00",
+      "press_click_interval_seconds": [
+        29.929796,
+        29.939796
+      ],
+      "capture_start_video_seconds": 32.563608,
+      "aligned_windows": 8,
+      "alignment_spread_seconds": 0.002625,
+      "press_to_capture_seconds": 2.628812,
+      "latency_bracket_seconds": [
+        2.621375,
+        2.634
+      ],
+      "saved_duration_seconds": 14.588,
+      "aac_container_duration_seconds": 14.72,
+      "fully_decodes": true,
+      "recording_state": "saved",
+      "transcription_state": "completed",
+      "unlock_prompt_observed": false
+    },
+    {
+      "recording_id": "7FD67785-7FF3-48C4-8355-3F76C71FA98F",
+      "recording_sha256": "20799ea092843782b8440ef8e46f13d8762f239b3135b1de80de8c70de2e1c15",
+      "recording_timestamp_utc": "2026-11-20T03:45:37.994622+00:00",
+      "press_click_interval_seconds": [
+        54.489796,
+        54.499796
+      ],
+      "capture_start_video_seconds": 57.146046,
+      "aligned_windows": 7,
+      "alignment_spread_seconds": 0.0035,
+      "press_to_capture_seconds": 2.65125,
+      "latency_bracket_seconds": [
+        2.643,
+        2.6565
+      ],
+      "saved_duration_seconds": 11.452,
+      "aac_container_duration_seconds": 11.584,
+      "fully_decodes": true,
+      "recording_state": "saved",
+      "transcription_state": "completed",
+      "unlock_prompt_observed": false
+    }
+  ]
+}
