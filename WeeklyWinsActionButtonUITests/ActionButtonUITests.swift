@@ -231,6 +231,85 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testDaySwipeRevealsDeleteAndCanRestoreTheCard() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
+                          "Run on the day timeline fixture with known cards.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Подготовил отчёт,")).firstMatch
+        let action = app.buttons["day-swipe-delete"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.swipeLeft()
+        XCTAssertTrue(action.waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(action.isHittable, app.debugDescription)
+        XCTAssertTrue(card.exists)
+        XCTAssertFalse(app.navigationBars["Событие"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A02-day-swipe-open"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        card.swipeRight()
+        XCTAssertTrue(action.waitForNonExistence(timeout: 4))
+        card.swipeLeft()
+        action.tap()
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
+
+        app.buttons["studio-tab-1"].tap()
+        let search = app.textFields["recording-search"]
+        search.tap()
+        search.typeText("Подготовил отчёт\n")
+        app.buttons["recording-row"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Прослушать"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.sliders["recording-playback-position"].isEnabled)
+        app.buttons["recording-details-back"].tap()
+        app.buttons["studio-tab-0"].tap()
+        XCTAssertFalse(card.exists)
+
+        let secondCard = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Купил продукты,")).firstMatch
+        secondCard.swipeLeft()
+        action.tap()
+        XCTAssertTrue(secondCard.waitForNonExistence(timeout: 5))
+        let undo = app.buttons["day-undo-deletion"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(undo.isHittable, app.debugDescription)
+        undo.tap()
+        XCTAssertTrue(secondCard.waitForExistence(timeout: 5))
+        XCTAssertFalse(card.exists)
+        XCTAssertTrue(undo.isHittable)
+        undo.tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertFalse(undo.exists)
+
+        app.terminate()
+        app.launchArguments = [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let timeline = app.scrollViews["day-timeline"]
+        let record = app.buttons["day-floating-record"]
+        for _ in 0..<3 where card.frame.maxY > record.frame.minY {
+            timeline.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(card.isHittable, app.debugDescription)
+        card.swipeLeft()
+        XCTAssertTrue(action.waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(action.isHittable, app.debugDescription)
+        let largeText = XCTAttachment(screenshot: app.screenshot())
+        largeText.name = "A02-day-swipe-largest-text"
+        largeText.lifetime = .keepAlways
+        add(largeText)
+        action.tap()
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
+        undo.tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testDayTimelineKeepsFloatingRecordButtonAndLastCardReachable() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
                           "Run on a disposable Simulator seeded with the long day timeline fixture.")
@@ -244,7 +323,15 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertEqual(record.frame.width, 48, accuracy: 1)
         XCTAssertEqual(record.frame.height, 48, accuracy: 1)
         XCTAssertLessThan(record.frame.midX, app.frame.midX)
-        XCTAssertLessThanOrEqual(record.frame.maxY, app.buttons["studio-tab-0"].frame.minY)
+        let sideInset = record.frame.minX - app.frame.minX
+        let tabContentPadding: CGFloat = 12
+        let bottomInset = app.buttons["studio-tab-0"].frame.minY - tabContentPadding - record.frame.maxY
+        XCTAssertEqual(sideInset, 20, accuracy: 1)
+        XCTAssertEqual(bottomInset, sideInset, accuracy: 1)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A02-day-regular-text-and-record-insets"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
 
         let date = app.buttons["Выбрать день"]
         XCTAssertGreaterThanOrEqual(date.frame.height, 44)

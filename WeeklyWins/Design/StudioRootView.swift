@@ -5,6 +5,8 @@ struct StudioRootView: View {
     @State private var recorderPresentation: RecorderPresentation?
     @State private var showsSavedAudio = false
     @State private var savedAudioToOpen: Recording?
+    @State private var dayDeletions: [RecordingService.DeletedEvent] = []
+    @State private var dayDeletionError: String?
     @State private var selectedTab = 0
     @FocusState private var isRecordingSearchFocused: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -35,11 +37,13 @@ struct StudioRootView: View {
     private var mainInterface: some View {
         VStack(spacing: 0) {
             TabView(selection: $selectedTab) {
-                ReportView(isToday: true, onStartRecording: openRecorder).tag(0).toolbar(.hidden, for: .tabBar)
+                ReportView(isToday: true, onStartRecording: openRecorder, onDeleteEvent: deleteDayEvent)
+                    .tag(0).toolbar(.hidden, for: .tabBar)
                 RecordingView(searchFocused: $isRecordingSearchFocused).tag(1).toolbar(.hidden, for: .tabBar)
                 ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
             }
             VStack(spacing: 0) {
+                if selectedTab == 0 && !dayDeletions.isEmpty { dayDeletionUndo }
                 if showsSavedAudio, let recording = service.recordings.first(where: { $0.id == service.completedRecordingID }) {
                     savedAudioConfirmation(for: recording)
                 }
@@ -64,6 +68,13 @@ struct StudioRootView: View {
         .sheet(item: $savedAudioToOpen) { recording in
             TranscriptView(recording: recording, recordingService: service)
         }
+        .alert("Не удалось изменить ленту", isPresented: Binding(
+            get: { dayDeletionError != nil }, set: { if !$0 { dayDeletionError = nil } }
+        )) {
+            Button("Закрыть", role: .cancel) {}
+        } message: {
+            Text(dayDeletionError ?? "")
+        }
         .task(id: service.completedRecordingID) {
             showsSavedAudio = service.completedRecordingID != nil && scenePhase == .active
             guard showsSavedAudio else { return }
@@ -71,6 +82,48 @@ struct StudioRootView: View {
             catch { return }
             showsSavedAudio = false
         }
+    }
+
+    private var dayDeletionUndo: some View {
+        HStack(spacing: 4) {
+            Button {
+                guard let deletion = dayDeletions.last else { return }
+                do {
+                    try service.restoreEvent(deletion)
+                    dayDeletions.removeLast()
+                } catch {
+                    dayDeletionError = error.localizedDescription
+                }
+            } label: {
+                Label("Отменить удаление", systemImage: "arrow.uturn.backward")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("day-undo-deletion")
+            Button {
+                dayDeletions.removeAll()
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 14, weight: .medium))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Закрыть отмену удаления")
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(StudioTheme.mint)
+        .padding(.leading, 12)
+        .padding(.vertical, 4)
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 6)
+        .background(StudioTheme.background)
+    }
+
+    private func deleteDayEvent(_ event: DiaryEvent) {
+        do { dayDeletions.append(try service.deleteEvent(event)) }
+        catch { dayDeletionError = error.localizedDescription }
     }
 
     private func savedAudioConfirmation(for recording: Recording) -> some View {

@@ -6,13 +6,7 @@ struct EventDetailView: View {
     @State private var editing = false
     @State private var showSource = false
     @State private var error: String?
-    @State private var deletedEvent: DeletedEvent?
-
-    private struct DeletedEvent {
-        let savedEvent: DiaryEvent
-        let draft: DiaryEvent?
-        let index: Int
-    }
+    @State private var deletedEvent: RecordingService.DeletedEvent?
 
     private let dateFormat = Date.FormatStyle.dateTime.day().month(.wide).year().hour().minute()
         .locale(Locale(identifier: "ru_RU"))
@@ -87,33 +81,13 @@ struct EventDetailView: View {
     }
 
     private func delete(_ event: DiaryEvent, editorDraft: DiaryEvent? = nil) throws {
-        guard let events = recording?.events,
-              let index = events.firstIndex(where: { $0.id == event.id }) else {
-            throw RecordingStoreError.recordingNotFound
-        }
-        let savedEvent = events[index]
-        guard savedEvent == event else { throw EventEditingError.conflictingChanges }
-        let draft = editorDraft ?? EventDraftStore().load(for: savedEvent)
-        try service.saveEvents(
-            recordingID: event.recordingID,
-            events: events.filter { $0.id != event.id },
-            expectedEvents: events
-        )
-        deletedEvent = DeletedEvent(savedEvent: savedEvent, draft: draft == savedEvent ? nil : draft, index: index)
+        deletedEvent = try service.deleteEvent(event, editorDraft: editorDraft)
     }
 
-    private func restore(_ deletion: DeletedEvent) {
-        let event = deletion.savedEvent
+    private func restore(_ deletion: RecordingService.DeletedEvent) {
         do {
-            let events = recording?.events ?? []
-            guard !events.contains(where: { $0.id == event.id }) else {
-                throw EventEditingError.conflictingChanges
-            }
-            var restoredEvents = events
-            restoredEvents.insert(event, at: min(deletion.index, restoredEvents.count))
-            try service.saveEvents(recordingID: event.recordingID, events: restoredEvents, expectedEvents: events)
+            try service.restoreEvent(deletion)
             deletedEvent = nil
-            if let draft = deletion.draft { try EventDraftStore().save(draft, baseline: event) }
         } catch { self.error = error.localizedDescription }
     }
 }

@@ -134,6 +134,38 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         refreshRecordings()
     }
 
+    struct DeletedEvent {
+        fileprivate let event: DiaryEvent
+        fileprivate let draft: DiaryEvent?
+        fileprivate let index: Int
+    }
+
+    func deleteEvent(_ event: DiaryEvent, editorDraft: DiaryEvent? = nil) throws -> DeletedEvent {
+        guard let events = recordings.first(where: { $0.id == event.recordingID })?.events,
+              let index = events.firstIndex(where: { $0.id == event.id }) else {
+            throw RecordingStoreError.recordingNotFound
+        }
+        guard events[index] == event else { throw EventEditingError.conflictingChanges }
+        let draft = editorDraft ?? EventDraftStore().load(for: event)
+        var remaining = events
+        remaining.remove(at: index)
+        try saveEvents(recordingID: event.recordingID, events: remaining, expectedEvents: events)
+        return DeletedEvent(event: event, draft: draft == event ? nil : draft, index: index)
+    }
+
+    func restoreEvent(_ deletion: DeletedEvent) throws {
+        let event = deletion.event
+        guard let recording = recordings.first(where: { $0.id == event.recordingID }) else {
+            throw RecordingStoreError.recordingNotFound
+        }
+        let events = recording.events ?? []
+        guard !events.contains(where: { $0.id == event.id }) else { throw EventEditingError.conflictingChanges }
+        var restored = events
+        restored.insert(event, at: min(deletion.index, restored.count))
+        try saveEvents(recordingID: event.recordingID, events: restored, expectedEvents: events)
+        if let draft = deletion.draft { try EventDraftStore().save(draft, baseline: event) }
+    }
+
     func deleteRecording(id: UUID) throws {
         guard !transcribingRecordingIDs.contains(id) else { throw RecordingManagementError.busy }
         if playingRecordingID == id { stopPlayback() }

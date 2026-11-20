@@ -15,10 +15,17 @@ struct ReportView: View {
     @State private var reportScrollPosition = ScrollPosition(edge: .top)
     @State private var isDayScrolling = false
     @State private var showDayFailures = false
+    @State private var swipedDayEventID: UUID?
+    @State private var draggedDayEventID: UUID?
+    @State private var daySwipeTranslation: CGFloat = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isToday: Bool
     var onStartRecording: (() -> Void)? = nil
+    var onDeleteEvent: ((DiaryEvent) -> Void)? = nil
+
+    private let dayRecordInset: CGFloat = 20
 
     private var showsDayRecordButton: Bool {
         isToday && onStartRecording != nil && !service.isRecording
@@ -86,26 +93,32 @@ struct ReportView: View {
             }
             .accessibilityIdentifier(isToday ? "day-timeline" : "period-report")
             .scrollPosition($reportScrollPosition)
-            .contentMargins(.bottom, showsDayRecordButton ? 58 : 0, for: .scrollContent)
+            .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
+                            for: .scrollContent)
             .onScrollPhaseChange { _, phase in
                 if isToday {
                     isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
+                    if phase == .interacting && draggedDayEventID == nil { swipedDayEventID = nil }
                 }
             }
             .clipped()
             .overlay(alignment: .bottomLeading) {
                 if showsDayRecordButton, let onStartRecording {
                     DayRecordButton(isScrolling: isDayScrolling, isStarting: service.isStarting, action: onStartRecording)
-                        .padding(.leading, 20)
-                        .padding(.bottom, 6)
+                        .padding(.leading, dayRecordInset)
+                        .padding(.bottom, dayRecordInset)
                 }
             }
             .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
             .toolbar(.hidden, for: .navigationBar)
             .onAppear { service.refreshRecordings(); refreshCalendarContext() }
             .onChange(of: date) { previous, current in
-                if !Calendar.current.isDate(previous, inSameDayAs: current) { showDayFailures = false }
+                if !Calendar.current.isDate(previous, inSameDayAs: current) {
+                    showDayFailures = false
+                    swipedDayEventID = nil
+                }
             }
+            .onChange(of: category) { swipedDayEventID = nil }
             .onChange(of: period) {
                 if !isToday { reportScrollPosition.scrollTo(edge: .top) }
             }
@@ -283,15 +296,31 @@ struct ReportView: View {
     private func dayEventRow(_ entry: ReportEntry) -> some View {
         let time = entry.date.formatted(.dateTime.hour().minute())
         let timestamp = entry.event.occurredAt == nil ? "Запись \(time)" : time
+        let isRevealed = swipedDayEventID == entry.id
+        let isDragging = draggedDayEventID == entry.id
+        let actionWidth: CGFloat = 84
+        let offset = min(0, max(-actionWidth, (isRevealed ? -actionWidth : 0) + (isDragging ? daySwipeTranslation : 0)))
         return HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 0) {
-            Button { selectedEntry = entry } label: {
+            Button {
+                guard draggedDayEventID == nil else { return }
+                let wasRevealed = swipedDayEventID != nil
+                swipedDayEventID = nil
+                if !wasRevealed { selectedEntry = entry }
+            } label: {
                 eventDetails(entry, timestamp: timestamp)
                     .padding(.leading, 12)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
-            }.buttonStyle(.plain)
-            Button { selectedRecording = entry.recording } label: {
+            }
+            .buttonStyle(.plain)
+            .accessibilityAction(named: Text("Удалить дело")) { deleteDayEvent(entry.event) }
+            Button {
+                guard draggedDayEventID == nil else { return }
+                let wasRevealed = swipedDayEventID != nil
+                swipedDayEventID = nil
+                if !wasRevealed { selectedRecording = entry.recording }
+            } label: {
                 Image(systemName: "waveform")
                     .font(.system(size: 16))
                     .foregroundStyle(StudioTheme.mint)
@@ -305,14 +334,63 @@ struct ReportView: View {
             .padding(.top, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
             .accessibilityLabel("Открыть аудио: \(entry.event.text)")
         }
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+        .background(StudioTheme.surface)
+        .offset(x: offset)
+        .background(alignment: .trailing) {
+            if isRevealed || isDragging {
+                Button(role: .destructive) {
+                    deleteDayEvent(entry.event)
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "trash").font(.system(size: 20, weight: .medium))
+                        if !dynamicTypeSize.isAccessibilitySize {
+                            Text("Удалить").font(.caption)
+                        }
+                    }
+                    .padding(.top, dynamicTypeSize.isAccessibilitySize ? 14 : 0)
+                    .frame(width: actionWidth)
+                    .frame(maxHeight: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center)
+                    .foregroundStyle(StudioTheme.background)
+                    .background(StudioTheme.coral)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Удалить дело")
+                .accessibilityIdentifier("day-swipe-delete")
+                .accessibilityHidden(isDragging)
+                .allowsHitTesting(!isDragging)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .gesture(DayCardPan { state, translation in
+            switch state {
+            case .began, .changed:
+                if draggedDayEventID != entry.id, swipedDayEventID != entry.id { swipedDayEventID = nil }
+                draggedDayEventID = entry.id
+                daySwipeTranslation = translation
+            case .ended, .cancelled, .failed:
+                let wasRevealed = swipedDayEventID == entry.id
+                let shouldReveal = state == .ended ? translation < (wasRevealed ? 32 : -32) : wasRevealed
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    swipedDayEventID = shouldReveal ? entry.id : nil
+                    draggedDayEventID = nil
+                    daySwipeTranslation = 0
+                }
+            default: break
+            }
+        })
+    }
+
+    private func deleteDayEvent(_ event: DiaryEvent) {
+        swipedDayEventID = nil
+        onDeleteEvent?(event)
     }
 
     private func eventDetails(_ entry: ReportEntry, timestamp: String? = nil) -> some View {
         let metadata = [timestamp, entry.event.category.title, StudioTheme.duration(entry.event.duration)]
             .compactMap { $0 }.joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 5) {
-            Text(entry.event.text).font(.headline).multilineTextAlignment(.leading)
+            Text(entry.event.text).font(isToday ? .body : .headline).multilineTextAlignment(.leading)
             Text(metadata).font(isToday ? .caption2 : .caption).foregroundStyle(StudioTheme.secondary)
             if entry.event.completion == .notCompleted {
                 Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
@@ -742,7 +820,38 @@ struct ReportView: View {
     }
 }
 
+private struct DayCardPan: UIGestureRecognizerRepresentable {
+    let action: (UIGestureRecognizer.State, CGFloat) -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let recognizer = UIPanGestureRecognizer()
+        recognizer.maximumNumberOfTouches = 1
+        recognizer.delegate = context.coordinator
+        return recognizer
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        action(recognizer.state, recognizer.translation(in: recognizer.view).x)
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) > abs(velocity.y) * 1.3
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            otherGestureRecognizer is UITapGestureRecognizer || otherGestureRecognizer.view is UIScrollView
+        }
+    }
+}
+
 private struct DayRecordButton: View {
+    static let diameter: CGFloat = 48
     let isScrolling: Bool
     let isStarting: Bool
     let action: () -> Void
@@ -758,7 +867,7 @@ private struct DayRecordButton: View {
                 .font(.system(size: 21, weight: .medium))
                 .foregroundStyle(isTranslucent ? StudioTheme.mint : StudioTheme.background)
                 .shadow(color: isTranslucent ? StudioTheme.background : .clear, radius: 1, y: 1)
-                .frame(width: 48, height: 48)
+                .frame(width: Self.diameter, height: Self.diameter)
                 .background(StudioTheme.mint.opacity(isTranslucent ? 0.16 : 1), in: Circle())
                 .overlay {
                     Circle().strokeBorder(StudioTheme.mint.opacity(isTranslucent ? 0.47 : 0), lineWidth: 1)
