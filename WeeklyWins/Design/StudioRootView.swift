@@ -33,7 +33,7 @@ struct StudioRootView: View {
     private var mainInterface: some View {
         VStack(spacing: 0) {
             TabView(selection: $selectedTab) {
-                ReportView(isToday: true).tag(0).toolbar(.hidden, for: .tabBar)
+                ReportView(isToday: true, onStartRecording: openRecorder).tag(0).toolbar(.hidden, for: .tabBar)
                 RecordingView().tag(1).toolbar(.hidden, for: .tabBar)
                 ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
             }
@@ -47,7 +47,7 @@ struct StudioRootView: View {
                         .background(StudioTheme.surface, in: Capsule())
                         .padding(.horizontal, 20)
                 }
-                bottomBar
+                if selectedTab != 0 || service.isRecording { bottomBar }
                 Divider().overlay(StudioTheme.surface)
                 HStack {
                     tab("Сегодня", icon: "calendar", index: 0)

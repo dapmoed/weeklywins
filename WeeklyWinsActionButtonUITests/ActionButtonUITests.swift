@@ -4,6 +4,41 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testDayTimelineKeepsFloatingRecordButtonAndLastCardReachable() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
+                          "Run on a disposable Simulator seeded with the long day timeline fixture.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let record = app.buttons["day-floating-record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        XCTAssertEqual(record.label, "Записать")
+        XCTAssertEqual(record.frame.width, 48, accuracy: 1)
+        XCTAssertEqual(record.frame.height, 48, accuracy: 1)
+        XCTAssertLessThan(record.frame.midX, app.frame.midX)
+        XCTAssertLessThanOrEqual(record.frame.maxY, app.buttons["studio-tab-0"].frame.minY)
+
+        let date = app.buttons["Выбрать день"]
+        XCTAssertGreaterThanOrEqual(date.frame.height, 44)
+        date.tap()
+        XCTAssertTrue(app.navigationBars["Выбор даты"].waitForExistence(timeout: 5))
+        app.buttons["Готово"].tap()
+
+        let timeline = app.scrollViews["day-timeline"]
+        let lastCard = timeline.staticTexts["Последнее дело из тестовой ленты"]
+        let position = record.frame
+        for _ in 0..<14 {
+            if lastCard.isHittable, lastCard.frame.maxY < record.frame.minY { break }
+            timeline.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(lastCard.isHittable)
+        XCTAssertLessThan(lastCard.frame.maxY, record.frame.minY)
+        XCTAssertEqual(record.frame, position)
+        XCTAssertTrue(record.isHittable)
+    }
+
+    @MainActor
     func testDeniedMicrophoneShowsRecordingPreparationAndRetry() throws {
         #if targetEnvironment(simulator)
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DENIED_MIC_UI_TEST"] == "1",

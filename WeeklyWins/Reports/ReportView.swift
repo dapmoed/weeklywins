@@ -12,10 +12,15 @@ struct ReportView: View {
     @State private var followsToday = true
     @State private var selectedTimeZone = TimeZone.current
     @State private var parentReport: (period: ReportPeriod, date: Date)?
+    @State private var isDayScrolling = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .caption) private var timeWidth = 60.0
     let isToday: Bool
+    var onStartRecording: (() -> Void)? = nil
+
+    private var showsDayRecordButton: Bool {
+        isToday && onStartRecording != nil && !service.isRecording
+    }
 
     private var entries: [ReportEntry] {
         let items = ReportQuery.events(in: service.recordings, period: isToday ? .day : period, date: date)
@@ -27,14 +32,15 @@ struct ReportView: View {
         let items = entries
         return NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: isToday ? 22 : 18) {
-                    HStack {
-                        Text(isToday ? Calendar.current.isDateInToday(date) ? "Сегодня" : "День" : "Отчёты").font(.largeTitle.bold())
-                        Spacer()
-                        SettingsButton()
-                    }
+                VStack(alignment: .leading, spacing: isToday ? 12 : 18) {
                     if isToday {
                         dayNavigation
+                    } else {
+                        HStack {
+                            Text("Отчёты").font(.largeTitle.bold())
+                            Spacer()
+                            SettingsButton()
+                        }
                     }
                     CategoryFilter(category: $category)
                     if isToday { processingRecordings }
@@ -78,12 +84,25 @@ struct ReportView: View {
                             ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar")
                         }
                     }
-                    LazyVStack(spacing: isToday ? 12 : 16) {
-                        ForEach(items) { entry in
-                            eventRow(entry, hasPrevious: entry.id != items.first?.id, hasNext: entry.id != items.last?.id)
-                        }
+                    LazyVStack(spacing: isToday ? 8 : 16) {
+                        ForEach(items) { eventRow($0) }
                     }
                 }.padding(20)
+            }
+            .accessibilityIdentifier(isToday ? "day-timeline" : "period-report")
+            .contentMargins(.bottom, showsDayRecordButton ? 58 : 0, for: .scrollContent)
+            .onScrollPhaseChange { _, phase in
+                if isToday {
+                    isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
+                }
+            }
+            .clipped()
+            .overlay(alignment: .bottomLeading) {
+                if showsDayRecordButton, let onStartRecording {
+                    DayRecordButton(isScrolling: isDayScrolling, isStarting: service.isStarting, action: onStartRecording)
+                        .padding(.leading, 20)
+                        .padding(.bottom, 6)
+                }
             }
             .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
             .toolbar(.hidden, for: .navigationBar)
@@ -151,28 +170,39 @@ struct ReportView: View {
     private var dayNavigation: some View {
         let selectedTitle = ReportQuery.periodTitle(period: .day, date: date)
         let dayPicker = Button { showCalendar = true } label: {
-            Text(selectedTitle).foregroundStyle(StudioTheme.secondary)
+            HStack(spacing: 8) {
+                Image(systemName: "calendar").font(.system(size: 18)).foregroundStyle(StudioTheme.mint)
+                    .accessibilityHidden(true)
+                Text(selectedTitle).font(.title2.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
+                Image(systemName: "chevron.down").font(.system(size: 12)).foregroundStyle(StudioTheme.secondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Выбрать день")
         .accessibilityValue(selectedTitle)
         return VStack(alignment: .leading, spacing: 4) {
-            if Calendar.current.isDateInToday(date) {
+            HStack(spacing: 8) {
                 dayPicker
-            } else {
+                Spacer(minLength: 0)
+                SettingsButton()
+            }
+            if !Calendar.current.isDateInToday(date) {
                 HStack {
                     dayArrow(-1, icon: "chevron.left", label: "Предыдущий день")
-                    Spacer(minLength: 4)
-                    dayPicker
-                    Spacer(minLength: 4)
                     dayArrow(1, icon: "chevron.right", label: "Следующий день")
+                    Spacer(minLength: 4)
+                    Button("Сегодня") {
+                        followsToday = true
+                        date = .now
+                    }
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("return-to-today")
                 }
-                Button("Сегодня") {
-                    followsToday = true
-                    date = .now
-                }
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("return-to-today")
             }
         }
     }
@@ -184,14 +214,59 @@ struct ReportView: View {
         .accessibilityLabel(label)
     }
 
-    private func eventRow(_ entry: ReportEntry, hasPrevious: Bool, hasNext: Bool) -> some View {
-        let columnWidth = min(timeWidth, 92)
+    @ViewBuilder
+    private func eventRow(_ entry: ReportEntry) -> some View {
+        if isToday { dayEventRow(entry) }
+        else { reportEventRow(entry) }
+    }
+
+    private func dayEventRow(_ entry: ReportEntry) -> some View {
+        let time = entry.date.formatted(.dateTime.hour().minute())
+        let timestamp = entry.event.occurredAt == nil ? "Запись \(time)" : time
+        return HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 0) {
+            Button { selectedEntry = entry } label: {
+                eventDetails(entry, timestamp: timestamp)
+                    .padding(.leading, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            Button { selectedRecording = entry.recording } label: {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(StudioTheme.mint)
+                    .frame(width: 34, height: 34)
+                    .background(.white.opacity(0.06), in: Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 4)
+            .padding(.top, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
+            .accessibilityLabel("Открыть аудио: \(entry.event.text)")
+        }
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func eventDetails(_ entry: ReportEntry, timestamp: String? = nil) -> some View {
+        let metadata = [timestamp, entry.event.category.title, StudioTheme.duration(entry.event.duration)]
+            .compactMap { $0 }.joined(separator: " · ")
+        return VStack(alignment: .leading, spacing: 5) {
+            Text(entry.event.text).font(.headline).multilineTextAlignment(.leading)
+            Text(metadata).font(isToday ? .caption2 : .caption).foregroundStyle(StudioTheme.secondary)
+            if entry.event.completion == .notCompleted {
+                Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
+            }
+        }
+    }
+
+    private func reportEventRow(_ entry: ReportEntry) -> some View {
         let dotColor = StudioTheme.categoryColor(entry.event.category)
         let stacked = dynamicTypeSize.isAccessibilitySize
         let dot = Circle().fill(dotColor).frame(width: 8, height: 8).accessibilityHidden(true)
         let row = stacked
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(alignment: isToday ? .center : .top, spacing: isToday ? 8 : 12))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
         let timestamp = stacked
             ? AnyLayout(HStackLayout(spacing: 8))
             : AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
@@ -202,67 +277,25 @@ struct ReportView: View {
                 Text(entry.date.formatted(.dateTime.hour().minute())).font(.caption.monospacedDigit())
             }
             .foregroundStyle(StudioTheme.secondary)
-            .frame(width: stacked ? nil : isToday ? columnWidth : 60, alignment: .leading)
-            if !stacked { dot.padding(.top, isToday ? 0 : 6) }
-            HStack(alignment: stacked ? .top : .center, spacing: 0) {
-                Button { selectedEntry = entry } label: {
-                    HStack(spacing: 10) {
-                        if !stacked {
-                            Image(systemName: entry.event.category == .home ? "house" : isToday ? "laptopcomputer" : "briefcase")
-                                .font(.title2).foregroundStyle(dotColor)
-                                .accessibilityHidden(true)
-                        }
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(entry.event.text).font(.headline).multilineTextAlignment(.leading)
-                            Text("\(entry.event.category.title) · \(StudioTheme.duration(entry.event.duration))")
-                                .font(.caption).foregroundStyle(StudioTheme.secondary)
-                            if entry.event.completion == .notCompleted {
-                                Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        if !isToday {
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(StudioTheme.mint)
-                                .accessibilityHidden(true)
-                        }
+            .frame(width: stacked ? nil : 60, alignment: .leading)
+            if !stacked { dot.padding(.top, 6) }
+            Button { selectedEntry = entry } label: {
+                HStack(spacing: 10) {
+                    if !stacked {
+                        Image(systemName: entry.event.category == .home ? "house" : "briefcase")
+                            .font(.title2).foregroundStyle(dotColor)
+                            .accessibilityHidden(true)
                     }
-                    .padding(.leading, isToday ? 12 : 15)
-                    .padding(.trailing, isToday ? 0 : 15)
-                    .padding(.vertical, isToday ? 12 : 15)
+                    eventDetails(entry)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(StudioTheme.mint)
+                        .accessibilityHidden(true)
+                }.padding(15)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
-                }.buttonStyle(.plain)
-                if isToday {
-                    Button { selectedRecording = entry.recording } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(StudioTheme.mint)
-                            .frame(width: 34, height: 34)
-                            .background(.white.opacity(0.06), in: Circle())
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, 4)
-                    .padding(.top, stacked ? 8 : 0)
-                    .accessibilityLabel("Открыть аудио: \(entry.event.text)")
-                }
             }
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: isToday ? 16 : 20))
-        }
-        .background {
-            if isToday && !stacked && (hasPrevious || hasNext) {
-                GeometryReader { proxy in
-                    let x = columnWidth + 12
-                    let center = proxy.size.height / 2
-                    Path { line in
-                        line.move(to: CGPoint(x: x, y: hasPrevious ? 0 : center))
-                        line.addLine(to: CGPoint(x: x, y: hasNext ? proxy.size.height + 12 : center))
-                    }.stroke(StudioTheme.secondary.opacity(0.32), lineWidth: 1)
-                }
-                .accessibilityHidden(true)
-                .allowsHitTesting(false)
-            }
+            .buttonStyle(.plain)
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 20))
         }
     }
 
@@ -495,5 +528,46 @@ struct ReportView: View {
         guard let shifted = ReportQuery.shiftedDate(date, period: isToday ? .day : period, offset: direction) else { return }
         date = shifted
         if isToday { followsToday = Calendar.current.isDateInToday(shifted) }
+    }
+}
+
+private struct DayRecordButton: View {
+    let isScrolling: Bool
+    let isStarting: Bool
+    let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var showsTranslucentBackground = false
+
+    private var isTranslucent: Bool { showsTranslucentBackground && !reduceTransparency }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "mic")
+                .font(.system(size: 21, weight: .medium))
+                .foregroundStyle(isTranslucent ? StudioTheme.mint : StudioTheme.background)
+                .shadow(color: isTranslucent ? StudioTheme.background : .clear, radius: 1, y: 1)
+                .frame(width: 48, height: 48)
+                .background(StudioTheme.mint.opacity(isTranslucent ? 0.16 : 1), in: Circle())
+                .overlay {
+                    Circle().strokeBorder(StudioTheme.mint.opacity(isTranslucent ? 0.47 : 0), lineWidth: 1)
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isStarting ? "Запускается…" : "Записать")
+        .accessibilityIdentifier("day-floating-record")
+        .disabled(isStarting)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: isTranslucent)
+        .task(id: isScrolling) {
+            if isScrolling {
+                showsTranslucentBackground = true
+            } else if showsTranslucentBackground {
+                do { try await Task.sleep(for: .milliseconds(280)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                showsTranslucentBackground = false
+            }
+        }
     }
 }
