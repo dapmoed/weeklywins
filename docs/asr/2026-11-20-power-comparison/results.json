@@ -1,0 +1,59 @@
+{
+  "fixture_sha256": "faa7712283d6c5288479fc35dbc476542fb3ba9352c2d608d464696088607bf6",
+  "transcriptions_per_workload_block": 2,
+  "median_refresh_seconds": 20.0,
+  "blocks": [
+    {
+      "workload": "apple",
+      "workload_seconds": 20.261126041,
+      "counter_bracket_unix_seconds": [
+        1795145183,
+        1795145223
+      ],
+      "total_discharge_joules": 146.019,
+      "idle_watts_before": 0.335025,
+      "idle_watts_after": 0.345275,
+      "adjacent_idle_mean_watts": 0.34015,
+      "estimated_extra_joules_per_transcription": 66.2065
+    },
+    {
+      "workload": "whisper",
+      "workload_seconds": 18.832226292,
+      "counter_bracket_unix_seconds": [
+        1795145263,
+        1795145303
+      ],
+      "total_discharge_joules": 150.114,
+      "idle_watts_before": 0.345275,
+      "idle_watts_after": 0.4386,
+      "adjacent_idle_mean_watts": 0.3919375,
+      "estimated_extra_joules_per_transcription": 67.21825
+    },
+    {
+      "workload": "whisper",
+      "workload_seconds": 18.76739875,
+      "counter_bracket_unix_seconds": [
+        1795145343,
+        1795145383
+      ],
+      "total_discharge_joules": 150.563,
+      "idle_watts_before": 0.4386,
+      "idle_watts_after": 0.351925,
+      "adjacent_idle_mean_watts": 0.3952625,
+      "estimated_extra_joules_per_transcription": 67.37625
+    },
+    {
+      "workload": "apple",
+      "workload_seconds": 20.164260209,
+      "counter_bracket_unix_seconds": [
+        1795145423,
+        1795145463
+      ],
+      "total_discharge_joules": 133.131,
+      "idle_watts_before": 0.351925,
+      "idle_watts_after": 0.331225,
+      "adjacent_idle_mean_watts": 0.341575,
+      "estimated_extra_joules_per_transcription": 59.734
+    }
+  ]
+}

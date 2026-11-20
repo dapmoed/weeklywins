@@ -1,0 +1,188 @@
+{
+  "blocks" : [
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 60.038257084000001,
+      "finished_at" : "2026-11-20T03:26:28.487Z",
+      "started_at" : "2026-11-20T03:25:28.449Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 20.261126041000001,
+      "finished_at" : "2026-11-20T03:26:48.755Z",
+      "started_at" : "2026-11-20T03:26:28.494Z",
+      "transcriptions" : 2,
+      "workload" : "apple"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 60.080942917000002,
+      "finished_at" : "2026-11-20T03:27:48.836Z",
+      "started_at" : "2026-11-20T03:26:48.756Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 18.832226292000001,
+      "finished_at" : "2026-11-20T03:28:07.674Z",
+      "started_at" : "2026-11-20T03:27:48.842Z",
+      "transcriptions" : 2,
+      "workload" : "whisper"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 60.014916874999997,
+      "finished_at" : "2026-11-20T03:29:07.690Z",
+      "started_at" : "2026-11-20T03:28:07.676Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 18.767398750000002,
+      "finished_at" : "2026-11-20T03:29:26.464Z",
+      "started_at" : "2026-11-20T03:29:07.697Z",
+      "transcriptions" : 2,
+      "workload" : "whisper"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 60.021242958000002,
+      "finished_at" : "2026-11-20T03:30:26.487Z",
+      "started_at" : "2026-11-20T03:29:26.466Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 20.164260208999998,
+      "finished_at" : "2026-11-20T03:30:46.657Z",
+      "started_at" : "2026-11-20T03:30:26.493Z",
+      "transcriptions" : 2,
+      "workload" : "apple"
+    },
+    {
+      "after" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "before" : {
+        "brightness" : 0.30000001192092896,
+        "charging_state" : 1,
+        "level" : 1,
+        "thermal_state" : 0
+      },
+      "elapsed_seconds" : 60.035933374999999,
+      "finished_at" : "2026-11-20T03:31:46.693Z",
+      "started_at" : "2026-11-20T03:30:46.658Z",
+      "transcriptions" : 0,
+      "workload" : "idle"
+    }
+  ],
+  "expected_blocks" : 9,
+  "fixture" : "ru-five-minute.m4a",
+  "fixture_sha256" : "faa7712283d6c5288479fc35dbc476542fb3ba9352c2d608d464696088607bf6",
+  "minimum_idle_seconds" : 60,
+  "pause_pattern_seconds" : [
+    5,
+    12,
+    7,
+    14,
+    9
+  ],
+  "run_started_at" : "2026-11-20T03:25:28.449Z",
+  "system_version" : "27.2.1"
+}
