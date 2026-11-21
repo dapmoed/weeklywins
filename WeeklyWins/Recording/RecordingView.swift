@@ -5,8 +5,6 @@ struct RecordingView: View {
     var onStartRecording: (() -> Void)?
     @ObservedObject private var recorder = RecordingService.shared
     @State private var selectedRecording: Recording?
-    @State private var deletionCandidate: Recording?
-    @State private var showDeleteConfirmation = false
     @State private var query = ""
     @State private var error: String?
     @State private var isScrolling = false
@@ -61,44 +59,26 @@ struct RecordingView: View {
                     description: Text(query.isEmpty ? "Начните голосовую запись кнопкой внизу." : "Попробуйте другое слово или дату.")
                 ).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(groups.keys.sorted(by: >), id: \.self) { day in
+                List {
+                    ForEach(groups.keys.sorted(by: >), id: \.self) { day in
+                        Section {
                             Text(day.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "ru_RU"))))
                                 .font(.subheadline.weight(.semibold)).foregroundStyle(StudioTheme.secondary)
                                 .accessibilityAddTraits(.isHeader)
                                 .padding(.top, 8)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                             ForEach(groups[day] ?? []) { recording in
-                                let row = RecordingRow(recording: recording)
-                                HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 0) {
-                                    Button {
-                                        openRecording(recording)
-                                    } label: {
-                                        row
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(row.accessibilitySummary)
-                                    .accessibilityIdentifier("recording-row")
-                                    Menu {
-                                        Button("Открыть запись") { openRecording(recording) }
-                                        Button("Удалить запись", role: .destructive) {
-                                            searchFocused.wrappedValue = false
-                                            deletionCandidate = recording
-                                            showDeleteConfirmation = true
-                                        }
-                                    } label: {
-                                        Image(systemName: "ellipsis")
-                                            .font(.system(size: 18))
-                                            .frame(width: 44, height: 54)
-                                    }
-                                    .padding(.top, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
-                                    .accessibilityLabel("Действия записи")
-                                }
-                                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                                recordingRow(recording)
                             }
                         }
+                        .listSectionSeparator(.hidden)
                     }
                 }
+                .listStyle(.plain)
+                .listRowSpacing(12)
+                .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
                 .contentMargins(.bottom, showsRecordButton ? DayRecordButton.diameter + recordInset + 4 : 0,
                                 for: .scrollContent)
@@ -119,16 +99,6 @@ struct RecordingView: View {
         .sheet(item: $selectedRecording) { recording in
             TranscriptView(recording: recording, recordingService: recorder)
         }
-        .confirmationDialog("Удалить запись?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Удалить запись", role: .destructive) {
-                guard let recording = deletionCandidate else { return }
-                do { try recorder.deleteRecording(id: recording.id) }
-                catch { self.error = error.localizedDescription }
-                deletionCandidate = nil
-            }
-        } message: {
-            Text("Аудио, расшифровка и \(deletionCandidate?.events?.count ?? 0) связанных событий будут удалены.")
-        }
         .alert("Не удалось удалить запись", isPresented: Binding(
             get: { error != nil }, set: { if !$0 { error = nil } }
         )) {
@@ -139,6 +109,33 @@ struct RecordingView: View {
     private func openRecording(_ recording: Recording) {
         searchFocused.wrappedValue = false
         selectedRecording = recording
+    }
+
+    private func recordingRow(_ recording: Recording) -> some View {
+        let row = RecordingRow(recording: recording)
+        return Button {
+            openRecording(recording)
+        } label: {
+            row.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(row.accessibilitySummary)
+        .accessibilityIdentifier("recording-row")
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                searchFocused.wrappedValue = false
+                do { try recorder.deleteRecording(id: recording.id) }
+                catch { self.error = error.localizedDescription }
+            } label: {
+                Label("Удалить", systemImage: "trash")
+            }
+            .tint(StudioTheme.coral)
+            .accessibilityIdentifier("recording-swipe-delete")
+        }
     }
 }
 
@@ -156,25 +153,39 @@ private struct RecordingRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            if !dynamicTypeSize.isAccessibilitySize {
-                Image(systemName: "waveform").font(.title2).foregroundStyle(StudioTheme.mint)
-                    .accessibilityHidden(true)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(.headline)
-                    .accessibilityIdentifier("recording-title-\(recording.id.uuidString)")
-                Text("Аудио · \(durationText)").font(.caption).foregroundStyle(StudioTheme.secondary)
-                if let text = recording.transcript, !text.isEmpty {
-                    Text(text).lineLimit(2).font(.subheadline).foregroundStyle(StudioTheme.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: "waveform").font(.title2).foregroundStyle(StudioTheme.mint)
+                        .accessibilityHidden(true)
                 }
-                Text(statusText).font(.caption).foregroundStyle(recording.errorMessage == nil ? StudioTheme.secondary : StudioTheme.coral)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .accessibilityIdentifier("recording-title-\(recording.id.uuidString)")
+                    Text("Аудио · \(durationText)").font(.caption).foregroundStyle(StudioTheme.secondary)
+                    if let text = recording.transcript, !text.isEmpty {
+                        Text(text).lineLimit(2).font(.subheadline).foregroundStyle(StudioTheme.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            .padding(16)
+            .padding(.bottom, 2)
+
+            Text(statusText)
+                .font(.caption)
+                .foregroundStyle(recording.errorMessage == nil ? StudioTheme.text : StudioTheme.coral)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(StudioTheme.unclassifiedCategorySurface)
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
     private var title: String {

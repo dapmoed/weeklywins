@@ -32,6 +32,7 @@ struct ReportView: View {
         self.isToday = isToday
         self.onStartRecording = onStartRecording
         self.onDeleteEvent = onDeleteEvent
+        _category = State(initialValue: isToday ? nil : .work)
         let calendar = ReportQuery.calendar
         let week = calendar.dateInterval(of: .weekOfYear, for: .now)
         _customStart = State(initialValue: week?.start ?? .now)
@@ -373,46 +374,19 @@ struct ReportView: View {
         let isDragging = draggedDayEventID == entry.id
         let actionWidth: CGFloat = 84
         let offset = min(0, max(-actionWidth, (isRevealed ? -actionWidth : 0) + (isDragging ? daySwipeTranslation : 0)))
-        return HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 0) {
-            Button {
-                guard draggedDayEventID == nil else { return }
-                let wasRevealed = swipedDayEventID != nil
-                swipedDayEventID = nil
-                if !wasRevealed { selectedEntry = entry }
-            } label: {
-                eventDetails(entry, timestamp: timestamp)
-                    .padding(.leading, 12)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityAction(named: Text("Удалить дело")) { deleteDayEvent(entry.event) }
-            Button {
-                guard draggedDayEventID == nil else { return }
-                let wasRevealed = swipedDayEventID != nil
-                swipedDayEventID = nil
-                if !wasRevealed { selectedRecording = entry.recording }
-            } label: {
-                Image(systemName: "waveform")
-                    .font(.system(size: 16))
-                    .foregroundStyle(StudioTheme.mint)
-                    .frame(width: 34, height: 34)
-                    .background(.white.opacity(0.06), in: Circle())
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, 4)
-            .padding(.top, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
-            .accessibilityLabel("Открыть аудио: \(entry.event.text)")
+        return Button {
+            guard draggedDayEventID == nil else { return }
+            let wasRevealed = swipedDayEventID != nil
+            swipedDayEventID = nil
+            if !wasRevealed { selectedEntry = entry }
+        } label: {
+            eventDetails(entry, timestamp: timestamp)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityAction(named: Text("Удалить дело")) { deleteDayEvent(entry.event) }
         .background(StudioTheme.surface)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(StudioTheme.categoryColor(entry.event.category))
-                .frame(width: 6)
-        }
         .offset(x: offset)
         .background(alignment: .trailing) {
             if isRevealed || isDragging {
@@ -467,12 +441,27 @@ struct ReportView: View {
     private func eventDetails(_ entry: ReportEntry, timestamp: String? = nil) -> some View {
         let metadata = [timestamp, entry.event.category.title]
             .compactMap { $0 }.joined(separator: " · ")
-        return VStack(alignment: .leading, spacing: 5) {
-            Text(entry.event.text).font(isToday ? .body : .headline).multilineTextAlignment(.leading)
-            Text(metadata).font(isToday ? .caption2 : .caption).foregroundStyle(StudioTheme.secondary)
-            if entry.event.completion == .notCompleted {
-                Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(entry.event.text)
+                    .font(isToday ? .body : .headline)
+                    .multilineTextAlignment(.leading)
+                if entry.event.completion == .notCompleted {
+                    Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
+                }
             }
+            .padding(.horizontal, 12)
+            .padding(.top, 9)
+            .padding(.bottom, 4)
+
+            Text(metadata)
+                .font(isToday ? .caption2 : .caption)
+                .foregroundStyle(StudioTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(StudioTheme.categorySurfaceColor(entry.event.category))
         }
     }
 

@@ -96,9 +96,13 @@ struct EventReviewView: View {
                                 .foregroundStyle(StudioTheme.text)
                                 .fixedSize(horizontal: false, vertical: true)
                             metadata(for: event)
-                                .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(StudioTheme.secondary)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(StudioTheme.text)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(StudioTheme.categorySurfaceColor(event.category))
                         }.padding(.vertical, 8)
                     }.id(event.id)
                 }.listRowBackground(StudioTheme.surface)
@@ -108,9 +112,8 @@ struct EventReviewView: View {
     }
 
     private func metadata(for event: DiaryEvent) -> Text {
-        let category = Text(event.category.title).foregroundStyle(StudioTheme.categoryColor(event.category))
         let status = event.completion == .notCompleted ? " · \(event.completion.title)" : ""
-        return Text("\(category)\(status)")
+        return Text("\(event.category.title)\(status)")
     }
 
     private var footer: some View {

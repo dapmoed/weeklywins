@@ -4,6 +4,26 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testRecordingSwipeRevealsDeleteWithoutDeleting() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+
+        let row = app.buttons.matching(identifier: "recording-row").firstMatch
+        guard row.waitForExistence(timeout: 5) else {
+            throw XCTSkip("The recording list is empty in this simulator.")
+        }
+        row.swipeLeft()
+
+        let delete = app.buttons["recording-swipe-delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(delete.isHittable, app.debugDescription)
+        XCTAssertTrue(row.exists)
+        XCTAssertFalse(app.buttons["recording-details-back"].exists)
+    }
+
+    @MainActor
     func testRedesignAuditLongRecordingAndSearch() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_REDESIGN_AUDIT_FIXTURE"] == "1",
                           "Run with the AUDIT8, AUDIT60 and AUDIT300 recording fixture.")
