@@ -25,6 +25,7 @@ enum StudioTheme {
 struct CategoryFilter: View {
     @Binding var category: EventCategory?
     var compact = false
+    var showsSelectedCategorySummary = true
     private let categories: [EventCategory] = [.work, .home, .hobby, .unclassified]
 
     var body: some View {
@@ -40,7 +41,7 @@ struct CategoryFilter: View {
                     pills(spacing: 10, padding: 22)
                 }
             }
-            if let category {
+            if showsSelectedCategorySummary, let category {
                 HStack {
                     Text(category.title)
                         .accessibilityAddTraits(.isHeader)
@@ -51,6 +52,7 @@ struct CategoryFilter: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(StudioTheme.secondary)
+                .accessibilityIdentifier("selected-category-summary")
             }
         }
     }

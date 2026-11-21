@@ -27,10 +27,39 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[expectedPreviousDate].waitForExistence(timeout: 5), app.debugDescription)
         let settingsDone = app.buttons["Готово"]
         if settingsDone.isHittable { settingsDone.tap() }
+        XCTAssertFalse(app.buttons["return-to-today"].exists, app.debugDescription)
         attach("A03-final-previous-day")
         app.buttons["studio-tab-2"].tap()
         XCTAssertTrue(app.staticTexts["Отчёты"].waitForExistence(timeout: 5))
         attach("A14-final-reports-work-filter")
+    }
+
+    @MainActor
+    func testTodayDateOpensDatePickerInsteadOfSettings() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let dayPicker = app.buttons["Выбрать день"]
+        XCTAssertTrue(dayPicker.waitForExistence(timeout: 5), app.debugDescription)
+        dayPicker.tap()
+
+        XCTAssertTrue(app.staticTexts["Выбор даты"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.staticTexts["Настройки"].exists, app.debugDescription)
+    }
+
+    @MainActor
+    func testReportsDoNotRepeatSelectedCategoryBelowFilter() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let category = app.buttons["Категория"]
+        XCTAssertTrue(category.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(category.value as? String, "Работа", app.debugDescription)
+        XCTAssertFalse(app.buttons["reset-category-filter"].exists, app.debugDescription)
+        XCTAssertFalse(app.otherElements["selected-category-summary"].exists, app.debugDescription)
     }
 
     @MainActor
@@ -286,7 +315,7 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Нет дел в этой категории"].waitForExistence(timeout: 5))
         app.buttons["reset-category-filter"].tap()
         XCTAssertTrue(app.staticTexts["В этот день нет событий"].waitForExistence(timeout: 5))
-        app.buttons["return-to-today"].tap()
+        app.buttons[offset < 0 ? "Следующий день" : "Предыдущий день"].tap()
         app.buttons["Открыть аудио: Подготовил отчёт"].tap()
         XCTAssertTrue(app.buttons["Прослушать"].waitForExistence(timeout: 5))
         app.buttons["recording-details-back"].tap()
@@ -1060,7 +1089,7 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertEqual(datePicker.value as? String, selectedLabel)
         let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         XCTAssertFalse(card.exists)
-        app.buttons["return-to-today"].tap()
+        inward.tap()
         XCTAssertEqual(datePicker.value as? String, todayLabel)
         for _ in 0..<32 {
             if card.exists { break }

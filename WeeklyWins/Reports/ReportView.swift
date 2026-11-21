@@ -127,7 +127,7 @@ struct ReportView: View {
             }
             periodMenu
             if choice == .custom { customRangePickers }
-            CategoryFilter(category: $category, compact: true)
+            CategoryFilter(category: $category, compact: true, showsSelectedCategorySummary: false)
             if items.isEmpty {
                 ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -353,17 +353,6 @@ struct ReportView: View {
                 }
                 Spacer(minLength: 0)
                 SettingsButton()
-            }
-            if !Calendar.current.isDateInToday(date) {
-                HStack {
-                    Spacer(minLength: 0)
-                    Button("Сегодня") {
-                        followsToday = true
-                        date = .now
-                    }
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("return-to-today")
-                }
             }
         }
     }
