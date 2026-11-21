@@ -485,6 +485,69 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testDayTimelineKeepsTopControlsFixedWhileScrolling() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DAY_TIMELINE_FIXTURE"] == "1",
+                          "Run on a disposable Simulator seeded with the long day timeline fixture.")
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let date = app.buttons["Выбрать день"]
+        let category = app.buttons["Категория"]
+        let settings = app.buttons["settings-button"]
+        let timeline = app.collectionViews["day-timeline"]
+        let firstCard = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "Подготовил отчёт")
+        ).firstMatch
+        let lastCard = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "Последнее дело из тестовой ленты")
+        ).firstMatch
+        guard firstCard.waitForExistence(timeout: 5) else {
+            throw XCTSkip("The long day timeline fixture is not installed in this Simulator.")
+        }
+        XCTAssertTrue(date.isHittable)
+        XCTAssertTrue(category.isHittable)
+        XCTAssertTrue(settings.isHittable)
+        let dateFrame = date.frame
+        let categoryFrame = category.frame
+        let settingsFrame = settings.frame
+
+        for _ in 0..<14 {
+            if lastCard.isHittable { break }
+            timeline.swipeUp(velocity: .fast)
+        }
+
+        XCTAssertTrue(lastCard.isHittable, app.debugDescription)
+        XCTAssertFalse(firstCard.isHittable, app.debugDescription)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A02-top-controls-fixed-after-scroll"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        XCTAssertTrue(date.isHittable, app.debugDescription)
+        XCTAssertTrue(category.isHittable, app.debugDescription)
+        XCTAssertTrue(settings.isHittable, app.debugDescription)
+        XCTAssertEqual(date.frame, dateFrame)
+        XCTAssertEqual(category.frame, categoryFrame)
+        XCTAssertEqual(settings.frame, settingsFrame)
+    }
+
+    @MainActor
+    func testEmptyTodayKeepsFloatingRecordButtonVisible() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        guard app.staticTexts["Нет событий"].waitForExistence(timeout: 5) else {
+            throw XCTSkip("The current simulator day is not empty.")
+        }
+        XCTAssertTrue(app.buttons["day-floating-record"].isHittable, app.debugDescription)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A02-empty-day-fixed-controls"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testDeniedMicrophoneShowsRecordingPreparationAndRetry() throws {
         #if targetEnvironment(simulator)
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DENIED_MIC_UI_TEST"] == "1",

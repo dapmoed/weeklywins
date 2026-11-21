@@ -272,37 +272,41 @@ struct ReportView: View {
     // MARK: - Лента дня
 
     private var todayContent: some View {
-        List {
+        VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 dayNavigation
                 CategoryFilter(category: $category, compact: true)
                 processingRecordings
-                if entries.isEmpty { dayEmptyState }
             }
             .padding(.top, 20)
-            .padding(.bottom, 4)
-            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
 
-            ForEach(entries) { entry in
-                dayEventRow(entry)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+            if entries.isEmpty {
+                dayEmptyState
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, 20)
+            } else {
+                List(entries) { entry in
+                    dayEventRow(entry)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(.plain)
+                .listRowSpacing(8)
+                .scrollContentBackground(.hidden)
+                .background(StudioTheme.background)
+                .accessibilityIdentifier("day-timeline")
+                .scrollPosition($reportScrollPosition)
+                .onScrollPhaseChange { _, phase in
+                    isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
+                }
+                .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
+                                for: .scrollContent)
             }
         }
-        .listStyle(.plain)
-        .listRowSpacing(8)
-        .scrollContentBackground(.hidden)
         .background(StudioTheme.background)
-        .accessibilityIdentifier("day-timeline")
-        .scrollPosition($reportScrollPosition)
-        .onScrollPhaseChange { _, phase in
-            isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
-        }
-        .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
-                        for: .scrollContent)
         .overlay(alignment: .bottomLeading) {
             if showsDayRecordButton, let onStartRecording {
                 DayRecordButton(isScrolling: isDayScrolling, isStarting: service.isStarting, action: onStartRecording)
