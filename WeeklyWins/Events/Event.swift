@@ -1,13 +1,14 @@
 import Foundation
 
 enum EventCategory: String, Codable, CaseIterable, Identifiable {
-    case unclassified, work, home
+    case unclassified, work, home, hobby
     var id: String { rawValue }
     var title: String {
         switch self {
         case .unclassified: return "Без категории"
         case .work: return "Работа"
         case .home: return "Дом"
+        case .hobby: return "Хобби"
         }
     }
 }

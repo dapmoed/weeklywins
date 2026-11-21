@@ -4,6 +4,74 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testCaptureFinalOverviewScreens() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        func attach(_ name: String) {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = name
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+
+        XCTAssertTrue(app.buttons["Категория"].waitForExistence(timeout: 5))
+        attach("A02-final-today")
+        let previousDay = app.buttons["Предыдущий день"]
+        XCTAssertTrue(previousDay.isHittable, app.debugDescription)
+        XCTAssertLessThan(previousDay.frame.midX, 100, app.debugDescription)
+        previousDay.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let expectedPreviousDate = Calendar.current.date(byAdding: .day, value: -1, to: .now)!
+            .formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "ru_RU")))
+        XCTAssertTrue(app.staticTexts[expectedPreviousDate].waitForExistence(timeout: 5), app.debugDescription)
+        let settingsDone = app.buttons["Готово"]
+        if settingsDone.isHittable { settingsDone.tap() }
+        attach("A03-final-previous-day")
+        app.buttons["studio-tab-2"].tap()
+        XCTAssertTrue(app.staticTexts["Отчёты"].waitForExistence(timeout: 5))
+        attach("A14-final-reports-work-filter")
+    }
+
+    @MainActor
+    func testHobbyCategoryIsAvailableInTodayFilter() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let category = app.buttons["Категория"]
+        XCTAssertTrue(category.waitForExistence(timeout: 5), app.debugDescription)
+        category.tap()
+        XCTAssertTrue(app.buttons["Хобби"].waitForExistence(timeout: 5), app.debugDescription)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A02-hobby-filter-option"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
+    func testTodaySwipeUsesSameDeleteButton() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Позвонил маме")).firstMatch
+        guard card.waitForExistence(timeout: 5) else {
+            throw XCTSkip("The Today feed has no event card in this simulator.")
+        }
+        card.swipeLeft()
+
+        let delete = app.buttons["day-swipe-delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(delete.isHittable, app.debugDescription)
+        XCTAssertTrue(card.exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A02-today-delete-revealed"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testRecordingSwipeRevealsDeleteWithoutDeleting() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")

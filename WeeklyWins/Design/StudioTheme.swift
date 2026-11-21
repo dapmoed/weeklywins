@@ -8,27 +8,24 @@ enum StudioTheme {
     static let mint = Color(red: 182/255, green: 229/255, blue: 206/255)
     static let coral = Color(red: 1, green: 123/255, blue: 107/255)
     static let sand = Color(red: 233/255, green: 200/255, blue: 137/255)
-    static let workCategorySurface = Color(red: 48/255, green: 75/255, blue: 62/255)
-    static let homeCategorySurface = Color(red: 78/255, green: 64/255, blue: 40/255)
-    static let unclassifiedCategorySurface = Color(red: 48/255, green: 58/255, blue: 54/255)
+    static let hobby = Color(red: 197/255, green: 163/255, blue: 255/255)
+    static let neutralCategorySurface = Color(red: 48/255, green: 58/255, blue: 54/255)
 
     static func categoryColor(_ category: EventCategory) -> Color {
-        category == .home ? sand : category == .work ? mint : secondary
-    }
-
-    static func categorySurfaceColor(_ category: EventCategory) -> Color {
         switch category {
-        case .work: workCategorySurface
-        case .home: homeCategorySurface
-        case .unclassified: unclassifiedCategorySurface
+        case .unclassified: secondary
+        case .work: mint
+        case .home: sand
+        case .hobby: hobby
         }
     }
+
 }
 
 struct CategoryFilter: View {
     @Binding var category: EventCategory?
     var compact = false
-    private let categories: [EventCategory] = [.work, .home, .unclassified]
+    private let categories: [EventCategory] = [.work, .home, .hobby, .unclassified]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

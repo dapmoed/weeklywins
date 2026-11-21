@@ -99,6 +99,7 @@ struct EventDetailView: View {
         case .work: "briefcase"
         case .home: "house"
         case .unclassified: "tag"
+        case .hobby: "paintpalette"
         }
     }
 

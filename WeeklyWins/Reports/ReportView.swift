@@ -16,12 +16,8 @@ struct ReportView: View {
     @State private var textScrollPosition = ScrollPosition(edge: .top)
     @State private var isDayScrolling = false
     @State private var showDayFailures = false
-    @State private var swipedDayEventID: UUID?
-    @State private var draggedDayEventID: UUID?
-    @State private var daySwipeTranslation: CGFloat = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isToday: Bool
     var onStartRecording: (() -> Void)? = nil
     var onDeleteEvent: ((DiaryEvent) -> Void)? = nil
@@ -75,10 +71,8 @@ struct ReportView: View {
             .onChange(of: date) { previous, current in
                 if !Calendar.current.isDate(previous, inSameDayAs: current) {
                     showDayFailures = false
-                    swipedDayEventID = nil
                 }
             }
-            .onChange(of: category) { swipedDayEventID = nil }
             .onChange(of: choice) { textScrollPosition.scrollTo(edge: .top) }
             .onChange(of: customStart) { newValue in
                 if newValue > customEnd { customEnd = newValue }
@@ -278,26 +272,37 @@ struct ReportView: View {
     // MARK: - Лента дня
 
     private var todayContent: some View {
-        ScrollView {
+        List {
             VStack(alignment: .leading, spacing: 12) {
                 dayNavigation
                 CategoryFilter(category: $category, compact: true)
                 processingRecordings
                 if entries.isEmpty { dayEmptyState }
-                LazyVStack(spacing: 8) {
-                    ForEach(entries) { dayEventRow($0) }
-                }
-            }.padding(20)
+            }
+            .padding(.top, 20)
+            .padding(.bottom, 4)
+            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            ForEach(entries) { entry in
+                dayEventRow(entry)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
         }
+        .listStyle(.plain)
+        .listRowSpacing(8)
+        .scrollContentBackground(.hidden)
+        .background(StudioTheme.background)
         .accessibilityIdentifier("day-timeline")
         .scrollPosition($reportScrollPosition)
-        .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
-                        for: .scrollContent)
         .onScrollPhaseChange { _, phase in
             isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
-            if phase == .interacting && draggedDayEventID == nil { swipedDayEventID = nil }
         }
-        .clipped()
+        .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
+                        for: .scrollContent)
         .overlay(alignment: .bottomLeading) {
             if showsDayRecordButton, let onStartRecording {
                 DayRecordButton(isScrolling: isDayScrolling, isStarting: service.isStarting, action: onStartRecording)
@@ -305,6 +310,7 @@ struct ReportView: View {
                     .padding(.bottom, dayRecordInset)
             }
         }
+        .clipped()
     }
 
     @ViewBuilder
@@ -342,7 +348,9 @@ struct ReportView: View {
             HStack(spacing: 4) {
                 dayArrow(-1, icon: "chevron.left", label: "Предыдущий день")
                 dayPicker
-                dayArrow(1, icon: "chevron.right", label: "Следующий день")
+                if !Calendar.current.isDateInToday(date) {
+                    dayArrow(1, icon: "chevron.right", label: "Следующий день")
+                }
                 Spacer(minLength: 0)
                 SettingsButton()
             }
@@ -370,71 +378,30 @@ struct ReportView: View {
     private func dayEventRow(_ entry: ReportEntry) -> some View {
         let time = entry.date.formatted(.dateTime.hour().minute())
         let timestamp = "Запись \(time)"
-        let isRevealed = swipedDayEventID == entry.id
-        let isDragging = draggedDayEventID == entry.id
-        let actionWidth: CGFloat = 84
-        let offset = min(0, max(-actionWidth, (isRevealed ? -actionWidth : 0) + (isDragging ? daySwipeTranslation : 0)))
         return Button {
-            guard draggedDayEventID == nil else { return }
-            let wasRevealed = swipedDayEventID != nil
-            swipedDayEventID = nil
-            if !wasRevealed { selectedEntry = entry }
+            selectedEntry = entry
         } label: {
             eventDetails(entry, timestamp: timestamp)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAction(named: Text("Удалить дело")) { deleteDayEvent(entry.event) }
-        .background(StudioTheme.surface)
-        .offset(x: offset)
-        .background(alignment: .trailing) {
-            if isRevealed || isDragging {
-                Button(role: .destructive) {
-                    deleteDayEvent(entry.event)
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: "trash").font(.system(size: 20, weight: .medium))
-                        if !dynamicTypeSize.isAccessibilitySize {
-                            Text("Удалить").font(.caption)
-                        }
-                    }
-                    .padding(.top, dynamicTypeSize.isAccessibilitySize ? 14 : 0)
-                    .frame(width: actionWidth)
-                    .frame(maxHeight: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center)
-                    .foregroundStyle(StudioTheme.background)
-                    .background(StudioTheme.coral)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Удалить дело")
-                .accessibilityIdentifier("day-swipe-delete")
-                .accessibilityHidden(isDragging)
-                .allowsHitTesting(!isDragging)
-            }
-        }
+        .accessibilityIdentifier("day-event-row")
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .gesture(DayCardPan { state, translation in
-            switch state {
-            case .began, .changed:
-                if draggedDayEventID != entry.id, swipedDayEventID != entry.id { swipedDayEventID = nil }
-                draggedDayEventID = entry.id
-                daySwipeTranslation = translation
-            case .ended, .cancelled, .failed:
-                let wasRevealed = swipedDayEventID == entry.id
-                let shouldReveal = state == .ended ? translation < (wasRevealed ? 32 : -32) : wasRevealed
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                    swipedDayEventID = shouldReveal ? entry.id : nil
-                    draggedDayEventID = nil
-                    daySwipeTranslation = 0
-                }
-            default: break
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                deleteDayEvent(entry.event)
+            } label: {
+                Label("Удалить", systemImage: "trash")
             }
-        })
+            .tint(StudioTheme.coral)
+            .accessibilityIdentifier("day-swipe-delete")
+        }
     }
 
     private func deleteDayEvent(_ event: DiaryEvent) {
-        swipedDayEventID = nil
         onDeleteEvent?(event)
     }
 
@@ -454,15 +421,24 @@ struct ReportView: View {
             .padding(.top, 9)
             .padding(.bottom, 4)
 
-            Text(metadata)
-                .font(isToday ? .caption2 : .caption)
-                .foregroundStyle(StudioTheme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(StudioTheme.categorySurfaceColor(entry.event.category))
+            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                Text(metadata)
+                    .font(isToday ? .caption2 : .caption)
+                    .foregroundStyle(StudioTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 6)
+                Circle()
+                    .fill(StudioTheme.categoryColor(entry.event.category))
+                    .frame(width: 5, height: 5)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(StudioTheme.neutralCategorySurface)
         }
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
     }
 
     @ViewBuilder
@@ -587,36 +563,6 @@ struct ReportView: View {
     }
 }
 
-private struct DayCardPan: UIGestureRecognizerRepresentable {
-    let action: (UIGestureRecognizer.State, CGFloat) -> Void
-
-    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
-        let recognizer = UIPanGestureRecognizer()
-        recognizer.maximumNumberOfTouches = 1
-        recognizer.delegate = context.coordinator
-        return recognizer
-    }
-
-    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
-
-    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
-        action(recognizer.state, recognizer.translation(in: recognizer.view).x)
-    }
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
-            let velocity = pan.velocity(in: pan.view)
-            return abs(velocity.x) > abs(velocity.y) * 1.3
-        }
-
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                               shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-            otherGestureRecognizer is UITapGestureRecognizer || otherGestureRecognizer.view is UIScrollView
-        }
-    }
-}
-
 struct DayRecordButton: View {
     static let diameter: CGFloat = 48
     let isScrolling: Bool
@@ -632,15 +578,16 @@ struct DayRecordButton: View {
         Button(action: action) {
             Image(systemName: "mic")
                 .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(isTranslucent ? StudioTheme.mint : StudioTheme.background)
+                .foregroundStyle(isTranslucent ? StudioTheme.mint : StudioTheme.background.opacity(reduceTransparency ? 1 : 0.72))
                 .shadow(color: isTranslucent ? StudioTheme.background : .clear, radius: 1, y: 1)
                 .frame(width: Self.diameter, height: Self.diameter)
-                .background(StudioTheme.mint.opacity(isTranslucent ? 0.16 : 1), in: Circle())
+                .background(StudioTheme.mint.opacity(reduceTransparency ? 1 : (isTranslucent ? 0.16 : 0.74)), in: Circle())
                 .overlay {
                     Circle().strokeBorder(StudioTheme.mint.opacity(isTranslucent ? 0.47 : 0), lineWidth: 1)
                 }
                 .contentShape(Circle())
         }
+        .opacity(reduceTransparency || isTranslucent ? 1 : 0.84)
         .buttonStyle(.plain)
         .accessibilityLabel(isStarting ? "Запускается…" : "Записать")
         .accessibilityIdentifier("day-floating-record")

@@ -181,7 +181,7 @@ private struct RecordingRow: View {
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    StudioTheme.unclassifiedCategorySurface,
+                    StudioTheme.neutralCategorySurface,
                     in: UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 16,
                                                bottomTrailingRadius: 16, topTrailingRadius: 0)
                 )
@@ -207,8 +207,25 @@ private struct RecordingRow: View {
         switch recording.processingState {
         case .pending: return recording.automaticTranscriptionPending == true ? "Ожидает расшифровки" : "Готова к расшифровке"
         case .processing: return "Расшифровывается"
-        case .completed: return "Расшифрована · \(recording.events?.count ?? 0) событий"
+        case .completed: return "Расшифрована · \(eventCountText)"
         case .failed: return "Не удалось расшифровать"
         }
+    }
+
+    private var eventCountText: String {
+        let count = recording.events?.count ?? 0
+        let lastTwoDigits = count % 100
+        let lastDigit = count % 10
+        let noun: String
+        if (11...14).contains(lastTwoDigits) {
+            noun = "событий"
+        } else {
+            switch lastDigit {
+            case 1: noun = "событие"
+            case 2...4: noun = "события"
+            default: noun = "событий"
+            }
+        }
+        return "\(count) \(noun)"
     }
 }
