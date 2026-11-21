@@ -82,7 +82,8 @@ final class AutomaticTranscriptionTests: XCTestCase {
         service.stop()
         try await waitUntil { service.recordings.first?.processingState == .completed }
         XCTAssertEqual(service.recordings.count, 1)
-        XCTAssertEqual(service.recordings.first?.events?.first?.duration, 3600)
+        XCTAssertEqual(service.recordings.first?.events?.count, 1)
+        XCTAssertEqual(service.recordings.first?.events?.first?.text, "Прошла встреча")
         XCTAssertEqual(service.recordings.first?.automaticTranscriptionPending, false)
         let calls = await transcriber.calls
         XCTAssertEqual(calls.count, 1)

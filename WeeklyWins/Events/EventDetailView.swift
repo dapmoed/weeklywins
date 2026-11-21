@@ -37,14 +37,12 @@ struct EventDetailView: View {
                         }
                         LabeledContent("Статус", value: event.completion.title)
                     }.listRowBackground(StudioTheme.surface)
-                    Section("Когда и сколько") {
-                        let time = event.occurredAt?.formatted(dateFormat) ?? "Не указано"
-                        LabeledContent("Время дела", value: time)
+                    Section("Когда") {
+                        LabeledContent("Время записи", value: entry.recording.recordedAt.formatted(dateFormat))
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("Время дела")
-                            .accessibilityValue(time)
+                            .accessibilityLabel("Время записи")
+                            .accessibilityValue(entry.recording.recordedAt.formatted(dateFormat))
                             .accessibilityIdentifier("event-time")
-                        LabeledContent("Длительность", value: StudioTheme.duration(event.duration))
                     }.listRowBackground(StudioTheme.surface)
                     Section("Источник") {
                         Text(event.sourceText).foregroundStyle(StudioTheme.secondary)
@@ -149,24 +147,6 @@ private struct EventEditorView: View {
                     }
                     Picker("Статус", selection: $event.completion) {
                         ForEach(EventCompletion.allCases) { Text($0.title).tag($0) }
-                    }
-                }.listRowBackground(StudioTheme.surface)
-                Section("Необязательные сведения") {
-                    Toggle("Указать время дела", isOn: Binding(get: { event.occurredAt != nil }, set: { event.occurredAt = $0 ? .now : nil }))
-                    if event.occurredAt != nil {
-                        DatePicker("Когда", selection: Binding(get: { event.occurredAt ?? .now }, set: { event.occurredAt = $0 }))
-                    }
-                    Toggle("Указать длительность", isOn: Binding(get: { event.duration != nil }, set: { event.duration = $0 ? 60 : nil }))
-                    if event.duration != nil {
-                        LabeledContent("Минуты") {
-                            TextField("Минуты", value: Binding(
-                                get: { (event.duration ?? 0) / 60 },
-                                set: { event.duration = max(0, $0) * 60 }
-                            ), format: .number)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .accessibilityIdentifier("event-duration-minutes")
-                        }
                     }
                 }.listRowBackground(StudioTheme.surface)
             }

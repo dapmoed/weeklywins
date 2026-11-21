@@ -70,7 +70,7 @@ struct EventReviewView: View {
             EventMergeView(event: Binding(
                 get: { draft.mergeProposal ?? proposal },
                 set: { draft.mergeProposal = $0 }
-            ), sourceTexts: mergeSources(fallback: proposal.sourceText), defaultDate: recording.recordedAt) { merged in
+            ), sourceTexts: mergeSources(fallback: proposal.sourceText)) { merged in
                 guard let id = draft.mergingEventID else { return }
                 draft.confirmMerge(merged, mergingEventID: id)
             }
@@ -82,7 +82,7 @@ struct EventReviewView: View {
             ForEach(draft.events) { event in
                 Section {
                     DisclosureGroup {
-                        ReviewEventFields(event: binding(for: event), defaultDate: recording.recordedAt)
+                        ReviewEventFields(event: binding(for: event))
                         DisclosureGroup("Исходный текст") { Text(event.sourceText) }
                         if draft.events.first?.id != event.id {
                             Button("Объединить с предыдущим") { prepareMerge(event.id) }
@@ -110,8 +110,7 @@ struct EventReviewView: View {
     private func metadata(for event: DiaryEvent) -> Text {
         let category = Text(event.category.title).foregroundStyle(StudioTheme.categoryColor(event.category))
         let status = event.completion == .notCompleted ? " · \(event.completion.title)" : ""
-        let duration = event.duration.map { " · \(StudioTheme.duration($0))" } ?? ""
-        return Text("\(category)\(status)\(duration)")
+        return Text("\(category)\(status)")
     }
 
     private var footer: some View {
@@ -196,8 +195,6 @@ struct EventReviewView: View {
         proposal.sourceText += ". " + next.sourceText
         if proposal.category != next.category { proposal.category = .unclassified }
         if next.completion == .notCompleted { proposal.completion = .notCompleted }
-        proposal.duration = nil
-        proposal.occurredAt = nil
         draft.mergingEventID = id
         draft.mergeProposal = proposal
     }
@@ -205,7 +202,6 @@ struct EventReviewView: View {
 
 private struct ReviewEventFields: View {
     @Binding var event: DiaryEvent
-    let defaultDate: Date
 
     var body: some View {
         TextField("Дело", text: $event.text, axis: .vertical)
@@ -216,31 +212,12 @@ private struct ReviewEventFields: View {
         Picker("Статус", selection: $event.completion) {
             ForEach(EventCompletion.allCases) { Text($0.title).tag($0) }
         }
-        Toggle("Указать время дела", isOn: Binding(
-            get: { event.occurredAt != nil },
-            set: { event.occurredAt = $0 ? defaultDate : nil }
-        ))
-        if event.occurredAt != nil {
-            DatePicker("Когда", selection: Binding(
-                get: { event.occurredAt ?? defaultDate }, set: { event.occurredAt = $0 }
-            ))
-        }
-        Toggle("Указать длительность", isOn: Binding(
-            get: { event.duration != nil }, set: { event.duration = $0 ? 60 : nil }
-        ))
-        if event.duration != nil {
-            TextField("Минуты", value: Binding(
-                get: { (event.duration ?? 60) / 60 },
-                set: { event.duration = max(0, $0) * 60 }
-            ), format: .number).keyboardType(.decimalPad)
-        }
     }
 }
 
 private struct EventMergeView: View {
     @Binding var event: DiaryEvent
     let sourceTexts: [String]
-    let defaultDate: Date
     let onConfirm: (DiaryEvent) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -255,11 +232,11 @@ private struct EventMergeView: View {
                     }
                 }.listRowBackground(StudioTheme.surface)
                 Section {
-                    ReviewEventFields(event: $event, defaultDate: defaultDate)
+                    ReviewEventFields(event: $event)
                 } header: {
                     Text("Объединённое дело")
                 } footer: {
-                    Text("Проверьте категорию и статус. Время и длительность объединённого дела можно указать заново.")
+                    Text("Проверьте категорию и статус объединённого дела.")
                 }.listRowBackground(StudioTheme.surface)
             }
             .scrollContentBackground(.hidden).background(StudioTheme.background)

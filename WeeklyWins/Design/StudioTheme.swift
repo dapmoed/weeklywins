@@ -12,13 +12,6 @@ enum StudioTheme {
     static func categoryColor(_ category: EventCategory) -> Color {
         category == .home ? sand : category == .work ? mint : secondary
     }
-
-    static func duration(_ seconds: TimeInterval?) -> String {
-        guard let seconds else { return "Без длительности" }
-        let minutes = Int(max(0, seconds) / 60)
-        if minutes >= 60 { return "\(minutes / 60) ч \(minutes % 60) мин" }
-        return "\(minutes) мин"
-    }
 }
 
 struct CategoryFilter: View {

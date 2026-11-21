@@ -367,7 +367,7 @@ struct ReportView: View {
 
     private func dayEventRow(_ entry: ReportEntry) -> some View {
         let time = entry.date.formatted(.dateTime.hour().minute())
-        let timestamp = entry.event.occurredAt == nil ? "Запись \(time)" : time
+        let timestamp = "Запись \(time)"
         let isRevealed = swipedDayEventID == entry.id
         let isDragging = draggedDayEventID == entry.id
         let actionWidth: CGFloat = 84
@@ -459,7 +459,7 @@ struct ReportView: View {
     }
 
     private func eventDetails(_ entry: ReportEntry, timestamp: String? = nil) -> some View {
-        let metadata = [timestamp, entry.event.category.title, StudioTheme.duration(entry.event.duration)]
+        let metadata = [timestamp, entry.event.category.title]
             .compactMap { $0 }.joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 5) {
             Text(entry.event.text).font(isToday ? .body : .headline).multilineTextAlignment(.leading)
