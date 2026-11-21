@@ -117,4 +117,90 @@ final class ReportTests: XCTestCase {
         XCTAssertEqual(ReportQuery.knownDuration(report), 3600)
         XCTAssertEqual(ReportQuery.events(in: [recording], period: .week, date: date, calendar: calendar).count, 4)
     }
+
+    func testEventsInCustomRangeIncludeEndDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
+        calendar.firstWeekday = 2
+        let id = UUID()
+        var recording = Recording(id: id, recordedAt: .distantPast, fileName: "fixture.m4a", state: .saved)
+        recording.events = [
+            DiaryEvent(recordingID: id, sourceText: "Пн", text: "Пн",
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-16T07:00:00Z")),
+            DiaryEvent(recordingID: id, sourceText: "Вт", text: "Вт",
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-17T07:00:00Z")),
+            DiaryEvent(recordingID: id, sourceText: "Пн2", text: "Пн2",
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-23T07:00:00Z"))
+        ]
+        let start = calendar.startOfDay(for: ISO8601DateFormatter().date(from: "2026-11-16T00:00:00Z")!)
+        let endExclusive = calendar.date(byAdding: .day, value: 1,
+                                         to: calendar.startOfDay(for: ISO8601DateFormatter().date(from: "2026-11-17T00:00:00Z")!))!
+        let report = ReportQuery.events(in: [recording], from: start, to: endExclusive, calendar: calendar)
+        XCTAssertEqual(report.map { $0.event.text }, ["Вт", "Пн"])
+    }
+
+    func testShareTextGroupsByDayForWeek() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
+        calendar.firstWeekday = 2
+        let id = UUID()
+        var recording = Recording(id: id, recordedAt: .distantPast, fileName: "fixture.m4a", state: .saved)
+        recording.events = [
+            DiaryEvent(recordingID: id, sourceText: "Созвон", text: "Созвон", category: .work,
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-16T05:00:00Z"), duration: 1800),
+            DiaryEvent(recordingID: id, sourceText: "Продукты", text: "Продукты", category: .home,
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-17T05:00:00Z")),
+            DiaryEvent(recordingID: id, sourceText: "Отчёт", text: "Отчёт", category: .work,
+                       completion: .notCompleted,
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-17T06:00:00Z"), duration: 600)
+        ]
+        let entries = ReportQuery.events(in: [recording], period: .week,
+                                         date: ISO8601DateFormatter().date(from: "2026-11-17T12:00:00Z")!,
+                                         calendar: calendar)
+        let text = ReportQuery.shareText(entries: entries, title: "Неделя 16–22 ноября",
+                                         grouping: .day, calendar: calendar)
+        XCTAssertEqual(text, """
+            Неделя 16–22 ноября
+
+            Дел: 3 · выполнено: 2
+            Известная длительность: 30 мин
+
+            16 ноября, Понедельник
+            • Созвон (30 мин)
+
+            17 ноября, Вторник
+            • Продукты
+            • Отчёт — не сделано
+            """)
+    }
+
+    func testShareTextGroupsByWeekForMonth() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
+        calendar.firstWeekday = 2
+        let id = UUID()
+        var recording = Recording(id: id, recordedAt: .distantPast, fileName: "fixture.m4a", state: .saved)
+        recording.events = [
+            DiaryEvent(recordingID: id, sourceText: "Пн", text: "Пн",
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-16T05:00:00Z")),
+            DiaryEvent(recordingID: id, sourceText: "Пн2", text: "Пн2",
+                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-23T05:00:00Z"))
+        ]
+        let entries = ReportQuery.events(in: [recording], period: .month,
+                                         date: ISO8601DateFormatter().date(from: "2026-11-17T12:00:00Z")!,
+                                         calendar: calendar)
+        let text = ReportQuery.shareText(entries: entries, title: "Дела за Ноябрь 2026",
+                                         grouping: .week, calendar: calendar)
+        XCTAssertEqual(text, """
+            Дела за Ноябрь 2026
+
+            Дел: 2 · выполнено: 2
+
+            16–22 ноября
+            • Пн
+
+            23–29 ноября
+            • Пн2
+            """)
+    }
 }

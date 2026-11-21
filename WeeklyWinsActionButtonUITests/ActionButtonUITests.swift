@@ -100,40 +100,31 @@ final class ActionButtonUITests: XCTestCase {
         ]
         app.launch()
         app.buttons["studio-tab-2"].tap()
-        let report = app.scrollViews["period-report"]
         let period = app.buttons["Выбрать период"]
         XCTAssertTrue(period.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(period.frame.height, 43.99)
-        let count = app.descendants(matching: .any)["report-completed-count"]
-        let duration = app.descendants(matching: .any)["report-total-duration"]
-        for _ in 0..<4 where !count.isHittable { report.swipeUp(velocity: .slow) }
-        XCTAssertTrue(count.isHittable)
-        XCTAssertGreaterThan(duration.frame.minY, count.frame.minY)
+        let shareText = app.staticTexts["report-share-text"]
+        XCTAssertTrue(shareText.waitForExistence(timeout: 5))
+        let share = app.buttons["report-share-button"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
         let summary = XCTAttachment(screenshot: app.screenshot())
         summary.name = "A13-reaudit-largest-text"
         summary.lifetime = .keepAlways
         add(summary)
 
-        for (title, identifier, back, name) in [
-            ("Неделя", "report-week-day", "Вернуться к отчёту за неделю", "A14"),
-            ("Месяц", "report-month-day", "Вернуться к отчёту за месяц", "A15")
-        ] {
-            let choice = app.buttons[title]
-            for _ in 0..<5 where !choice.isHittable { report.swipeDown(velocity: .fast) }
-            choice.tap()
-            let day = app.buttons.matching(identifier: identifier).firstMatch
-            for _ in 0..<6 where !day.isHittable { report.swipeUp(velocity: .slow) }
-            XCTAssertTrue(day.isHittable)
+        for (title, name) in [("Неделя (текущая)", "A14"), ("Месяц", "A15"), ("Свой период…", "A16")] {
+            period.tap()
+            app.buttons[title].tap()
+            if title == "Свой период…" {
+                XCTAssertTrue(app.datePickers["С"].waitForExistence(timeout: 5))
+                XCTAssertTrue(app.datePickers["По"].exists)
+            }
+            XCTAssertTrue(shareText.waitForExistence(timeout: 5))
+            XCTAssertTrue(share.isHittable)
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "\(name)-reaudit-largest-text"
             screenshot.lifetime = .keepAlways
             add(screenshot)
-            day.tap()
-            let returnToReport = app.buttons[back]
-            XCTAssertTrue(returnToReport.waitForExistence(timeout: 5))
-            for _ in 0..<4 where !returnToReport.isHittable { report.swipeUp(velocity: .slow) }
-            returnToReport.tap()
-            XCTAssertTrue(choice.isSelected)
         }
     }
 
@@ -610,27 +601,11 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
-    func testReportChartOpensDayAndReturnsToWeek() throws {
+    func testReportPeriodsUpdateShareTextAcrossTabs() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
         app.buttons["studio-tab-2"].tap()
-        let reportCounts = app.descendants(matching: .any)
-        func count(_ id: String) -> Int {
-            let element = reportCounts[id].firstMatch
-            guard element.exists, let value = element.value as? String else { return 0 }
-            return Int(value) ?? 0
-        }
-        func totalMinutes() -> Int {
-            let element = reportCounts["report-total-duration"].firstMatch
-            guard element.exists, let value = element.value as? String else { return 0 }
-            let parts = value.split(separator: " ")
-            let numbers = parts.compactMap { Int($0) }
-            return numbers.count == 2 ? numbers[0] * 60 + numbers[1] : numbers.first ?? 0
-        }
-        let initialCompleted = count("report-completed-count")
-        let initialUnknown = count("report-unknown-duration-count")
-        let initialDuration = totalMinutes()
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
@@ -650,31 +625,59 @@ final class ActionButtonUITests: XCTestCase {
             shot.lifetime = .keepAlways
             add(shot)
         }
-        XCTAssertEqual(count("report-completed-count"), initialCompleted + 2)
-        XCTAssertEqual(totalMinutes(), initialDuration + 120)
-        XCTAssertEqual(count("report-unknown-duration-count"), initialUnknown + 1)
+        func shareLabel() -> String {
+            app.staticTexts["report-share-text"].label
+        }
+        let menuButton = app.buttons["Выбрать период"]
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 5))
+
+        // Неделя (по умолчанию): текст сгруппирован по дням.
+        let weekText = shareLabel()
+        XCTAssertTrue(weekText.contains("Неделя"), weekText)
+        XCTAssertTrue(weekText.contains("Работал два часа (2 ч 0 мин)"), weekText)
+        XCTAssertTrue(weekText.contains("Купил хлеб"), weekText)
+        XCTAssertTrue(app.buttons["report-share-button"].isHittable)
+        attach("A14-report-week")
+
+        // День: выбор из меню открывает календарь, после «Готово» отчёт за день.
+        menuButton.tap()
+        app.buttons["День"].tap()
+        XCTAssertTrue(app.buttons["Готово"].waitForExistence(timeout: 5))
+        app.buttons["Готово"].tap()
+        let dayText = shareLabel()
+        XCTAssertTrue(dayText.contains("Дела за"), dayText)
+        XCTAssertTrue(dayText.contains("Купил хлеб"), dayText)
         attach("A13-report-day")
-        if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
-            app.buttons["report-category-work"].tap()
-            XCTAssertLessThan(count("report-completed-count"), initialCompleted + 2)
-            app.buttons["reset-category-filter"].tap()
-            XCTAssertEqual(count("report-completed-count"), initialCompleted + 2)
-        }
-        app.buttons["Неделя"].tap()
-        let period = app.buttons["Выбрать период"]
-        let original = period.value as? String
-        app.buttons["Следующий период"].tap()
-        XCTAssertNotEqual(period.value as? String, original)
-        if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
-            XCTAssertTrue(app.staticTexts["За этот период нет событий"].waitForExistence(timeout: 5))
-        }
-        app.buttons["Предыдущий период"].tap()
-        XCTAssertEqual(period.value as? String, original)
+
+        // Месяц: группировка по неделям, заголовок — текущий месяц.
+        menuButton.tap()
+        app.buttons["Месяц"].tap()
+        let monthText = shareLabel()
+        let monthFormatter = DateFormatter()
+        monthFormatter.locale = Locale(identifier: "ru_RU")
+        monthFormatter.dateFormat = "LLLL yyyy"
+        let monthTitle = monthFormatter.string(from: .now).capitalized
+        XCTAssertTrue(monthText.contains(monthTitle), monthText)
+        XCTAssertTrue(monthText.contains("Работал два часа"), monthText)
+        attach("A15-report-month")
+
+        // Свой период: появляются поля «С/По», диапазон по умолчанию — текущая неделя.
+        menuButton.tap()
+        app.buttons["Свой период…"].tap()
+        XCTAssertTrue(app.datePickers["С"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.datePickers["По"].exists)
+        let customText = shareLabel()
+        XCTAssertTrue(customText.contains("Дела за"), customText)
+        XCTAssertTrue(customText.contains("Работал два часа"), customText)
+        attach("A16-report-custom")
+
+        // Состояние периода сохраняется при переключении вкладок.
+        let selected = menuButton.value as? String
         app.buttons["studio-tab-0"].tap()
         app.buttons["studio-tab-2"].tap()
-        XCTAssertEqual(period.value as? String, original)
-        let chart = app.otherElements["report-chart"].firstMatch
-        XCTAssertTrue(chart.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(menuButton.value as? String, selected)
+
+        // Компактная запись поверх отчёта.
         app.buttons["Записать"].tap()
         let collapse = app.buttons["Свернуть"]
         XCTAssertTrue(collapse.waitForExistence(timeout: 5))
@@ -682,43 +685,8 @@ final class ActionButtonUITests: XCTestCase {
         let compactStop = app.buttons["compact-recording-stop"]
         XCTAssertTrue(compactStop.waitForExistence(timeout: 5))
         XCTAssertTrue(compactStop.isHittable)
-        attach("A14-report-week-recording")
         compactStop.tap()
-        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).tap()
-        let back = app.buttons["Вернуться к отчёту за неделю"]
-        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
-        back.tap()
-        XCTAssertEqual(period.value as? String, original)
-
-        app.buttons["Месяц"].tap()
-        let month = period.value as? String
-        let today = Date.now.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "ru_RU")))
-        let day = app.buttons.matching(identifier: "report-month-day")
-            .matching(NSPredicate(format: "label == %@", today)).firstMatch
-        XCTAssertTrue(day.waitForExistence(timeout: 5), app.debugDescription)
-        attach("A15-report-month")
-        for _ in 0..<6 where !day.isHittable { app.scrollViews.firstMatch.swipeUp() }
-        day.tap()
-        let backToMonth = app.buttons["Вернуться к отчёту за месяц"]
-        XCTAssertTrue(backToMonth.waitForExistence(timeout: 5))
-        XCTAssertEqual(period.value as? String, today)
-        backToMonth.tap()
-        XCTAssertEqual(period.value as? String, month)
-
-        if ProcessInfo.processInfo.environment["RUN_REPORT_LAYOUT_FIXTURE"] == "1" {
-            app.terminate()
-            app.launchArguments = [
-                "-UIPreferredContentSizeCategoryName",
-                UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
-            ]
-            app.launch()
-            app.buttons["studio-tab-2"].tap()
-            app.buttons["Неделя"].tap()
-            XCTAssertTrue(chart.waitForExistence(timeout: 5))
-            XCTAssertTrue(app.buttons["Следующий период"].isHittable)
-            XCTAssertTrue(app.buttons["Записать"].isHittable)
-            attach("A14-report-largest-text")
-        }
+        XCTAssertEqual(menuButton.value as? String, selected)
     }
 
     @MainActor
@@ -749,7 +717,10 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["recording-details-back"].tap()
 
         app.buttons["studio-tab-2"].tap()
-        app.buttons["Неделя"].tap()
+        let reportMenu = app.buttons["Выбрать период"]
+        XCTAssertTrue(reportMenu.waitForExistence(timeout: 5))
+        reportMenu.tap()
+        app.buttons["Неделя (текущая)"].tap()
         app.buttons["studio-tab-0"].tap()
         let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         let neighboringCard = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", neighbor)).firstMatch
@@ -806,12 +777,20 @@ final class ActionButtonUITests: XCTestCase {
         dismissEvent()
         app.buttons["studio-tab-2"].tap()
         app.buttons["Дом"].firstMatch.tap()
-        for period in ["День", "Неделя", "Месяц"] {
-            app.buttons[period].tap()
-            revealCard(card)
-            XCTAssertTrue(card.label.contains("Дом · 2 мин"), card.label)
+        func shareLabel() -> String { app.staticTexts["report-share-text"].label }
+        for item in ["День", "Неделя (текущая)", "Месяц"] {
+            reportMenu.tap()
+            app.buttons[item].tap()
+            if item == "День" {
+                XCTAssertTrue(app.buttons["Готово"].waitForExistence(timeout: 5))
+                app.buttons["Готово"].tap()
+            }
+            let text = shareLabel()
+            XCTAssertTrue(text.contains("\(title) (2 мин)"), text)
         }
 
+        app.buttons["studio-tab-0"].tap()
+        revealCard(card)
         card.tap()
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         if !edit.isHittable { app.swipeUp() }

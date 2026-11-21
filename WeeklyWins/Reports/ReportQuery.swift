@@ -81,11 +81,106 @@ enum ReportQuery {
     }
     static func events(in recordings: [Recording], period: ReportPeriod, date: Date, calendar: Calendar = ReportQuery.calendar) -> [ReportEntry] {
         guard let interval = calendar.dateInterval(of: period.component, for: date) else { return [] }
-        return recordings.filter { $0.deletedAt == nil }.flatMap { recording in
+        return events(in: recordings, from: interval.start, to: interval.end, calendar: calendar)
+    }
+
+    static func events(in recordings: [Recording], from start: Date, to end: Date, calendar: Calendar = ReportQuery.calendar) -> [ReportEntry] {
+        recordings.filter { $0.deletedAt == nil }.flatMap { recording in
             (recording.events ?? []).map { ReportEntry(event: $0, recording: recording) }
         }
-        .filter { $0.date >= interval.start && $0.date < interval.end }
+        .filter { $0.date >= start && $0.date < end }
         .sorted { $0.date > $1.date }
+    }
+
+    enum ReportGrouping { case day, week }
+
+    static func shareText(entries: [ReportEntry], title: String, grouping: ReportGrouping,
+                          calendar: Calendar = ReportQuery.calendar) -> String {
+        var lines = [title, ""]
+        let completed = entries.filter { $0.event.completion == .completed }.count
+        lines.append("Дел: \(entries.count) · выполнено: \(completed)")
+        let known = knownDuration(entries)
+        if known > 0 { lines.append("Известная длительность: \(durationText(known))") }
+        lines.append("")
+        let ordered = entries.sorted { $0.date < $1.date }
+        let groups: [(String, [ReportEntry])]
+        switch grouping {
+        case .day:
+            let byDay = Dictionary(grouping: ordered) { calendar.startOfDay(for: $0.date) }
+            groups = byDay.keys.sorted().map {
+                (dayTitle($0, calendar: calendar), byDay[$0]?.sorted { $0.date < $1.date } ?? [])
+            }
+        case .week:
+            var weeks: [(start: Date, entries: [ReportEntry])] = []
+            for entry in ordered {
+                let day = calendar.startOfDay(for: entry.date)
+                if let index = weeks.lastIndex(where: { calendar.isDate($0.start, inSameDayAs: weekStart(of: day, calendar: calendar)) }) {
+                    weeks[index].entries.append(entry)
+                } else {
+                    weeks.append((weekStart(of: day, calendar: calendar), [entry]))
+                }
+            }
+            groups = weeks.sorted { $0.start < $1.start }.map { (weekTitle($0.start, calendar: calendar), $0.entries) }
+        }
+        for (groupTitle, groupEntries) in groups {
+            lines.append(groupTitle)
+            for entry in groupEntries {
+                lines.append("• \(entryLine(entry))")
+            }
+            lines.append("")
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .newlines)
+    }
+
+    private static func entryLine(_ entry: ReportEntry) -> String {
+        var line = entry.event.text
+        if let duration = entry.event.duration, entry.event.completion == .completed {
+            line += " (\(durationText(duration)))"
+        }
+        if entry.event.completion == .notCompleted {
+            line += " — не сделано"
+        }
+        return line
+    }
+
+    private static func durationText(_ seconds: TimeInterval) -> String {
+        let minutes = Int(max(0, seconds) / 60)
+        if minutes >= 60 { return "\(minutes / 60) ч \(minutes % 60) мин" }
+        return "\(minutes) мин"
+    }
+
+    private static func dayTitle(_ day: Date, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d MMMM"
+        let datePart = formatter.string(from: day)
+        formatter.dateFormat = "EEEE"
+        let weekday = formatter.string(from: day)
+        return "\(datePart), \(weekday.prefix(1).uppercased())\(weekday.dropFirst())"
+    }
+
+    private static func weekStart(of day: Date, calendar: Calendar) -> Date {
+        calendar.dateInterval(of: .weekOfYear, for: day)?.start ?? day
+    }
+
+    private static func weekTitle(_ weekStart: Date, calendar: Calendar) -> String {
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: weekStart),
+              let last = calendar.date(byAdding: .day, value: -1, to: interval.end) else { return dayTitle(weekStart, calendar: calendar) }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d MMMM"
+        if calendar.component(.month, from: interval.start) == calendar.component(.month, from: last) {
+            return "\(calendar.component(.day, from: interval.start))–\(formatter.string(from: last))"
+        }
+        if calendar.component(.year, from: interval.start) == calendar.component(.year, from: last) {
+            return "\(formatter.string(from: interval.start)) — \(formatter.string(from: last))"
+        }
+        formatter.dateFormat = "d MMMM yyyy"
+        return "\(formatter.string(from: interval.start)) — \(formatter.string(from: last))"
     }
 
     static func knownDuration(_ entries: [ReportEntry]) -> TimeInterval {

@@ -1,18 +1,19 @@
 import SwiftUI
-import Charts
 
 struct ReportView: View {
     @ObservedObject private var service = RecordingService.shared
-    @State private var period: ReportPeriod = .day
+    @State private var choice: ReportChoice = .week
     @State private var date = Date.now
+    @State private var customStart: Date
+    @State private var customEnd: Date
     @State private var category: EventCategory?
     @State private var showCalendar = false
     @State private var selectedEntry: ReportEntry?
     @State private var selectedRecording: Recording?
     @State private var followsToday = true
     @State private var selectedTimeZone = TimeZone.current
-    @State private var parentReport: (period: ReportPeriod, date: Date)?
     @State private var reportScrollPosition = ScrollPosition(edge: .top)
+    @State private var textScrollPosition = ScrollPosition(edge: .top)
     @State private var isDayScrolling = false
     @State private var showDayFailures = false
     @State private var swipedDayEventID: UUID?
@@ -27,87 +28,45 @@ struct ReportView: View {
 
     private let dayRecordInset: CGFloat = 20
 
+    init(isToday: Bool, onStartRecording: (() -> Void)? = nil, onDeleteEvent: ((DiaryEvent) -> Void)? = nil) {
+        self.isToday = isToday
+        self.onStartRecording = onStartRecording
+        self.onDeleteEvent = onDeleteEvent
+        let calendar = ReportQuery.calendar
+        let week = calendar.dateInterval(of: .weekOfYear, for: .now)
+        _customStart = State(initialValue: week?.start ?? .now)
+        _customEnd = State(initialValue: week.flatMap { calendar.date(byAdding: .day, value: -1, to: $0.end) } ?? .now)
+    }
+
+    private enum ReportChoice: String, CaseIterable, Identifiable {
+        case day, week, month, custom
+        var id: String { rawValue }
+    }
+
     private var showsDayRecordButton: Bool {
         isToday && onStartRecording != nil && !service.isRecording
     }
 
     private var entries: [ReportEntry] {
-        let items = ReportQuery.events(in: service.recordings, period: isToday ? .day : period, date: date)
-            .filter { category == nil || $0.event.category == category }
-        return isToday ? items.sorted { $0.date < $1.date } : items
+        let items: [ReportEntry]
+        if isToday || choice == .day {
+            items = ReportQuery.events(in: service.recordings, period: .day, date: date)
+        } else if choice == .custom {
+            let calendar = ReportQuery.calendar
+            let start = calendar.startOfDay(for: customStart)
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: customEnd)) ?? customEnd
+            items = ReportQuery.events(in: service.recordings, from: start, to: end)
+        } else {
+            items = ReportQuery.events(in: service.recordings, period: choice == .month ? .month : .week, date: date)
+        }
+        return items.filter { category == nil || $0.event.category == category }
     }
 
     var body: some View {
         let items = entries
         return NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: isToday ? 12 : 18) {
-                    if isToday {
-                        dayNavigation
-                    } else {
-                        HStack {
-                            Text("Отчёты").font(.largeTitle.bold())
-                            Spacer()
-                            SettingsButton()
-                        }
-                    }
-                    CategoryFilter(category: $category, compact: true)
-                    if isToday { processingRecordings }
-                    if !isToday {
-                        reportPeriodPicker
-                        reportDateNavigation
-                        if let parentReport {
-                            Button("Вернуться к отчёту за \(parentReport.period == .week ? "неделю" : "месяц")") {
-                                period = parentReport.period
-                                date = parentReport.date
-                                self.parentReport = nil
-                            }.frame(minHeight: 44)
-                        }
-                        if !items.isEmpty {
-                            if dynamicTypeSize.isAccessibilitySize { durationSummary(items) }
-                            switch period {
-                            case .day:
-                                EmptyView()
-                            case .week:
-                                durationChart(items)
-                            case .month:
-                                monthCalendar(items)
-                            }
-                            if !dynamicTypeSize.isAccessibilitySize { durationSummary(items) }
-                        }
-                    }
-                    if items.isEmpty {
-                        if isToday {
-                            dayEmptyState
-                        } else if category != nil {
-                            ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar",
-                                                   description: Text("Выберите другую категорию или сбросьте фильтр."))
-                        } else {
-                            ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar")
-                        }
-                    }
-                    LazyVStack(spacing: isToday ? 8 : 16) {
-                        ForEach(items) { eventRow($0) }
-                    }
-                }.padding(20)
-            }
-            .accessibilityIdentifier(isToday ? "day-timeline" : "period-report")
-            .scrollPosition($reportScrollPosition)
-            .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
-                            for: .scrollContent)
-            .onScrollPhaseChange { _, phase in
-                if isToday {
-                    isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
-                    if phase == .interacting && draggedDayEventID == nil { swipedDayEventID = nil }
-                }
-            }
-            .clipped()
-            .overlay(alignment: .bottomLeading) {
-                if showsDayRecordButton, let onStartRecording {
-                    DayRecordButton(isScrolling: isDayScrolling, isStarting: service.isStarting, action: onStartRecording)
-                        .padding(.leading, dayRecordInset)
-                        .padding(.bottom, dayRecordInset)
-                }
+            Group {
+                if isToday { todayContent } else { reportsContent(items) }
             }
             .background(StudioTheme.background).foregroundStyle(StudioTheme.text)
             .toolbar(.hidden, for: .navigationBar)
@@ -119,8 +78,12 @@ struct ReportView: View {
                 }
             }
             .onChange(of: category) { swipedDayEventID = nil }
-            .onChange(of: period) {
-                if !isToday { reportScrollPosition.scrollTo(edge: .top) }
+            .onChange(of: choice) { textScrollPosition.scrollTo(edge: .top) }
+            .onChange(of: customStart) { newValue in
+                if newValue > customEnd { customEnd = newValue }
+            }
+            .onChange(of: customEnd) { newValue in
+                if newValue < customStart { customStart = newValue }
             }
             .onChange(of: scenePhase) { _, phase in if phase == .active { refreshCalendarContext() } }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshFollowingToday() }
@@ -158,6 +121,190 @@ struct ReportView: View {
         }
     }
 
+    // MARK: - Отчёты
+
+    private func reportsContent(_ items: [ReportEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Отчёты").font(.largeTitle.bold())
+                Spacer()
+                SettingsButton()
+            }
+            periodMenu
+            if choice == .custom { customRangePickers }
+            CategoryFilter(category: $category, compact: true)
+            if items.isEmpty {
+                ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    Text(shareText(items))
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(StudioTheme.secondary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .accessibilityIdentifier("report-share-text")
+                }
+                .scrollPosition($textScrollPosition)
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+        .padding(20)
+        .accessibilityIdentifier("period-report")
+        .overlay(alignment: .bottomTrailing) {
+            if !items.isEmpty {
+                ShareLink(item: shareText(items)) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(StudioTheme.background)
+                        .frame(width: 48, height: 48)
+                        .background(StudioTheme.mint, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("report-share-button")
+                .padding(20)
+            }
+        }
+    }
+
+    private var periodMenu: some View {
+        Menu {
+            Button("День") {
+                choice = .day
+                showCalendar = true
+            }
+            Button("Неделя (текущая)") {
+                choice = .week
+                date = .now
+            }
+            Button("Месяц") {
+                choice = .month
+                date = .now
+            }
+            Button("Свой период…") {
+                choice = .custom
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(periodMenuTitle)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StudioTheme.mint)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .background(StudioTheme.surface, in: Capsule())
+        }
+        .accessibilityLabel("Выбрать период")
+        .accessibilityValue(periodMenuTitle)
+    }
+
+    private var periodMenuTitle: String {
+        switch choice {
+        case .day: return ReportQuery.periodTitle(period: .day, date: date)
+        case .week: return "Неделя \(ReportQuery.periodTitle(period: .week, date: date))"
+        case .month: return ReportQuery.periodTitle(period: .month, date: date)
+        case .custom: return "Свой период"
+        }
+    }
+
+    private var customRangePickers: some View {
+        HStack(spacing: 12) {
+            Text("С").font(.subheadline).foregroundStyle(StudioTheme.secondary)
+            DatePicker("С", selection: $customStart, displayedComponents: .date)
+                .labelsHidden()
+                .tint(StudioTheme.mint)
+            Text("По").font(.subheadline).foregroundStyle(StudioTheme.secondary)
+            DatePicker("По", selection: $customEnd, displayedComponents: .date)
+                .labelsHidden()
+                .tint(StudioTheme.mint)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .padding(.horizontal, 12)
+        .background(StudioTheme.surface, in: Capsule())
+        .environment(\.calendar, ReportQuery.calendar)
+        .environment(\.locale, Locale(identifier: "ru_RU"))
+    }
+
+    private var shareGrouping: ReportQuery.ReportGrouping {
+        switch choice {
+        case .month: return .week
+        case .custom:
+            let calendar = ReportQuery.calendar
+            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: customStart),
+                                                to: calendar.startOfDay(for: customEnd)).day ?? 0
+            return days > 6 ? .week : .day
+        case .day, .week: return .day
+        }
+    }
+
+    private func shareText(_ items: [ReportEntry]) -> String {
+        ReportQuery.shareText(entries: items, title: shareTitle, grouping: shareGrouping)
+    }
+
+    private var shareTitle: String {
+        switch choice {
+        case .day: return "Дела за \(ReportQuery.periodTitle(period: .day, date: date))"
+        case .week: return "Неделя \(ReportQuery.periodTitle(period: .week, date: date))"
+        case .month: return "Дела за \(ReportQuery.periodTitle(period: .month, date: date))"
+        case .custom: return "Дела за \(customRangeTitle)"
+        }
+    }
+
+    private var customRangeTitle: String {
+        let calendar = ReportQuery.calendar
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d MMMM"
+        let start = formatter.string(from: customStart)
+        let end = formatter.string(from: customEnd)
+        if calendar.component(.year, from: customStart) != calendar.component(.year, from: customEnd) {
+            formatter.dateFormat = "d MMMM yyyy"
+            return "\(formatter.string(from: customStart)) — \(formatter.string(from: customEnd))"
+        }
+        return "\(start) — \(end)"
+    }
+
+    // MARK: - Лента дня
+
+    private var todayContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                dayNavigation
+                CategoryFilter(category: $category, compact: true)
+                processingRecordings
+                if entries.isEmpty { dayEmptyState }
+                LazyVStack(spacing: 8) {
+                    ForEach(entries) { dayEventRow($0) }
+                }
+            }.padding(20)
+        }
+        .accessibilityIdentifier("day-timeline")
+        .scrollPosition($reportScrollPosition)
+        .contentMargins(.bottom, showsDayRecordButton ? DayRecordButton.diameter + dayRecordInset + 4 : 0,
+                        for: .scrollContent)
+        .onScrollPhaseChange { _, phase in
+            isDayScrolling = phase == .interacting || phase == .decelerating || phase == .animating
+            if phase == .interacting && draggedDayEventID == nil { swipedDayEventID = nil }
+        }
+        .clipped()
+        .overlay(alignment: .bottomLeading) {
+            if showsDayRecordButton, let onStartRecording {
+                DayRecordButton(isScrolling: isDayScrolling, isStarting: service.isStarting, action: onStartRecording)
+                    .padding(.leading, dayRecordInset)
+                    .padding(.bottom, dayRecordInset)
+            }
+        }
+    }
+
     @ViewBuilder
     private var dayEmptyState: some View {
         if category != nil {
@@ -168,75 +315,6 @@ struct ReportView: View {
                                    description: Text("Расскажите, что уже сделали. События появятся после расшифровки."))
         } else {
             ContentUnavailableView("В этот день нет событий", systemImage: "list.bullet")
-        }
-    }
-
-    private var reportPeriodPicker: some View {
-        let stacked = dynamicTypeSize.isAccessibilitySize
-        let layout = stacked ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 4))
-        return layout {
-            ForEach(ReportPeriod.allCases) { choice in
-                Button {
-                    parentReport = nil
-                    period = choice
-                } label: {
-                    Text(choice.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(period == choice ? StudioTheme.background : StudioTheme.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.vertical, stacked ? 4 : 0)
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(period == choice ? StudioTheme.mint : Color.clear, in: Capsule())
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(period == choice ? .isSelected : [])
-            }
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, stacked ? 4 : 0)
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private var reportDateNavigation: some View {
-        let title = ReportQuery.periodTitle(period: period, date: date)
-        let previous = dayArrow(-1, icon: "chevron.left", label: "Предыдущий период")
-        let next = dayArrow(1, icon: "chevron.right", label: "Следующий период")
-        let picker = Button { showCalendar = true } label: {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(StudioTheme.secondary)
-                    .accessibilityHidden(true)
-            }
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Выбрать период")
-        .accessibilityValue(title)
-        return Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 4) {
-                    picker.frame(maxWidth: .infinity)
-                    HStack {
-                        previous
-                        Spacer()
-                        next
-                    }
-                }
-            } else {
-                HStack(spacing: 8) {
-                    previous
-                    picker.frame(maxWidth: .infinity)
-                    next
-                }
-            }
         }
     }
 
@@ -285,12 +363,6 @@ struct ReportView: View {
             Image(systemName: icon).frame(width: 44, height: 44).contentShape(Rectangle())
         }
         .accessibilityLabel(label)
-    }
-
-    @ViewBuilder
-    private func eventRow(_ entry: ReportEntry) -> some View {
-        if isToday { dayEventRow(entry) }
-        else { reportEventRow(entry) }
     }
 
     private func dayEventRow(_ entry: ReportEntry) -> some View {
@@ -398,45 +470,6 @@ struct ReportView: View {
         }
     }
 
-    private func reportEventRow(_ entry: ReportEntry) -> some View {
-        let dotColor = StudioTheme.categoryColor(entry.event.category)
-        let stacked = dynamicTypeSize.isAccessibilitySize
-        let dot = Circle().fill(dotColor).frame(width: 8, height: 8).accessibilityHidden(true)
-        let row = stacked
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
-        let timestamp = stacked
-            ? AnyLayout(HStackLayout(spacing: 8))
-            : AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-        return row {
-            timestamp {
-                if stacked { dot }
-                if entry.event.occurredAt == nil { Text("Записано").font(.caption2) }
-                Text(entry.date.formatted(.dateTime.hour().minute())).font(.caption.monospacedDigit())
-            }
-            .foregroundStyle(StudioTheme.secondary)
-            .frame(width: stacked ? nil : 60, alignment: .leading)
-            if !stacked { dot.padding(.top, 6) }
-            Button { selectedEntry = entry } label: {
-                HStack(spacing: 10) {
-                    if !stacked {
-                        Image(systemName: entry.event.category == .home ? "house" : "briefcase")
-                            .font(.title2).foregroundStyle(dotColor)
-                            .accessibilityHidden(true)
-                    }
-                    eventDetails(entry)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(StudioTheme.mint)
-                        .accessibilityHidden(true)
-                }.padding(15)
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 20))
-        }
-    }
-
     @ViewBuilder
     private var processingRecordings: some View {
         let recordings = service.recordings.filter {
@@ -528,269 +561,6 @@ struct ReportView: View {
         }
     }
 
-    private func durationSummary(_ items: [ReportEntry]) -> some View {
-        let completedCount = items.filter { $0.event.completion == .completed }.count
-        let unknownCount = items.filter { $0.event.duration == nil }.count
-        let groups = Dictionary(grouping: items) { $0.event.category }
-        let completed = reportCount("Выполнено дел", value: completedCount.formatted(), id: "report-completed-count")
-        let unknown = reportCount("Без длительности", value: unknownCount.formatted(), id: "report-unknown-duration-count")
-            .foregroundStyle(StudioTheme.secondary)
-        return VStack(alignment: .leading, spacing: 10) {
-            if period == .day { completed }
-            reportCount("Известная длительность", value: StudioTheme.duration(ReportQuery.knownDuration(items)), id: "report-total-duration")
-                .font(.headline)
-            if period == .day && unknownCount > 0 { unknown }
-            ForEach([EventCategory.work, .home, .unclassified]) { group in
-                if let groupItems = groups[group] {
-                    let duration = StudioTheme.duration(ReportQuery.knownDuration(groupItems))
-                    Button { category = group } label: {
-                        HStack(spacing: 12) {
-                            reportMetric {
-                                Label(group.title, systemImage: categoryIcon(group))
-                                    .foregroundStyle(StudioTheme.categoryColor(group))
-                            } value: {
-                                Text(duration).bold()
-                            }
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .accessibilityHidden(true)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .frame(minHeight: 44)
-                        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(group.title)
-                    .accessibilityValue(duration)
-                    .accessibilityIdentifier("report-category-\(group.rawValue)")
-                }
-            }
-            if period != .day {
-                if unknownCount > 0 { unknown }
-                completed
-            }
-        }
-    }
-
-    private func reportCount(_ title: String, value: String, id: String) -> some View {
-        reportMetric {
-            Text(title)
-        } value: {
-            Text(value).foregroundStyle(StudioTheme.secondary)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(value)
-        .accessibilityIdentifier(id)
-    }
-
-    @ViewBuilder
-    private func reportMetric<Caption: View, Value: View>(
-        @ViewBuilder _ caption: () -> Caption,
-        @ViewBuilder value: () -> Value
-    ) -> some View {
-        let captionView = caption()
-        let valueView = value()
-        let stacked = VStack(alignment: .leading, spacing: 4) {
-            captionView
-            valueView
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        if dynamicTypeSize.isAccessibilitySize {
-            stacked
-        } else {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 0) {
-                    captionView.fixedSize()
-                    Spacer(minLength: 12)
-                    valueView.fixedSize()
-                }
-                stacked
-            }
-        }
-    }
-
-    private func categoryIcon(_ category: EventCategory) -> String {
-        switch category {
-        case .work: "laptopcomputer"
-        case .home: "house"
-        case .unclassified: "tag"
-        }
-    }
-
-    @ViewBuilder
-    private func durationChart(_ items: [ReportEntry]) -> some View {
-        let calendar = ReportQuery.calendar
-        let days = ReportQuery.days(period: .week, date: date, calendar: calendar)
-        let byDay = Dictionary(grouping: items) { calendar.startOfDay(for: $0.date) }
-        let durations = days.map { ReportQuery.knownDuration(byDay[$0] ?? []) }
-        if dynamicTypeSize.isAccessibilitySize {
-            let maximumDuration = durations.max() ?? 0
-            VStack(spacing: 8) {
-                ForEach(Array(zip(days, durations)), id: \.0) { day, duration in
-                    let fraction = maximumDuration > 0 ? duration / maximumDuration : 0
-                    reportDayLink(day, detail: StudioTheme.duration(duration), id: "report-week-day", barFraction: fraction)
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Длительность по дням недели")
-            .accessibilityIdentifier("report-chart")
-        } else {
-            weeklyColumnChart(days: days, durations: durations)
-                .frame(height: 170)
-        }
-    }
-
-    private func weeklyColumnChart(days: [Date], durations: [TimeInterval]) -> some View {
-        let weekdayFormat = Date.FormatStyle.dateTime.weekday(.abbreviated).locale(Locale(identifier: "ru_RU"))
-        let labels = days.map { $0.formatted(weekdayFormat) }
-        let showsHours = (durations.max() ?? 0) >= 3600
-        let unit: Double = showsHours ? 3600 : 60
-        let unitLabel = showsHours ? "ч" : "мин"
-        return Chart {
-            ForEach(days.indices, id: \.self) { index in
-                BarMark(x: .value("День", labels[index]), y: .value("Длительность", durations[index] / unit))
-                    .foregroundStyle(StudioTheme.mint)
-                    .cornerRadius(4)
-            }
-        }
-        .accessibilityIdentifier("report-chart")
-        .accessibilityChildren {
-            ForEach(days.indices, id: \.self) { index in
-                Button(ReportQuery.periodTitle(period: .day, date: days[index])) { openReportDay(days[index]) }
-                    .accessibilityValue(StudioTheme.duration(durations[index]))
-            }
-        }
-        .chartXScale(domain: labels)
-        .chartXAxis {
-            AxisMarks(values: labels) { axis in
-                if let day = axis.as(String.self) {
-                    AxisValueLabel { Text(day).font(.caption2) }
-                }
-            }
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { axis in
-                AxisGridLine()
-                if let value = axis.as(Double.self) {
-                    AxisValueLabel {
-                        Text(value.formatted(.number.precision(.significantDigits(1...3))) + " " + unitLabel)
-                            .font(.caption2)
-                    }
-                }
-            }
-        }
-        .chartOverlay { proxy in
-            GeometryReader { geometry in
-                Color.clear.contentShape(Rectangle()).accessibilityHidden(true)
-                    .onTapGesture { location in
-                        guard let plotFrame = proxy.plotFrame else { return }
-                        let frame = geometry[plotFrame]
-                        guard frame.contains(location),
-                              let label = proxy.value(atX: location.x - frame.minX, as: String.self),
-                              let index = labels.firstIndex(of: label) else { return }
-                        openReportDay(days[index])
-                    }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func monthCalendar(_ items: [ReportEntry]) -> some View {
-        let calendar = ReportQuery.calendar
-        let days = ReportQuery.days(period: .month, date: date, calendar: calendar)
-        let byDay = Dictionary(grouping: items) { calendar.startOfDay(for: $0.date) }
-        if dynamicTypeSize.isAccessibilitySize {
-            LazyVStack(spacing: 8) {
-                ForEach(days, id: \.self) { day in
-                    let count = byDay[day]?.count ?? 0
-                    reportDayLink(day, detail: "Дел: \(count)", id: "report-month-day")
-                }
-            }
-        } else {
-            monthCalendarGrid(calendar: calendar, days: days, byDay: byDay)
-        }
-    }
-
-    private func monthCalendarGrid(calendar: Calendar, days: [Date], byDay: [Date: [ReportEntry]]) -> some View {
-        let firstWeekday = days.first.map { calendar.component(.weekday, from: $0) } ?? calendar.firstWeekday
-        let offset = (firstWeekday - calendar.firstWeekday + 7) % 7
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 7), spacing: 4) {
-            ForEach(["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"], id: \.self) { weekday in
-                Text(weekday)
-                    .font(.caption2)
-                    .foregroundStyle(StudioTheme.secondary)
-                    .accessibilityHidden(true)
-            }
-            ForEach(0..<offset, id: \.self) { _ in
-                Color.clear.frame(height: 44).accessibilityHidden(true)
-            }
-            ForEach(days, id: \.self) { day in
-                let count = byDay[day]?.count ?? 0
-                Button { openReportDay(day) } label: {
-                    VStack(spacing: 2) {
-                        Text(calendar.component(.day, from: day).formatted())
-                            .font(.subheadline.monospacedDigit())
-                        Circle().fill(count > 0 ? StudioTheme.mint : Color.clear)
-                            .frame(width: 4, height: 4)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(count > 0 ? StudioTheme.surface : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(ReportQuery.periodTitle(period: .day, date: day))
-                .accessibilityValue("Дел: \(count)")
-                .accessibilityIdentifier("report-month-day")
-            }
-        }
-    }
-
-    private func reportDayLink(_ day: Date, detail: String, id: String, barFraction: Double? = nil) -> some View {
-        let title = ReportQuery.periodTitle(period: .day, date: day)
-        return Button { openReportDay(day) } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(title).font(.headline)
-                    Text(detail).font(.subheadline).foregroundStyle(StudioTheme.secondary)
-                    if let barFraction {
-                        GeometryReader { geometry in
-                            Capsule().fill(StudioTheme.mint)
-                                .frame(width: geometry.size.width * min(max(barFraction, 0), 1))
-                        }
-                        .frame(height: 6)
-                        .background(StudioTheme.secondary.opacity(0.25), in: Capsule())
-                        .accessibilityHidden(true)
-                    }
-                }
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(StudioTheme.mint)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .frame(minHeight: 44)
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-        .accessibilityValue(detail)
-        .accessibilityIdentifier(id)
-    }
-
-    private func openReportDay(_ selected: Date) {
-        parentReport = (period, date)
-        date = ReportQuery.calendar.startOfDay(for: selected)
-        period = .day
-    }
-
     private func refreshCalendarContext() {
         let newZone = TimeZone.current
         if selectedTimeZone != newZone {
@@ -800,9 +570,11 @@ struct ReportView: View {
             if !(isToday && followsToday) {
                 date = ReportQuery.preservingCalendarDate(date, from: previous, to: current) ?? date
             }
-            if let parentReport {
-                self.parentReport = (parentReport.period,
-                    ReportQuery.preservingCalendarDate(parentReport.date, from: previous, to: current) ?? parentReport.date)
+            if let rebasedStart = ReportQuery.preservingCalendarDate(customStart, from: previous, to: current) {
+                customStart = rebasedStart
+            }
+            if let rebasedEnd = ReportQuery.preservingCalendarDate(customEnd, from: previous, to: current) {
+                customEnd = rebasedEnd
             }
             selectedTimeZone = newZone
         }
@@ -814,7 +586,7 @@ struct ReportView: View {
     }
 
     private func moveDate(_ direction: Int) {
-        guard let shifted = ReportQuery.shiftedDate(date, period: isToday ? .day : period, offset: direction) else { return }
+        guard let shifted = ReportQuery.shiftedDate(date, period: .day, offset: direction) else { return }
         date = shifted
         if isToday { followsToday = Calendar.current.isDateInToday(shifted) }
     }
