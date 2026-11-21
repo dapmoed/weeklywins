@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import Speech
+import UniformTypeIdentifiers
 
 struct SettingsButton: View {
     @State private var isPresented = false
@@ -22,6 +23,11 @@ struct SettingsView: View {
     @State private var microphone = "Проверяется"
     @State private var speech = "Проверяется"
     @State private var offline = "Проверяется"
+    @State private var showShareSheet = false
+    @State private var shareURL: URL?
+    @State private var showImporter = false
+    @State private var importMessage: String?
+    @State private var showImportMessage = false
 
     var body: some View {
         NavigationStack {
@@ -41,6 +47,12 @@ struct SettingsView: View {
                 Section {
                     NavigationLink("Настроить кнопку действия") { ActionButtonGuideView() }
                 }.listRowBackground(StudioTheme.surface)
+                Section("Данные") {
+                    Button("Выгрузить расшифровки (JSON)") { exportTranscripts() }
+                        .accessibilityIdentifier("settings-export-transcripts")
+                    Button("Импортировать расшифровки (JSON)") { showImporter = true }
+                        .accessibilityIdentifier("settings-import-transcripts")
+                }.listRowBackground(StudioTheme.surface)
                 Section("Версия и сборка") {
                     let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
                     LabeledContent("Версия", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
@@ -56,7 +68,46 @@ struct SettingsView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Готово") { dismiss() } } }
             .task { await refresh() }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await refresh() } } }
+            .sheet(isPresented: $showShareSheet) {
+                if let shareURL { ShareSheet(url: shareURL).ignoresSafeArea() }
+            }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+                importFile(result)
+            }
+            .alert("Импорт расшифровок", isPresented: $showImportMessage, presenting: importMessage) { _ in
+                Button("Готово", role: .cancel) {}
+            } message: { message in Text(message) }
         }.tint(StudioTheme.mint).preferredColorScheme(.dark)
+    }
+
+    private func exportTranscripts() {
+        do {
+            let export = TranscriptExport.make(recordings: RecordingService.shared.recordings)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("weeklywins-transcripts.json")
+            try export.fileData().write(to: url, options: .atomic)
+            shareURL = url
+            showShareSheet = true
+        } catch {
+            importMessage = "Не удалось подготовить файл: \(error.localizedDescription)"
+            showImportMessage = true
+        }
+    }
+
+    private func importFile(_ result: Result<URL, Error>) {
+        do {
+            let url = try result.get()
+            let needsAccess = url.startAccessingSecurityScopedResource()
+            defer { if needsAccess { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let export = try decoder.decode(TranscriptExport.self, from: data)
+            let summary = try RecordingService.shared.importTranscriptEntries(export.recordings)
+            importMessage = "Импортировано записей: \(summary.imported). Пропущено дублей: \(summary.skippedDuplicates)."
+        } catch {
+            importMessage = "Не удалось прочитать файл."
+        }
+        showImportMessage = true
     }
 
     @MainActor

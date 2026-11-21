@@ -37,6 +37,7 @@
 		90AC688974A7ECEFFB7AA2FE /* ActionButtonUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E0ACDFD008D944B8677A9E /* ActionButtonUITests.swift */; };
 		90B25D631C6681C2DFC96BBB /* StudioTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45D65F801F7051B4386BEABC /* StudioTheme.swift */; };
 		96E70A397AD7BDC873C0AFED /* TranscriptImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC26E252E1852D42AAAC3EF3 /* TranscriptImportTests.swift */; };
+		9EC80C0E640A1C6BBE64AD0D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9F96EE7438FCC34381A579 /* ShareSheet.swift */; };
 		A04D12F5DF5D621146799268 /* RecordingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBE7F83EE50C65436741DAD /* RecordingServiceTests.swift */; };
 		A7D5BFE9F58697B8F347E28C /* RecordingSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60767FF285F266E88291C438 /* RecordingSearch.swift */; };
 		B357A119BA939B380341D366 /* SpeechRecognitionSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9F233CF6973641817FFFB2 /* SpeechRecognitionSessionTests.swift */; };
@@ -119,6 +120,7 @@
 		430B9FF7A3A9B24C632CCB81 /* RecordingManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingManagementTests.swift; sourceTree = "<group>"; };
 		4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingAttributes.swift; sourceTree = "<group>"; };
 		45D65F801F7051B4386BEABC /* StudioTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioTheme.swift; sourceTree = "<group>"; };
+		4F9F96EE7438FCC34381A579 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		50F502298901B4C79C171B12 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
 		57B0A8EE6A581AD2F0D212A4 /* DeviceTestSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTestSession.swift; sourceTree = "<group>"; };
 		57EBB2A914489654CE8F86B6 /* RecordingActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingActivityWidget.swift; sourceTree = "<group>"; };
@@ -230,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				2FE5367230E943B0D9CED569 /* SettingsView.swift */,
+				4F9F96EE7438FCC34381A579 /* ShareSheet.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -488,6 +491,7 @@
 				4F77900B6BB01E41FE997910 /* ReportQuery.swift in Sources */,
 				3A31164B0E61C983530575CF /* ReportView.swift in Sources */,
 				1D17C71F35BCF24E082FF404 /* SettingsView.swift in Sources */,
+				9EC80C0E640A1C6BBE64AD0D /* ShareSheet.swift in Sources */,
 				62F0DF5BAF1E34D8B5183FA0 /* SpeechRecognitionSession.swift in Sources */,
 				786CA6786D9FB181E78705CE /* StudioRootView.swift in Sources */,
 				90B25D631C6681C2DFC96BBB /* StudioTheme.swift in Sources */,
