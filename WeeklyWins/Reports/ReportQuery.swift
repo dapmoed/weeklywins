@@ -23,7 +23,7 @@ struct ReportEntry: Identifiable {
     let event: DiaryEvent
     let recording: Recording
     var id: UUID { event.id }
-    var date: Date { event.occurredAt ?? recording.recordedAt }
+    var date: Date { recording.recordedAt }
 }
 
 enum ReportQuery {
@@ -99,8 +99,6 @@ enum ReportQuery {
         var lines = [title, ""]
         let completed = entries.filter { $0.event.completion == .completed }.count
         lines.append("Дел: \(entries.count) · выполнено: \(completed)")
-        let known = knownDuration(entries)
-        if known > 0 { lines.append("Известная длительность: \(durationText(known))") }
         lines.append("")
         let ordered = entries.sorted { $0.date < $1.date }
         let groups: [(String, [ReportEntry])]
@@ -134,19 +132,10 @@ enum ReportQuery {
 
     private static func entryLine(_ entry: ReportEntry) -> String {
         var line = entry.event.text
-        if let duration = entry.event.duration, entry.event.completion == .completed {
-            line += " (\(durationText(duration)))"
-        }
         if entry.event.completion == .notCompleted {
             line += " — не сделано"
         }
         return line
-    }
-
-    private static func durationText(_ seconds: TimeInterval) -> String {
-        let minutes = Int(max(0, seconds) / 60)
-        if minutes >= 60 { return "\(minutes / 60) ч \(minutes % 60) мин" }
-        return "\(minutes) мин"
     }
 
     private static func dayTitle(_ day: Date, calendar: Calendar) -> String {
@@ -181,9 +170,5 @@ enum ReportQuery {
         }
         formatter.dateFormat = "d MMMM yyyy"
         return "\(formatter.string(from: interval.start)) — \(formatter.string(from: last))"
-    }
-
-    static func knownDuration(_ entries: [ReportEntry]) -> TimeInterval {
-        entries.filter { $0.event.completion == .completed }.compactMap(\.event.duration).reduce(0, +)
     }
 }

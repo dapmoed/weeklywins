@@ -10,41 +10,42 @@ final class ReportTests: XCTestCase {
         let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-18T12:00:00Z"))
         var calendar = ReportQuery.calendar
         calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 5 * 3600))
-        let recording = try store.beginRecording(startedAt: date)
-        try Data([1, 2, 3]).write(to: store.fileURL(for: recording))
-        try store.finalizeRecording(id: recording.id, duration: 1)
 
-        let newer = DiaryEvent(recordingID: recording.id, sourceText: "Отчёт", text: "Отчёт",
-                               category: .work, occurredAt: date, duration: 3600)
-        let older = DiaryEvent(recordingID: recording.id, sourceText: "Покупки", text: "Покупки",
-                               category: .home, occurredAt: date.addingTimeInterval(-3600), duration: 900)
-        let sameWeek = DiaryEvent(recordingID: recording.id, sourceText: "Созвон", text: "Созвон",
-                                  occurredAt: date.addingTimeInterval(-2 * 86400), duration: 600)
-        let sameMonth = DiaryEvent(recordingID: recording.id, sourceText: "Ремонт", text: "Ремонт",
-                                   occurredAt: date.addingTimeInterval(-6 * 86400), duration: 300)
-        let baseline = [older, sameMonth, newer, sameWeek]
-        try store.saveEvents(recordingID: recording.id, events: baseline)
+        func addEvent(_ sourceText: String, at recordingDate: Date,
+                      category: EventCategory = .unclassified) throws -> DiaryEvent {
+            let recording = try store.beginRecording(startedAt: recordingDate)
+            try Data([1, 2, 3]).write(to: store.fileURL(for: recording))
+            try store.finalizeRecording(id: recording.id, duration: 1)
+            let event = DiaryEvent(recordingID: recording.id, sourceText: sourceText, text: sourceText, category: category)
+            try store.saveEvents(recordingID: recording.id, events: [event])
+            return event
+        }
+        let newer = try addEvent("Отчёт", at: date, category: .work)
+        let older = try addEvent("Покупки", at: date.addingTimeInterval(-3600), category: .home)
+        let sameWeek = try addEvent("Созвон", at: date.addingTimeInterval(-2 * 86400))
+        let sameMonth = try addEvent("Ремонт", at: date.addingTimeInterval(-6 * 86400), category: .work)
+
+        let periods: [(ReportPeriod, [DiaryEvent])] = [
+            (.day, [newer, older]), (.week, [newer, older, sameWeek]), (.month, [newer, older, sameWeek, sameMonth])
+        ]
+        for (period, expected) in periods {
+            let report = ReportQuery.events(in: store.recordings, period: period, date: date, calendar: calendar)
+            XCTAssertEqual(report.map(\.id), expected.map(\.id), period.rawValue)
+        }
 
         var edited = newer
         edited.category = .home
-        edited.duration = 1800
-        let periods: [(ReportPeriod, [DiaryEvent], TimeInterval)] = [
-            (.day, [], 0), (.week, [sameWeek], 600), (.month, [sameWeek, sameMonth], 900)
-        ]
-        for (period, earlierEvents, extraDuration) in periods {
-            let report = ReportQuery.events(in: store.recordings, period: period, date: date, calendar: calendar)
-            XCTAssertEqual(report.map(\.id), [newer.id, older.id] + earlierEvents.map(\.id), period.rawValue)
-            XCTAssertEqual(ReportQuery.knownDuration(report), 4500 + extraDuration, period.rawValue)
-        }
-
-        try store.saveEvents(recordingID: recording.id, events: [edited, sameWeek, sameMonth], expectedEvents: baseline)
+        try store.saveEvents(recordingID: newer.recordingID, events: [edited], expectedEvents: [newer])
+        try store.saveEvents(recordingID: older.recordingID, events: [], expectedEvents: [older])
         let restored = RecordingStore(directory: directory)
-        for (period, earlierEvents, extraDuration) in periods {
+        let editedPeriods: [(ReportPeriod, [DiaryEvent])] = [
+            (.day, [newer]), (.week, [newer, sameWeek]), (.month, [newer, sameWeek, sameMonth])
+        ]
+        for (period, expected) in editedPeriods {
             let report = ReportQuery.events(in: restored.recordings, period: period, date: date, calendar: calendar)
-            XCTAssertEqual(report.map(\.id), [newer.id] + earlierEvents.map(\.id), period.rawValue)
-            XCTAssertEqual(report.first?.event.category, .home, period.rawValue)
-            XCTAssertEqual(ReportQuery.knownDuration(report), 1800 + extraDuration, period.rawValue)
+            XCTAssertEqual(report.map(\.id), expected.map(\.id), period.rawValue)
         }
+        XCTAssertEqual(restored.recordings.first(where: { $0.id == newer.recordingID })?.events?.first?.category, .home)
     }
 
     func testSelectedCalendarDateStaysInSameMonthAfterZoneChange() throws {
@@ -100,42 +101,41 @@ final class ReportTests: XCTestCase {
         XCTAssertEqual(ReportQuery.events(in: [recording], period: .day, date: requestedDate, calendar: yekaterinburg).count, 1)
     }
 
-    func testLocalDayUsesEventTimeAndExcludesUnknownAndIncompleteDuration() throws {
+    func testLocalDayUsesRecordingTime() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
         let date = ISO8601DateFormatter().date(from: "2026-11-16T20:00:00Z")!
         let id = UUID()
         var recording = Recording(id: id, recordedAt: date, fileName: "fixture.m4a", state: .saved)
         recording.events = [
-            DiaryEvent(recordingID: id, sourceText: "Работал час", text: "Работал", category: .work, duration: 3600),
+            DiaryEvent(recordingID: id, sourceText: "Работал час", text: "Работал", category: .work),
             DiaryEvent(recordingID: id, sourceText: "Купил продукты", text: "Продукты", category: .home),
-            DiaryEvent(recordingID: id, sourceText: "Не сделал", text: "Не сделал", completion: .notCompleted, duration: 100),
-            DiaryEvent(recordingID: id, sourceText: "Вчера", text: "Вчера", occurredAt: date.addingTimeInterval(-86400), duration: 200)
+            DiaryEvent(recordingID: id, sourceText: "Не сделал", text: "Не сделал", completion: .notCompleted)
         ]
         let report = ReportQuery.events(in: [recording], period: .day, date: date, calendar: calendar)
         XCTAssertEqual(report.count, 3)
-        XCTAssertEqual(ReportQuery.knownDuration(report), 3600)
-        XCTAssertEqual(ReportQuery.events(in: [recording], period: .week, date: date, calendar: calendar).count, 4)
+        XCTAssertEqual(ReportQuery.events(in: [recording], period: .week, date: date, calendar: calendar).count, 3)
     }
 
     func testEventsInCustomRangeIncludeEndDay() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
         calendar.firstWeekday = 2
-        let id = UUID()
-        var recording = Recording(id: id, recordedAt: .distantPast, fileName: "fixture.m4a", state: .saved)
-        recording.events = [
-            DiaryEvent(recordingID: id, sourceText: "Пн", text: "Пн",
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-16T07:00:00Z")),
-            DiaryEvent(recordingID: id, sourceText: "Вт", text: "Вт",
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-17T07:00:00Z")),
-            DiaryEvent(recordingID: id, sourceText: "Пн2", text: "Пн2",
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-23T07:00:00Z"))
+        func recording(_ text: String, at iso: String) -> Recording {
+            var recording = Recording(id: UUID(), recordedAt: ISO8601DateFormatter().date(from: iso)!,
+                                      fileName: "fixture.m4a", state: .saved)
+            recording.events = [DiaryEvent(recordingID: recording.id, sourceText: text, text: text)]
+            return recording
+        }
+        let recordings = [
+            recording("Пн", at: "2026-11-16T07:00:00Z"),
+            recording("Вт", at: "2026-11-17T07:00:00Z"),
+            recording("Пн2", at: "2026-11-23T07:00:00Z")
         ]
         let start = calendar.startOfDay(for: ISO8601DateFormatter().date(from: "2026-11-16T00:00:00Z")!)
         let endExclusive = calendar.date(byAdding: .day, value: 1,
                                          to: calendar.startOfDay(for: ISO8601DateFormatter().date(from: "2026-11-17T00:00:00Z")!))!
-        let report = ReportQuery.events(in: [recording], from: start, to: endExclusive, calendar: calendar)
+        let report = ReportQuery.events(in: recordings, from: start, to: endExclusive, calendar: calendar)
         XCTAssertEqual(report.map { $0.event.text }, ["Вт", "Пн"])
     }
 
@@ -143,18 +143,23 @@ final class ReportTests: XCTestCase {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
         calendar.firstWeekday = 2
-        let id = UUID()
-        var recording = Recording(id: id, recordedAt: .distantPast, fileName: "fixture.m4a", state: .saved)
-        recording.events = [
-            DiaryEvent(recordingID: id, sourceText: "Созвон", text: "Созвон", category: .work,
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-16T05:00:00Z"), duration: 1800),
-            DiaryEvent(recordingID: id, sourceText: "Продукты", text: "Продукты", category: .home,
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-17T05:00:00Z")),
-            DiaryEvent(recordingID: id, sourceText: "Отчёт", text: "Отчёт", category: .work,
-                       completion: .notCompleted,
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-17T06:00:00Z"), duration: 600)
-        ]
-        let entries = ReportQuery.events(in: [recording], period: .week,
+        func recording(at iso: String, events: [(String, String, EventCategory?, EventCompletion?)]) -> Recording {
+            let id = UUID()
+            var recording = Recording(id: id, recordedAt: ISO8601DateFormatter().date(from: iso)!,
+                                      fileName: "fixture.m4a", state: .saved)
+            recording.events = events.map { sourceText, text, category, completion in
+                DiaryEvent(recordingID: id, sourceText: sourceText, text: text,
+                           category: category ?? .unclassified,
+                           completion: completion ?? .completed)
+            }
+            return recording
+        }
+        let first = recording(at: "2026-11-16T05:00:00Z",
+                              events: [("Созвон", "Созвон", .work, nil)])
+        let second = recording(at: "2026-11-17T05:00:00Z",
+                               events: [("Продукты", "Продукты", .home, nil),
+                                        ("Отчёт", "Отчёт", .work, .notCompleted)])
+        let entries = ReportQuery.events(in: [first, second], period: .week,
                                          date: ISO8601DateFormatter().date(from: "2026-11-17T12:00:00Z")!,
                                          calendar: calendar)
         let text = ReportQuery.shareText(entries: entries, title: "Неделя 16–22 ноября",
@@ -163,10 +168,9 @@ final class ReportTests: XCTestCase {
             Неделя 16–22 ноября
 
             Дел: 3 · выполнено: 2
-            Известная длительность: 30 мин
 
             16 ноября, Понедельник
-            • Созвон (30 мин)
+            • Созвон
 
             17 ноября, Вторник
             • Продукты
@@ -178,15 +182,17 @@ final class ReportTests: XCTestCase {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 5 * 3600)!
         calendar.firstWeekday = 2
-        let id = UUID()
-        var recording = Recording(id: id, recordedAt: .distantPast, fileName: "fixture.m4a", state: .saved)
-        recording.events = [
-            DiaryEvent(recordingID: id, sourceText: "Пн", text: "Пн",
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-16T05:00:00Z")),
-            DiaryEvent(recordingID: id, sourceText: "Пн2", text: "Пн2",
-                       occurredAt: ISO8601DateFormatter().date(from: "2026-11-23T05:00:00Z"))
+        func recording(_ text: String, at iso: String) -> Recording {
+            var recording = Recording(id: UUID(), recordedAt: ISO8601DateFormatter().date(from: iso)!,
+                                      fileName: "fixture.m4a", state: .saved)
+            recording.events = [DiaryEvent(recordingID: recording.id, sourceText: text, text: text)]
+            return recording
+        }
+        let recordings = [
+            recording("Пн", at: "2026-11-16T05:00:00Z"),
+            recording("Пн2", at: "2026-11-23T05:00:00Z")
         ]
-        let entries = ReportQuery.events(in: [recording], period: .month,
+        let entries = ReportQuery.events(in: recordings, period: .month,
                                          date: ISO8601DateFormatter().date(from: "2026-11-17T12:00:00Z")!,
                                          calendar: calendar)
         let text = ReportQuery.shareText(entries: entries, title: "Дела за Ноябрь 2026",
