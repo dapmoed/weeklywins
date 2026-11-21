@@ -97,7 +97,7 @@ struct EventReviewView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                             metadata(for: event)
                                 .font(.caption.monospacedDigit())
-                                .foregroundStyle(StudioTheme.text)
+                                .foregroundStyle(StudioTheme.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 4)

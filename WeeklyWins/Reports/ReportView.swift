@@ -339,16 +339,16 @@ struct ReportView: View {
         .accessibilityLabel("Выбрать день")
         .accessibilityValue(selectedTitle)
         return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                dayArrow(-1, icon: "chevron.left", label: "Предыдущий день")
                 dayPicker
+                dayArrow(1, icon: "chevron.right", label: "Следующий день")
                 Spacer(minLength: 0)
                 SettingsButton()
             }
             if !Calendar.current.isDateInToday(date) {
                 HStack {
-                    dayArrow(-1, icon: "chevron.left", label: "Предыдущий день")
-                    dayArrow(1, icon: "chevron.right", label: "Следующий день")
-                    Spacer(minLength: 4)
+                    Spacer(minLength: 0)
                     Button("Сегодня") {
                         followsToday = true
                         date = .now
@@ -456,7 +456,7 @@ struct ReportView: View {
 
             Text(metadata)
                 .font(isToday ? .caption2 : .caption)
-                .foregroundStyle(StudioTheme.text)
+                .foregroundStyle(StudioTheme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)

@@ -8,9 +8,9 @@ enum StudioTheme {
     static let mint = Color(red: 182/255, green: 229/255, blue: 206/255)
     static let coral = Color(red: 1, green: 123/255, blue: 107/255)
     static let sand = Color(red: 233/255, green: 200/255, blue: 137/255)
-    static let workCategorySurface = Color(red: 52/255, green: 89/255, blue: 73/255)
-    static let homeCategorySurface = Color(red: 91/255, green: 76/255, blue: 43/255)
-    static let unclassifiedCategorySurface = Color(red: 58/255, green: 68/255, blue: 64/255)
+    static let workCategorySurface = Color(red: 48/255, green: 75/255, blue: 62/255)
+    static let homeCategorySurface = Color(red: 78/255, green: 64/255, blue: 40/255)
+    static let unclassifiedCategorySurface = Color(red: 48/255, green: 58/255, blue: 54/255)
 
     static func categoryColor(_ category: EventCategory) -> Color {
         category == .home ? sand : category == .work ? mint : secondary

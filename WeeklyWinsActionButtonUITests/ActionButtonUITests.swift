@@ -21,6 +21,10 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(delete.isHittable, app.debugDescription)
         XCTAssertTrue(row.exists)
         XCTAssertFalse(app.buttons["recording-details-back"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A07-recording-delete-revealed"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     @MainActor

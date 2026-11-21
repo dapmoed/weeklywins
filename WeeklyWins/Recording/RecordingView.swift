@@ -175,17 +175,21 @@ private struct RecordingRow: View {
 
             Text(statusText)
                 .font(.caption)
-                .foregroundStyle(recording.errorMessage == nil ? StudioTheme.text : StudioTheme.coral)
+                .foregroundStyle(recording.errorMessage == nil ? StudioTheme.secondary : StudioTheme.coral)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(StudioTheme.unclassifiedCategorySurface)
+                .background(
+                    StudioTheme.unclassifiedCategorySurface,
+                    in: UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 16,
+                                               bottomTrailingRadius: 16, topTrailingRadius: 0)
+                )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var title: String {
