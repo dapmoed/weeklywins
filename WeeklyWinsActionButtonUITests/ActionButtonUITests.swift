@@ -49,6 +49,26 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayArrowChangesDateInsteadOfOpeningSettings() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let dayPicker = app.buttons["Выбрать день"]
+        let previousDay = app.buttons["Предыдущий день"]
+        XCTAssertTrue(dayPicker.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(previousDay.isHittable, app.debugDescription)
+        previousDay.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let expectedDate = Calendar.current.date(byAdding: .day, value: -1, to: .now)!
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "d MMMM"
+        XCTAssertEqual(dayPicker.value as? String, formatter.string(from: expectedDate), app.debugDescription)
+        XCTAssertFalse(app.staticTexts["Настройки"].exists, app.debugDescription)
+    }
+
+    @MainActor
     func testReportsDoNotRepeatSelectedCategoryBelowFilter() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")

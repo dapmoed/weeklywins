@@ -361,6 +361,7 @@ struct ReportView: View {
         Button { moveDate(offset) } label: {
             Image(systemName: icon).frame(width: 44, height: 44).contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(label)
     }
 

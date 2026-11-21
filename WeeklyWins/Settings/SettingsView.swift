@@ -10,6 +10,7 @@ struct SettingsButton: View {
             Image(systemName: "gearshape").font(.title3)
                 .foregroundStyle(StudioTheme.secondary).frame(width: 44, height: 44)
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Настройки")
         .accessibilityIdentifier("settings-button")
         .sheet(isPresented: $isPresented) { SettingsView() }
