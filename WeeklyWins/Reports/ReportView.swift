@@ -26,7 +26,7 @@ struct ReportView: View {
     var onStartRecording: (() -> Void)? = nil
     var onDeleteEvent: ((DiaryEvent) -> Void)? = nil
 
-    private let dayRecordInset: CGFloat = 20
+    private let dayRecordInset: CGFloat = 40
 
     init(isToday: Bool, onStartRecording: (() -> Void)? = nil, onDeleteEvent: ((DiaryEvent) -> Void)? = nil) {
         self.isToday = isToday
@@ -164,7 +164,8 @@ struct ReportView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("report-share-button")
-                .padding(20)
+                .padding(.trailing, 40)
+                .padding(.bottom, 40)
             }
         }
     }
