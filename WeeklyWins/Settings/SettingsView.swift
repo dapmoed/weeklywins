@@ -69,7 +69,7 @@ struct SettingsView: View {
             .task { await refresh() }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await refresh() } } }
             .sheet(isPresented: $showShareSheet) {
-                if let shareURL { ShareSheet(url: shareURL).ignoresSafeArea() }
+                if let shareURL { ShareSheet(url: shareURL) }
             }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
                 importFile(result)
