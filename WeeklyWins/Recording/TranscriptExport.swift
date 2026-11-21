@@ -12,6 +12,17 @@ struct TranscriptExport: Codable, Equatable {
     var exportedAt: Date
     var recordings: [Entry]
 
+    var fileName: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        let count = recordings.count
+        let recordLabel = count == 1 ? "record" : "records"
+        return "weeklywins-backup-\(count)-\(recordLabel)-\(formatter.string(from: exportedAt)).json"
+    }
+
     static func make(recordings: [Recording], exportedAt: Date = .now) -> TranscriptExport {
         let entries = recordings
             .filter { $0.deletedAt == nil }

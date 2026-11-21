@@ -23,8 +23,6 @@ struct SettingsView: View {
     @State private var microphone = "Проверяется"
     @State private var speech = "Проверяется"
     @State private var offline = "Проверяется"
-    @State private var showShareSheet = false
-    @State private var shareURL: URL?
     @State private var showImporter = false
     @State private var importMessage: String?
     @State private var showImportMessage = false
@@ -68,9 +66,6 @@ struct SettingsView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Готово") { dismiss() } } }
             .task { await refresh() }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await refresh() } } }
-            .sheet(isPresented: $showShareSheet) {
-                if let shareURL { ShareSheet(url: shareURL) }
-            }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
                 importFile(result)
             }
@@ -83,10 +78,9 @@ struct SettingsView: View {
     private func exportTranscripts() {
         do {
             let export = TranscriptExport.make(recordings: RecordingService.shared.recordings)
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("weeklywins-transcripts.json")
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(export.fileName)
             try export.fileData().write(to: url, options: .atomic)
-            shareURL = url
-            showShareSheet = true
+            SharePresenter.present(url: url)
         } catch {
             importMessage = "Не удалось подготовить файл: \(error.localizedDescription)"
             showImportMessage = true
