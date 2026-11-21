@@ -2,13 +2,21 @@ import SwiftUI
 
 struct RecordingView: View {
     var searchFocused: FocusState<Bool>.Binding
+    var onStartRecording: (() -> Void)?
     @ObservedObject private var recorder = RecordingService.shared
     @State private var selectedRecording: Recording?
     @State private var deletionCandidate: Recording?
     @State private var showDeleteConfirmation = false
     @State private var query = ""
     @State private var error: String?
+    @State private var isScrolling = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private let recordInset: CGFloat = 20
+
+    private var showsRecordButton: Bool {
+        onStartRecording != nil && !recorder.isRecording && !searchFocused.wrappedValue
+    }
 
     private var recordingsByDay: [Date: [Recording]] {
         let calendar = Calendar.current
@@ -90,7 +98,20 @@ struct RecordingView: View {
                             }
                         }
                     }
-                }.scrollDismissesKeyboard(.interactively)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .contentMargins(.bottom, showsRecordButton ? DayRecordButton.diameter + recordInset + 4 : 0,
+                                for: .scrollContent)
+                .onScrollPhaseChange { _, phase in
+                    isScrolling = phase == .interacting || phase == .decelerating || phase == .animating
+                }
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if showsRecordButton, let onStartRecording {
+                DayRecordButton(isScrolling: isScrolling, isStarting: recorder.isStarting, action: onStartRecording)
+                    .padding(.leading, recordInset)
+                    .padding(.bottom, recordInset)
             }
         }
         .padding(20).background(StudioTheme.background).foregroundStyle(StudioTheme.text)

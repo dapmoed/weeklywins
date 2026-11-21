@@ -605,7 +605,6 @@ final class ActionButtonUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
         app.launch()
-        app.buttons["studio-tab-2"].tap()
         app.buttons["Записать"].tap()
         XCTAssertTrue(app.staticTexts["Идёт запись"].waitForExistence(timeout: 5))
         app.buttons["recorder-stop"].tap()
@@ -677,16 +676,67 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["studio-tab-2"].tap()
         XCTAssertEqual(menuButton.value as? String, selected)
 
-        // Компактная запись поверх отчёта.
+        // Компактная запись поверх отчёта: начинаем с «Сегодня», сворачиваем и возвращаемся к отчёту.
+        app.buttons["studio-tab-0"].tap()
         app.buttons["Записать"].tap()
         let collapse = app.buttons["Свернуть"]
         XCTAssertTrue(collapse.waitForExistence(timeout: 5))
         collapse.tap()
+        app.buttons["studio-tab-2"].tap()
         let compactStop = app.buttons["compact-recording-stop"]
         XCTAssertTrue(compactStop.waitForExistence(timeout: 5))
         XCTAssertTrue(compactStop.isHittable)
         compactStop.tap()
         XCTAssertEqual(menuButton.value as? String, selected)
+    }
+
+    @MainActor
+    func testEventDetailChangesCategoryWithoutEditor() throws {
+        #if targetEnvironment(simulator)
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        addTeardownBlock { @MainActor in
+            app.activate()
+            let stop = app.buttons["recorder-stop"].firstMatch
+            if stop.exists && stop.isHittable { stop.tap() }
+        }
+        app.buttons["Записать"].tap()
+        XCTAssertTrue(app.buttons["recorder-stop"].waitForExistence(timeout: 10))
+        app.buttons["recorder-stop"].tap()
+        openRecordingsAfterSaving(app)
+        app.buttons.matching(identifier: "recording-row").firstMatch.tap()
+        app.buttons["Изменить текст"].tap()
+        let editor = app.textViews["transcriptEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        editor.typeText("Обсудил планы на выходные. Купил хлеб.")
+        app.buttons["save-transcript"].tap()
+        app.buttons["recording-details-back"].tap()
+
+        app.buttons["studio-tab-0"].tap()
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Обсудил планы")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10), app.debugDescription)
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Событие"].waitForExistence(timeout: 5))
+        let category = app.buttons["event-category"]
+        XCTAssertTrue(category.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(category.label.contains("Без категории"), category.label)
+        usleep(600_000)
+        XCTAssertTrue(category.isHittable, app.debugDescription)
+        category.tap()
+        let work = app.sheets.buttons["Работа"]
+        XCTAssertTrue(work.waitForExistence(timeout: 5), app.debugDescription)
+        work.tap()
+        XCTAssertTrue(category.waitForExistence(timeout: 5))
+        XCTAssertTrue(category.label.contains("Работа"), category.label)
+        let changed = XCTAttachment(screenshot: app.screenshot())
+        changed.name = "A17-event-category-quick-change"
+        changed.lifetime = .keepAlways
+        add(changed)
+        #else
+        throw XCTSkip("This detail regression runs on Simulator.")
+        #endif
     }
 
     @MainActor
@@ -1157,6 +1207,13 @@ final class ActionButtonUITests: XCTestCase {
 
         let recordingRow = app.buttons.matching(identifier: "recording-row").firstMatch
         XCTAssertTrue(recordingRow.waitForExistence(timeout: 5), app.debugDescription)
+        let recordButton = app.buttons["day-floating-record"]
+        XCTAssertTrue(recordButton.isHittable)
+        XCTAssertLessThan(recordButton.frame.midX, app.windows.firstMatch.frame.midX)
+        let recordingsList = XCTAttachment(screenshot: app.screenshot())
+        recordingsList.name = "A07-recordings-floating-record"
+        recordingsList.lifetime = .keepAlways
+        add(recordingsList)
         recordingRow.tap()
         XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["Расшифровать"].exists)

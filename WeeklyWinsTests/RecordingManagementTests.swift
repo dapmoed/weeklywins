@@ -75,4 +75,38 @@ final class RecordingManagementTests: XCTestCase {
         XCTAssertTrue(RecordingSearch.matches(recording, query: "ноября"))
         XCTAssertFalse(RecordingSearch.matches(recording, query: "отпуск"))
     }
+
+    @MainActor
+    func testStartupDeletesRecordingsWithoutUsefulContent() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        func makeRecording(duration: TimeInterval, transcript: String?, processingState: RecordingProcessingState = .completed) throws -> Recording {
+            let pending = try store.beginRecording()
+            try Data([1, 2, 3]).write(to: store.fileURL(for: pending))
+            let recording = try store.finalizeRecording(id: pending.id, duration: duration)
+            try store.updateTranscription(recordingID: recording.id, transcript: transcript, processingState: processingState, errorMessage: nil)
+            return recording
+        }
+        let zeroDuration = try makeRecording(duration: 0, transcript: nil, processingState: .pending)
+        let emptyTranscript = try makeRecording(duration: 5, transcript: "… !")
+        let kept = try makeRecording(duration: 5, transcript: "Купил хлеб")
+        let pendingTranscription = try makeRecording(duration: 7, transcript: nil, processingState: .pending)
+
+        let service = RecordingService(recordingDirectory: directory, transcriber: StubTranscriber(), isApplicationActive: { false })
+
+        XCTAssertFalse(service.recordings.contains(where: { $0.id == zeroDuration.id }))
+        XCTAssertFalse(service.recordings.contains(where: { $0.id == emptyTranscript.id }))
+        XCTAssertTrue(service.recordings.contains(where: { $0.id == kept.id }))
+        XCTAssertTrue(service.recordings.contains(where: { $0.id == pendingTranscription.id }))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: zeroDuration).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: emptyTranscript).path))
+        let leftover = ReportQuery.events(in: service.recordings, period: .month, date: .now)
+        XCTAssertEqual(Set(leftover.map(\.recording.id)), [kept.id])
+    }
+}
+
+private actor StubTranscriber: Transcriber {
+    nonisolated let canTranscribeWithoutAuthorizationPrompt = false
+    func transcribe(audioFileURL: URL, locale: Locale) async throws -> String { "" }
 }

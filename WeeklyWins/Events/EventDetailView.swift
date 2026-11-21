@@ -5,6 +5,7 @@ struct EventDetailView: View {
     @ObservedObject var service: RecordingService
     @State private var editing = false
     @State private var showSource = false
+    @State private var showCategoryPicker = false
     @State private var error: String?
     @State private var deletedEvent: RecordingService.DeletedEvent?
 
@@ -20,8 +21,20 @@ struct EventDetailView: View {
                 List {
                     Section {
                         Text(event.text).font(.title2.weight(.semibold))
-                        Label(event.category.title, systemImage: categoryIcon(event.category))
-                            .foregroundStyle(StudioTheme.categoryColor(event.category))
+                        Button {
+                            showCategoryPicker = true
+                        } label: {
+                            Label(event.category.title, systemImage: categoryIcon(event.category))
+                                .foregroundStyle(StudioTheme.categoryColor(event.category))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("event-category")
+                        .confirmationDialog("Категория", isPresented: $showCategoryPicker, titleVisibility: .visible) {
+                            ForEach(EventCategory.allCases) { category in
+                                Button(category.title) { updateCategory(of: event, to: category) }
+                            }
+                            Button("Отмена", role: .cancel) {}
+                        }
                         LabeledContent("Статус", value: event.completion.title)
                     }.listRowBackground(StudioTheme.surface)
                     Section("Когда и сколько") {
@@ -70,6 +83,17 @@ struct EventDetailView: View {
                 }
             }
         }
+    }
+
+    private func updateCategory(of event: DiaryEvent, to category: EventCategory) {
+        guard event.category != category else { return }
+        do {
+            guard let recording = self.recording,
+                  let index = recording.events?.firstIndex(where: { $0.id == event.id }) else { throw RecordingStoreError.recordingNotFound }
+            var events = recording.events ?? []
+            events[index].category = category
+            try service.saveEvents(recordingID: recording.id, events: events)
+        } catch { self.error = error.localizedDescription }
     }
 
     private func categoryIcon(_ category: EventCategory) -> String {

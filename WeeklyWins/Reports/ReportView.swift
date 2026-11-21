@@ -622,7 +622,7 @@ private struct DayCardPan: UIGestureRecognizerRepresentable {
     }
 }
 
-private struct DayRecordButton: View {
+struct DayRecordButton: View {
     static let diameter: CGFloat = 48
     let isScrolling: Bool
     let isStarting: Bool

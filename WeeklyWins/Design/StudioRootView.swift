@@ -39,7 +39,7 @@ struct StudioRootView: View {
             TabView(selection: $selectedTab) {
                 ReportView(isToday: true, onStartRecording: openRecorder, onDeleteEvent: deleteDayEvent)
                     .tag(0).toolbar(.hidden, for: .tabBar)
-                RecordingView(searchFocused: $isRecordingSearchFocused).tag(1).toolbar(.hidden, for: .tabBar)
+                RecordingView(searchFocused: $isRecordingSearchFocused, onStartRecording: openRecorder).tag(1).toolbar(.hidden, for: .tabBar)
                 ReportView(isToday: false).tag(2).toolbar(.hidden, for: .tabBar)
             }
             VStack(spacing: 0) {
@@ -47,7 +47,7 @@ struct StudioRootView: View {
                 if showsSavedAudio, let recording = service.recordings.first(where: { $0.id == service.completedRecordingID }) {
                     savedAudioConfirmation(for: recording)
                 }
-                if service.isRecording || (selectedTab != 0 && !isRecordingSearchFocused) { bottomBar }
+                if service.isRecording { bottomBar }
                 if !isRecordingSearchFocused {
                     Divider().overlay(StudioTheme.surface)
                     HStack {

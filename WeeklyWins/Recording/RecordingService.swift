@@ -63,6 +63,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         transcriptionService = TranscriptionService(store: store, transcriber: transcriber)
         super.init()
         refreshRecordings()
+        removeEmptyRecordings()
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance(),
@@ -85,6 +86,20 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
 
     func refreshRecordings() {
         recordings = store.recordings.filter { $0.deletedAt == nil }
+    }
+
+    /// Запись без полезного содержимого: нулевая длительность или расшифровка без единого слова.
+    static func isEmptyRecording(_ recording: Recording) -> Bool {
+        let hasNoWords = recording.transcript?.contains(where: { $0.isLetter || $0.isNumber }) != true
+        return (recording.duration ?? 0) <= 0 || (recording.transcript != nil && hasNoWords)
+    }
+
+    /// Убирает пустые записи при запуске: из списков, из дел и из ошибок «Сегодня», вместе с аудио.
+    func removeEmptyRecordings() {
+        for recording in store.recordings where recording.deletedAt == nil && Self.isEmptyRecording(recording) {
+            try? store.deleteRecording(id: recording.id)
+        }
+        refreshRecordings()
     }
 
     func transcribe(recordingID: UUID, locale: Locale = Locale(identifier: "ru-RU"), userInitiated: Bool = true) async throws -> String {
