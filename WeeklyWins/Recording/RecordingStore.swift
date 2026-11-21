@@ -57,6 +57,53 @@ final class RecordingStore {
         return recording
     }
 
+    func importRecordings(_ entries: [TranscriptExport.Entry]) throws -> ImportSummary {
+        try validateReady()
+        var imported = 0
+        var skipped = 0
+        var newRecordings: [Recording] = []
+        var revivedIDs: Set<UUID> = []
+        for entry in entries {
+            let id = entry.id ?? UUID()
+            if let existing = recordings.first(where: { $0.id == id }) {
+                if existing.deletedAt == nil {
+                    skipped += 1
+                    continue
+                }
+                revivedIDs.insert(id)
+            }
+            var recording = Recording(
+                id: id,
+                recordedAt: entry.recordedAt,
+                duration: entry.duration,
+                fileName: Self.finalFileName(for: id),
+                state: .saved,
+                processingState: entry.transcript == nil ? .failed : .completed
+            )
+            if let transcript = entry.transcript {
+                recording.transcript = transcript
+                recording.transcriptUpdatedAt = .now
+                recording.events = EventExtractor.extract(transcript, recordingID: id)
+                recording.eventsManuallyEdited = false
+            } else {
+                recording.errorMessage = "Аудио недоступно"
+                recording.automaticTranscriptionPending = false
+            }
+            newRecordings.append(recording)
+            imported += 1
+        }
+        guard !newRecordings.isEmpty else { return ImportSummary(imported: 0, skippedDuplicates: skipped) }
+        let previous = recordings
+        if !revivedIDs.isEmpty {
+            recordings.removeAll { revivedIDs.contains($0.id) && $0.deletedAt != nil }
+        }
+        recordings.append(contentsOf: newRecordings)
+        sortRecordings()
+        do { try persist() }
+        catch { recordings = previous; throw error }
+        return ImportSummary(imported: imported, skippedDuplicates: skipped)
+    }
+
     func fileURL(for recording: Recording) -> URL {
         directory.appendingPathComponent(recording.fileName)
     }
@@ -271,6 +318,11 @@ final class RecordingStore {
     private static func finalFileName(for id: UUID) -> String {
         "recording-\(id.uuidString).m4a"
     }
+}
+
+struct ImportSummary: Equatable {
+    var imported: Int
+    var skippedDuplicates: Int
 }
 
 enum RecordingStoreError: LocalizedError {

@@ -149,6 +149,12 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         refreshRecordings()
     }
 
+    func importTranscriptEntries(_ entries: [TranscriptExport.Entry]) throws -> ImportSummary {
+        let summary = try store.importRecordings(entries)
+        refreshRecordings()
+        return summary
+    }
+
     struct DeletedEvent {
         fileprivate let event: DiaryEvent
         fileprivate let draft: DiaryEvent?
