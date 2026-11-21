@@ -407,6 +407,11 @@ struct ReportView: View {
             .accessibilityLabel("Открыть аудио: \(entry.event.text)")
         }
         .background(StudioTheme.surface)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(StudioTheme.categoryColor(entry.event.category))
+                .frame(width: 6)
+        }
         .offset(x: offset)
         .background(alignment: .trailing) {
             if isRevealed || isDragging {
