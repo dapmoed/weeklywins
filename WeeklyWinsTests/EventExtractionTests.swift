@@ -23,8 +23,6 @@ final class EventExtractionTests: XCTestCase {
                 XCTAssertTrue(event.text.hasPrefix(expected.0), event.text)
                 XCTAssertTrue(input.contains(event.sourceText), event.sourceText)
                 XCTAssertEqual(event.recordingID, id)
-                XCTAssertNil(event.duration)
-                XCTAssertNil(event.occurredAt)
             }
         }
     }
@@ -54,27 +52,26 @@ final class EventExtractionTests: XCTestCase {
         Сегодня запишем событие рабочего и домашнего дня утром проверил календарь открыл рабочую почту и посмотрел сообщение команды ответил на короткие вопрос коллеги настройки сервиса на этот ответ ушло примерно 5 минут потом посмотрел список незавершенных задачей выбрал то которое мешало остальным участникам команды продолжать работу прошла встреча по микро service вайфая авторизации мы обсудили почему часть пользователей не могла подключиться к сети проверили описание ошибки сравнили настройки на двух устройствах решили что нужно ответить в информационную безопасности согласовать порядок смены паролей сама встреча длилась 01:00 отдельно записала это поручение потому что ответ ещё предстоит подготовить после встречи починил сервис по Wi-Fi авторизации была проблема с паролем сначала проверил журнал ошибок потом сравнил значение в настройках приложения в хранилище секретов нашел расхождение исправил настройку и повторил подключение проверил обычный вход повторный вход и поведение после перезапуска сервиса пользователи снова смогли подключаться на исправлении и проверку потратил 40 минут затем поменял пароли в сервисе ССНС поближе обновил настройки перезапустил рабочий процесс и отправил текстовое сообщение убедился что сообщение дошло до получателя сохранил короткую запись о выполненном изменении для коллег длительности этого дела точно не помню поэтому оставляю её Неизвестный после этого ответил на два небольших вопросов в рабочем чате перед обедом подготовил черновик ответа для информационной безопасности описал найденную причину и перечислил выполненные проверки само письмо ещё не отправлял потому что жду подтверждения коллеги затем проверила исправление в соседнем сервисе и написал результат в задаче это проверка заняла 20 минут после обеда обсудил с коллегой дальнейшую работу над проектом разговор длился примерно полчаса во второй половине дня разобрал несколько мелких задач нашел нужный документ уточнил название параметры и помог коллеге воспроизвести ошибку ещё обновила описание запуска в рабочие инструкции в конце рабочего дня проверил что новые ошибки не появились посмотрел результаты Тестов и записал какие вопросы остаются на завтра большая задача завершена а не небольшую согласование пока остается открытым по дороге домой зашёл в магазин купил хлеб молоко яблоки продукты на ужин проверил список покупок чтобы ничего не забыть в магазине провёл около 20 минут до дома разобрал сумку убрал продукты в холодильник и поставил чайник потом помыл посуду протёр стол и вынес мусор эти небольшие дела вместе заняли примерно 15 минут вечером приготовил ужин пока готовилась еда разобрал несколько домашних бумаг и нашел квитанцию которую искал на прошлой неделе проверил показания счётчиков и записал их в заметку оплачивать квитанцию сегодня не стал потому что сначала нужно уточнить сумму после уже на немного погулял прогулка заняла 40 минут вернувшись домой подготовил вещи на завтра теперь подведу итог дня самыми крупными рабочими делами были встреча исправления авторизацией смена паролей кроме них было несколько коротких ответов проверок и уточнений дома успел купить продукты навести порядок и приготовить еду время выполнения некоторых дел известно точно а для других я его не называл такие длительности нужно сохранить неизвестными в конце оставляю контрольную фразу в ежедневнике сохранены последнюю заметки
         """#
         let events = EventExtractor.extract(text, recordingID: UUID())
-        let expectations: [(start: String, contains: String, duration: TimeInterval?, completion: EventCompletion)] = [
-            ("прошла встреча", "по микро service", 3600, .completed),
-            ("решили что нужно ответить", "смены паролей", nil, .notCompleted),
-            ("после встречи починил сервис", "по Wi-Fi", nil, .completed),
-            ("перед обедом подготовил черновик", "выполненные проверки", nil, .completed),
-            ("само письмо ещё не отправлял", "подтверждения коллеги", nil, .notCompleted),
-            ("проверила исправление", "соседнем сервисе", 1200, .completed),
-            ("после обеда обсудил", "дальнейшую работу", nil, .completed),
-            ("по дороге домой зашёл", "купил хлеб", nil, .completed),
-            ("до дома разобрал", "в холодильник", nil, .completed),
-            ("вечером приготовил ужин", "ужин", nil, .completed),
-            ("оплачивать квитанцию", "не стал", nil, .notCompleted),
-            ("погулял", "прогулка заняла 40 минут", 2400, .completed),
-            ("вернувшись домой", "вещи на завтра", nil, .completed),
+        let expectations: [(start: String, contains: String, completion: EventCompletion)] = [
+            ("прошла встреча", "по микро service", .completed),
+            ("решили что нужно ответить", "смены паролей", .notCompleted),
+            ("после встречи починил сервис", "по Wi-Fi", .completed),
+            ("перед обедом подготовил черновик", "выполненные проверки", .completed),
+            ("само письмо ещё не отправлял", "подтверждения коллеги", .notCompleted),
+            ("проверила исправление", "соседнем сервисе", .completed),
+            ("после обеда обсудил", "дальнейшую работу", .completed),
+            ("по дороге домой зашёл", "купил хлеб", .completed),
+            ("до дома разобрал", "в холодильник", .completed),
+            ("вечером приготовил ужин", "ужин", .completed),
+            ("оплачивать квитанцию", "не стал", .notCompleted),
+            ("погулял", "прогулка заняла 40 минут", .completed),
+            ("вернувшись домой", "вещи на завтра", .completed),
         ]
         let matched = expectations.compactMap { expected -> DiaryEvent? in
             let event = events.first { $0.text.lowercased().hasPrefix(expected.start) }
             XCTAssertNotNil(event, expected.start)
             if let event {
                 XCTAssertTrue(event.text.contains(expected.contains), expected.start)
-                XCTAssertEqual(event.duration, expected.duration, expected.start)
                 XCTAssertEqual(event.completion, expected.completion, expected.start)
             }
             return event
@@ -100,14 +97,12 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertEqual(stored.transcript, text)
         let events = try XCTUnwrap(stored.events)
         XCTAssertEqual(events.map(\.completion), [.completed, .notCompleted, .completed, .completed, .completed, .completed])
-        XCTAssertEqual(events.map(\.duration), [3600, nil, nil, nil, nil, 900])
         for prefix in ["на обед сходил в магазин", "дома помыл посуду"] {
             XCTAssertTrue(events.contains { $0.text.hasPrefix(prefix) }, prefix)
         }
-        XCTAssertTrue(events.allSatisfy { $0.recordingID == recording.id && $0.occurredAt == nil })
+        XCTAssertTrue(events.allSatisfy { $0.recordingID == recording.id })
         let entries = ReportQuery.events(in: restored.recordings, period: .day, date: recording.recordedAt)
         XCTAssertEqual(entries.count, 6)
-        XCTAssertEqual(ReportQuery.knownDuration(entries), 4500)
     }
 
     func testHouseholdTransitionKeepsLeadingTimeAndNegation() {
@@ -130,23 +125,9 @@ final class EventExtractionTests: XCTestCase {
 
         XCTAssertEqual(events.count, 4)
         XCTAssertEqual(events.map(\.completion), [.completed, .notCompleted, .completed, .completed])
-        XCTAssertEqual(events.map(\.duration), [3600, nil, nil, nil])
         XCTAssertTrue(try XCTUnwrap(events.first).sourceText.contains("встреча длилась 01:00"))
         XCTAssertTrue(events.contains { $0.text.hasPrefix("после встречи починил") })
         XCTAssertTrue(events.contains { $0.text.hasPrefix("поменяла пароль") })
-    }
-
-    func testClockStyleDurationRequiresAnExplicitDurationVerb() {
-        XCTAssertEqual(EventExtractor.extract("Встреча длилась 01:25", recordingID: UUID()).first?.duration, 5100)
-        XCTAssertNil(EventExtractor.extract("Встреча началась в 01:25", recordingID: UUID()).first?.duration)
-        XCTAssertNil(EventExtractor.extract("Встреча длилась около 01:25", recordingID: UUID()).first?.duration)
-        XCTAssertNil(EventExtractor.extract("Встреча длилась 01:25–02:00", recordingID: UUID()).first?.duration)
-        XCTAssertNil(EventExtractor.extract("Встреча длилась 01:75", recordingID: UUID()).first?.duration)
-        for prefix in ["Сегодня", "Сама"] {
-            let events = EventExtractor.extract("\(prefix) встреча длилась 01:25", recordingID: UUID())
-            XCTAssertEqual(events.count, 1)
-            XCTAssertEqual(events.first?.duration, 5100)
-        }
     }
 
     func testDecisionKeepsItsSubjectAndNegationTogether() {
@@ -169,12 +150,16 @@ final class EventExtractionTests: XCTestCase {
         let meeting = try XCTUnwrap(events.first)
         XCTAssertEqual(meeting.text, "Прошла встреча по микросервису вай Фай  аторизация")
         XCTAssertEqual(meeting.completion, .completed)
-        XCTAssertEqual(meeting.duration, 3600)
         XCTAssertTrue(meeting.sourceText.contains("Часовая встреча"))
         let followUp = try XCTUnwrap(events.last)
         XCTAssertEqual(followUp.text, "Решили что нужно ответить в инфосеке")
         XCTAssertEqual(followUp.completion, .notCompleted)
-        XCTAssertNil(followUp.duration)
+    }
+
+    func testDurationMentionMergesIntoMentionedEventWithoutValue() {
+        let events = EventExtractor.extract("Прошла встреча по проекту. Двухчасовая встреча", recordingID: UUID())
+        XCTAssertEqual(events.count, 1)
+        XCTAssertTrue(events.first?.sourceText.contains("Двухчасовая встреча") == true)
     }
 
     func testUserServiceNotesKeepUnknownDurationAndOriginalWording() throws {
@@ -188,8 +173,6 @@ final class EventExtractionTests: XCTestCase {
             XCTAssertEqual(event.text, text)
             XCTAssertEqual(event.sourceText, text)
             XCTAssertEqual(event.completion, .completed)
-            XCTAssertNil(event.duration)
-            XCTAssertNil(event.occurredAt)
         }
     }
 
@@ -197,19 +180,16 @@ final class EventExtractionTests: XCTestCase {
         let text = "Прошла встреча по проекту. Починил сервис. Часовая встреча"
         let events = EventExtractor.extract(text, recordingID: UUID())
         XCTAssertEqual(events.count, 2)
-        XCTAssertEqual(events.first?.duration, 3600)
+        XCTAssertTrue(events.first?.sourceText.contains("Часовая встреча") == true)
         XCTAssertEqual(events.last?.text, "Починил сервис")
-        XCTAssertNil(events.last?.duration)
     }
 
-    func testKnownOrConflictingDurationClarificationKeepsOneEvent() {
-        let same = EventExtractor.extract("Встреча длилась час. Часовая встреча", recordingID: UUID())
-        XCTAssertEqual(same.count, 1)
-        XCTAssertEqual(same.first?.duration, 3600)
-        let conflicting = EventExtractor.extract("Встреча длилась два часа. Часовая встреча", recordingID: UUID())
-        XCTAssertEqual(conflicting.count, 1)
-        XCTAssertNil(conflicting.first?.duration)
-        XCTAssertTrue(conflicting.first?.sourceText.contains("два часа. Часовая встреча") == true)
+    func testConflictingOrRepeatedDurationClarificationKeepsOneEvent() {
+        for text in ["Встреча длилась час. Часовая встреча", "Встреча длилась два часа. Часовая встреча"] {
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.count, 1, text)
+            XCTAssertTrue(events.first?.sourceText.contains("Часовая встреча") == true, text)
+        }
     }
 
     func testIncidentalFollowUpMentionDoesNotReceiveMeetingDuration() {
@@ -218,35 +198,27 @@ final class EventExtractionTests: XCTestCase {
             recordingID: UUID()
         )
         XCTAssertEqual(events.count, 2)
-        XCTAssertEqual(events.first?.duration, 3600)
+        XCTAssertTrue(events.first?.sourceText.contains("Часовая встреча") == true)
         XCTAssertEqual(events.last?.completion, .notCompleted)
-        XCTAssertNil(events.last?.duration)
     }
 
-    func testRepeatedClarificationKeepsDurationConflictUnknown() {
+    func testRepeatedClarificationKeepsOneEvent() {
         let events = EventExtractor.extract(
             "Встреча длилась два часа. Часовая встреча. Часовая встреча",
             recordingID: UUID()
         )
         XCTAssertEqual(events.count, 1)
-        XCTAssertNil(events.first?.duration)
     }
 
     func testStandaloneDurationDescriptionCreatesAnEvent() {
-        for (text, duration) in [("Часовая встреча", 3600.0), ("Получасовой созвон", 1800.0), ("Двухчасовое обсуждение", 7200.0)] {
+        for text in ["Часовая встреча", "Получасовой созвон", "Двухчасовое обсуждение"] {
             let events = EventExtractor.extract(text, recordingID: UUID())
-            XCTAssertEqual(events.count, 1)
-            XCTAssertEqual(events.first?.duration, duration)
+            XCTAssertEqual(events.count, 1, text)
         }
     }
 
-    func testPluralMeetingDescriptionKeepsTotalDurationUnknown() {
-        let events = EventExtractor.extract("Встречи проходили весь день. Часовые встречи", recordingID: UUID())
-        XCTAssertTrue(events.allSatisfy { $0.duration == nil })
-    }
-
     @MainActor
-    func testUserNotesPersistAndReportOneCompletedMeetingHour() throws {
+    func testUserNotesPersistAndReportCompletedMeeting() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = RecordingStore(directory: directory)
@@ -264,8 +236,6 @@ final class EventExtractionTests: XCTestCase {
         let entries = ReportQuery.events(in: restored.recordings, period: .day, date: .now)
         XCTAssertEqual(entries.count, 4)
         XCTAssertEqual(entries.filter { $0.event.completion == .completed }.count, 3)
-        XCTAssertEqual(ReportQuery.knownDuration(entries), 3600)
-        XCTAssertTrue(entries.allSatisfy { $0.event.occurredAt == nil })
     }
 
     func testReviewDraftPreservesAnEmptyListAndItsBaseline() throws {
@@ -375,62 +345,30 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertNil(store.recordings.first?.events)
     }
 
-    func testDecimalDurationsAndClockTimesStayInOneEvent() throws {
-        for text in ["Работал 1.5 часа.", "Работал 1,5 часа."] {
+    func testClockStyleReferencesStayInOneEvent() {
+        for text in ["Работал 1.5 часа", "Работал 1,5 часа", "Позвонил в 10.30", "Позвонил в 2 часа"] {
             let events = EventExtractor.extract(text, recordingID: UUID())
             XCTAssertEqual(events.count, 1, text)
-            XCTAssertEqual(events.first?.duration, 5400, text)
-        }
-        let clock = EventExtractor.extract("Позвонил в 10.30.", recordingID: UUID())
-        XCTAssertEqual(clock.count, 1)
-        XCTAssertNil(clock.first?.duration)
-    }
-
-    func testCompoundAndWordDurationsAreSummedWithinOnePhrase() {
-        let cases: [(String, TimeInterval)] = [
-            ("Работал два часа тридцать пять минут", 9300),
-            ("Работал 2 часа 15 минут", 8100),
-            ("Готовил час и 30 минут", 5400),
-            ("Убирался полтора часа", 5400),
-            ("Проверял отчёт пятнадцать минут", 900),
-            ("Готовил полчаса", 1800),
-            ("Работал сто двадцать пять минут", 7500),
-            ("Работал тридцать\tпять минут", 2100)
-        ]
-        for (text, duration) in cases {
-            XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).first?.duration, duration, text)
+            XCTAssertEqual(events.first?.text, text, text)
         }
     }
 
-    func testRelativeAndClockReferencesDoNotBecomeDurations() {
+    func testRelativeAndClockReferencesStayInOneEvent() {
         for text in [
             "Два часа назад отправил письмо", "Полчаса назад купил хлеб",
             "Позвонил час спустя", "Встреча с 10 часов до 12 часов",
             "Через два часа позвоню", "Позвонил в час дня",
-            "Через два часа 15 минут позвоню", "Позвонил в два часа пятнадцать минут"
+            "Через два часа 15 минут позвоню", "Позвонил в два часа пятнадцать минут",
+            "С 10 до 12 часов работал 30 минут", "Работал два часа тридцать пять минут",
+            "Работал примерно два часа"
         ] {
-            XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration, text)
-        }
-        XCTAssertEqual(EventExtractor.extract("С 10 до 12 часов работал 30 минут", recordingID: UUID()).first?.duration, 1800)
-    }
-
-    func testAmbiguousOrUnsupportedQuantitiesStayUnknown() {
-        for text in [
-            "Работал двадцать-тридцать минут", "Работал 20–30 минут",
-            "Работал тысячу двести минут", "Работал час-полтора",
-            "Работал два или три часа", "Работал примерно два часа"
-        ] {
-            XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration, text)
-        }
-        for text in ["Работал — два часа", "Работал два часа — проверял документы"] {
-            XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).first?.duration, 7200, text)
+            let events = EventExtractor.extract(text, recordingID: UUID())
+            XCTAssertEqual(events.count, 1, text)
+            XCTAssertEqual(events.first?.text, text, text)
         }
     }
 
-    func testClockTimesAreNotDurationsAndNegativesAreNotCompleted() {
-        for text in ["Позвонил в 2 часа", "Через два часа позвоню"] {
-            XCTAssertNil(EventExtractor.extract(text, recordingID: UUID()).first?.duration)
-        }
+    func testNegatedActionsAreNotCompleted() {
         for text in ["Не помыл посуду", "Не позвонил клиенту", "Не подготовил отчёт"] {
             XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).first?.completion, .notCompleted)
         }
@@ -459,7 +397,6 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertEqual(events.count, 3)
         XCTAssertTrue(events.allSatisfy { $0.recordingID == id })
         XCTAssertTrue(events.allSatisfy { !$0.sourceText.isEmpty })
-        XCTAssertTrue(events.allSatisfy { $0.occurredAt == nil && $0.duration == nil })
     }
 
     func testNegationIsPreservedForReview() {
@@ -487,17 +424,16 @@ final class EventExtractionTests: XCTestCase {
         let note = "Я вчера починил авторизацию я сегодня поменял пароль сегодня проверил доступ"
         let events = EventExtractor.extract(note, recordingID: UUID())
         XCTAssertEqual(events.map(\.sourceText), ["Я вчера починил авторизацию", "я сегодня поменял пароль", "сегодня проверил доступ"])
-        XCTAssertTrue(events.allSatisfy { $0.occurredAt == nil })
 
         let explanation = "Вчера проверил почему коллега сегодня подготовил отчёт"
         XCTAssertEqual(EventExtractor.extract(explanation, recordingID: UUID()).map(\.sourceText), [explanation])
     }
 
-    func testSplitsSequenceAndReadsExplicitDuration() {
+    func testSplitsSequenceAndKeepsDurationWording() {
         let events = EventExtractor.extract("Работал над проектом два часа, потом купил продукты и помыл посуду.", recordingID: UUID())
         XCTAssertEqual(events.count, 3)
-        XCTAssertEqual(events.first?.duration, 7200)
-        XCTAssertNil(events.last?.duration)
+        XCTAssertEqual(events.first?.text, "Работал над проектом два часа")
+        XCTAssertEqual(events.last?.text, "помыл посуду")
     }
 
     @MainActor

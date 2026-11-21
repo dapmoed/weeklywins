@@ -25,8 +25,6 @@ struct DiaryEvent: Identifiable, Codable, Equatable {
     var text: String
     var category: EventCategory = .unclassified
     var completion: EventCompletion = .completed
-    var occurredAt: Date?
-    var duration: TimeInterval?
 }
 
 
