@@ -195,7 +195,7 @@ struct ReportView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
-            .background(StudioTheme.surface, in: Capsule())
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         }
         .accessibilityLabel("Выбрать период")
         .accessibilityValue(periodMenuTitle)
@@ -223,7 +223,7 @@ struct ReportView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 44)
         .padding(.horizontal, 12)
-        .background(StudioTheme.surface, in: Capsule())
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         .environment(\.calendar, ReportQuery.calendar)
         .environment(\.locale, Locale(identifier: "ru_RU"))
     }
