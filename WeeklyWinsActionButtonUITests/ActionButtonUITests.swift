@@ -563,6 +563,7 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Хранилище аудио"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.switches["audio-retention-toggle"].exists, app.debugDescription)
         XCTAssertTrue(app.staticTexts["Занято аудиозаписями"].exists, app.debugDescription)
+        XCTAssertFalse(app.staticTexts["Аудиозаписи"].exists, app.debugDescription)
     }
 
     @MainActor

@@ -227,14 +227,6 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     }
 
     @discardableResult
-    func deleteAudio(recordingID: UUID) throws -> Int64 {
-        guard !transcribingRecordingIDs.contains(recordingID) else { throw RecordingManagementError.busy }
-        if playingRecordingID == recordingID { stopPlayback() }
-        defer { refreshRecordings() }
-        return try store.deleteAudio(recordingID: recordingID)
-    }
-
-    @discardableResult
     func applyAudioRetention(enabled: Bool, days: Int, now: Date = .now) throws -> [UUID] {
         guard enabled else { return [] }
         let retentionDays = AudioRetentionPreferences.normalizedDays(days)
