@@ -35,7 +35,6 @@ struct EventDetailView: View {
                             }
                             Button("Отмена", role: .cancel) {}
                         }
-                        LabeledContent("Статус", value: event.completion.title)
                     }.listRowBackground(StudioTheme.surface)
                     Section("Когда") {
                         LabeledContent("Время записи", value: entry.recording.recordedAt.formatted(dateFormat))
@@ -145,9 +144,6 @@ private struct EventEditorView: View {
                 Section {
                     Picker("Категория", selection: $event.category) {
                         ForEach(EventCategory.allCases) { Text($0.title).tag($0) }
-                    }
-                    Picker("Статус", selection: $event.completion) {
-                        ForEach(EventCompletion.allCases) { Text($0.title).tag($0) }
                     }
                 }.listRowBackground(StudioTheme.surface)
             }

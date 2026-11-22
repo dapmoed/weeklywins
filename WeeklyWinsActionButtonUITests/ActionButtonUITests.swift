@@ -567,6 +567,33 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsOpenExternalReportPromptEditor() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let settingsButton = app.buttons["settings-button"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), app.debugDescription)
+        settingsButton.tap()
+        let promptLink = app.buttons["settings-report-prompt"]
+        XCTAssertTrue(promptLink.waitForExistence(timeout: 5), app.debugDescription)
+        promptLink.tap()
+
+        let editor = app.textViews["report-model-prompt-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue((editor.value as? String)?.contains("голосового дневника") == true)
+        XCTAssertTrue(app.buttons["report-prompt-reset"].exists)
+        editor.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "report-prompt-editor-keyboard"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Готово"].tap()
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+    }
+
+    @MainActor
     func testDeniedMicrophoneShowsRecordingPreparationAndRetry() throws {
         #if targetEnvironment(simulator)
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DENIED_MIC_UI_TEST"] == "1",

@@ -16,6 +16,7 @@ struct ReportView: View {
     @State private var textScrollPosition = ScrollPosition(edge: .top)
     @State private var isDayScrolling = false
     @State private var showDayFailures = false
+    @AppStorage(ReportPromptPreferences.key) private var reportPrompt = ReportPromptPreferences.defaultPrompt
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let isToday: Bool
@@ -133,7 +134,7 @@ struct ReportView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    Text(shareText(items))
+                    Text(reportText(items))
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(StudioTheme.secondary)
                         .multilineTextAlignment(.leading)
@@ -240,8 +241,12 @@ struct ReportView: View {
         }
     }
 
-    private func shareText(_ items: [ReportEntry]) -> String {
+    private func reportText(_ items: [ReportEntry]) -> String {
         ReportQuery.shareText(entries: items, title: shareTitle, grouping: shareGrouping)
+    }
+
+    private func shareText(_ items: [ReportEntry]) -> String {
+        ReportPromptPreferences.combinedText(instruction: reportPrompt, report: reportText(items))
     }
 
     private var shareTitle: String {
@@ -407,9 +412,6 @@ struct ReportView: View {
                 Text(entry.event.text)
                     .font(isToday ? .body : .headline)
                     .multilineTextAlignment(.leading)
-                if entry.event.completion == .notCompleted {
-                    Text("Не сделано").font(.caption).foregroundStyle(StudioTheme.secondary)
-                }
             }
             .padding(.horizontal, 12)
             .padding(.top, 9)

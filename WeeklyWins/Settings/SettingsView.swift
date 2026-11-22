@@ -46,6 +46,13 @@ struct SettingsView: View {
                 Section {
                     NavigationLink("Настроить кнопку действия") { ActionButtonGuideView() }
                 }.listRowBackground(StudioTheme.surface)
+                Section("Отчёты") {
+                    NavigationLink("Инструкция для внешней модели") { ReportPromptEditorView() }
+                        .accessibilityIdentifier("settings-report-prompt")
+                    Text("Добавляется к исходному отчёту при отправке через «Поделиться».")
+                        .font(.footnote)
+                        .foregroundStyle(StudioTheme.secondary)
+                }.listRowBackground(StudioTheme.surface)
                 Section("Данные") {
                     NavigationLink("Хранилище аудиозаписей") { AudioStorageView() }
                         .accessibilityIdentifier("settings-audio-storage")
@@ -216,6 +223,43 @@ struct AudioStorageView: View {
         catch { errorMessage = error.localizedDescription }
     }
 
+}
+
+struct ReportPromptEditorView: View {
+    @AppStorage(ReportPromptPreferences.key) private var instruction = ReportPromptPreferences.defaultPrompt
+    @FocusState private var editorFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Промпт добавляется перед исходным отчётом в тексте для отправки.")
+                .font(.subheadline)
+                .foregroundStyle(StudioTheme.secondary)
+            TextEditor(text: $instruction)
+                .focused($editorFocused)
+                .font(.body)
+                .foregroundStyle(StudioTheme.text)
+                .scrollContentBackground(.hidden)
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+                .clipShape(RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+                .accessibilityIdentifier("report-model-prompt-editor")
+        }
+        .padding(20)
+        .background(StudioTheme.background)
+        .navigationTitle("Промпт отчёта")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("По умолчанию") { instruction = ReportPromptPreferences.defaultPrompt }
+                    .accessibilityIdentifier("report-prompt-reset")
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Готово") { editorFocused = false }
+            }
+        }
+    }
 }
 
 struct ActionButtonGuideView: View {

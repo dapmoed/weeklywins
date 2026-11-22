@@ -167,14 +167,14 @@ final class ReportTests: XCTestCase {
         XCTAssertEqual(text, """
             Неделя 16–22 ноября
 
-            Дел: 3 · выполнено: 2
+            Дел: 3
 
             16 ноября, Понедельник
             • Созвон
 
             17 ноября, Вторник
             • Продукты
-            • Отчёт — не сделано
+            • Отчёт
             """)
     }
 
@@ -200,7 +200,7 @@ final class ReportTests: XCTestCase {
         XCTAssertEqual(text, """
             Дела за Ноябрь 2026
 
-            Дел: 2 · выполнено: 2
+            Дел: 2
 
             16–22 ноября
             • Пн
@@ -208,5 +208,14 @@ final class ReportTests: XCTestCase {
             23–29 ноября
             • Пн2
             """)
+    }
+
+    func testExternalModelPromptIsPrependedOnlyWhenPresent() {
+        let report = "Дел: 1\n\n22 ноября\n• Подготовил отчёт"
+        XCTAssertEqual(
+            ReportPromptPreferences.combinedText(instruction: "  Составь итог дня  ", report: report),
+            "Составь итог дня\n\n---\n\nИсходный отчёт:\n\(report)"
+        )
+        XCTAssertEqual(ReportPromptPreferences.combinedText(instruction: " \n", report: report), report)
     }
 }

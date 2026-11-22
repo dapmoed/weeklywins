@@ -97,8 +97,7 @@ enum ReportQuery {
     static func shareText(entries: [ReportEntry], title: String, grouping: ReportGrouping,
                           calendar: Calendar = ReportQuery.calendar) -> String {
         var lines = [title, ""]
-        let completed = entries.filter { $0.event.completion == .completed }.count
-        lines.append("Дел: \(entries.count) · выполнено: \(completed)")
+        lines.append("Дел: \(entries.count)")
         lines.append("")
         let ordered = entries.sorted { $0.date < $1.date }
         let groups: [(String, [ReportEntry])]
@@ -131,11 +130,7 @@ enum ReportQuery {
     }
 
     private static func entryLine(_ entry: ReportEntry) -> String {
-        var line = entry.event.text
-        if entry.event.completion == .notCompleted {
-            line += " — не сделано"
-        }
-        return line
+        entry.event.text
     }
 
     private static func dayTitle(_ day: Date, calendar: Calendar) -> String {
@@ -170,5 +165,24 @@ enum ReportQuery {
         }
         formatter.dateFormat = "d MMMM yyyy"
         return "\(formatter.string(from: interval.start)) — \(formatter.string(from: last))"
+    }
+}
+
+enum ReportPromptPreferences {
+    static let key = "weeklywins.reportModelPrompt"
+    static let defaultPrompt = """
+    Ты — редактор отчёта из моего голосового дневника. Преврати сырой отчёт ниже в ясный и компактный текст на русском. В моих записях чаще встречаются рабочие и домашние дела, иногда хобби.
+
+    Сохраняй даты, важные факты, имена, числа, договорённости и дальнейшие шаги. Группируй связанные дела внутри дня и объединяй только очевидные повторы. Исправляй ошибки распознавания речи только тогда, когда правильный вариант однозначен; иначе не угадывай.
+
+    Сохраняй планы, намерения и отрицания из исходного текста. Не добавляй отметки «сделано / не сделано», не выдумывай категории, длительности, результаты, причины или оценки продуктивности. Если категория явно указана, сохрани её; если нет — не определяй её по догадке.
+
+    Используй короткий заголовок и понятные разделы с маркированными пунктами. Сохрани исходную хронологию. Заверши одним коротким итогом только если он прямо следует из записей. Верни только готовый отчёт без вступления и объяснений.
+    """
+
+    static func combinedText(instruction: String, report: String) -> String {
+        let instruction = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !instruction.isEmpty else { return report }
+        return "\(instruction)\n\n---\n\nИсходный отчёт:\n\(report)"
     }
 }

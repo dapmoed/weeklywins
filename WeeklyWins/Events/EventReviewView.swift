@@ -119,8 +119,7 @@ struct EventReviewView: View {
     }
 
     private func metadata(for event: DiaryEvent) -> Text {
-        let status = event.completion == .notCompleted ? " · \(event.completion.title)" : ""
-        return Text("\(event.category.title)\(status)")
+        Text(event.category.title)
     }
 
     private var footer: some View {
@@ -204,7 +203,6 @@ struct EventReviewView: View {
         proposal.text += ". " + next.text
         proposal.sourceText += ". " + next.sourceText
         if proposal.category != next.category { proposal.category = .unclassified }
-        if next.completion == .notCompleted { proposal.completion = .notCompleted }
         draft.mergingEventID = id
         draft.mergeProposal = proposal
     }
@@ -218,9 +216,6 @@ private struct ReviewEventFields: View {
             .accessibilityIdentifier("review-event-text")
         Picker("Категория", selection: $event.category) {
             ForEach(EventCategory.allCases) { Text($0.title).tag($0) }
-        }
-        Picker("Статус", selection: $event.completion) {
-            ForEach(EventCompletion.allCases) { Text($0.title).tag($0) }
         }
     }
 }
@@ -246,7 +241,7 @@ private struct EventMergeView: View {
                 } header: {
                     Text("Объединённое дело")
                 } footer: {
-                    Text("Проверьте категорию и статус объединённого дела.")
+                    Text("Проверьте текст и категорию объединённого дела.")
                 }.listRowBackground(StudioTheme.surface)
             }
             .scrollContentBackground(.hidden).background(StudioTheme.background)
