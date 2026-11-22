@@ -581,7 +581,7 @@ final class ActionButtonUITests: XCTestCase {
 
         let editor = app.textViews["report-model-prompt-editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue((editor.value as? String)?.contains("голосового дневника") == true)
+        XCTAssertTrue((editor.value as? String)?.contains("рабочего отчёта за неделю") == true)
         XCTAssertTrue(app.buttons["report-prompt-reset"].exists)
         editor.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), app.debugDescription)

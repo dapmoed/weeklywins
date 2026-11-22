@@ -49,7 +49,7 @@ struct SettingsView: View {
                 Section("Отчёты") {
                     NavigationLink("Инструкция для внешней модели") { ReportPromptEditorView() }
                         .accessibilityIdentifier("settings-report-prompt")
-                    Text("Добавляется к исходному отчёту при отправке через «Поделиться».")
+                    Text("Помогает собрать рабочие записи по дням и задачам для недельного отчёта.")
                         .font(.footnote)
                         .foregroundStyle(StudioTheme.secondary)
                 }.listRowBackground(StudioTheme.surface)
