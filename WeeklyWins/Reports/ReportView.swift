@@ -142,7 +142,7 @@ struct ReportView: View {
                         .accessibilityIdentifier("report-share-text")
                 }
                 .scrollPosition($textScrollPosition)
-                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             }
         }
         .padding(20)
@@ -382,8 +382,8 @@ struct ReportView: View {
         .buttonStyle(.plain)
         .accessibilityAction(named: Text("Удалить дело")) { deleteDayEvent(entry.event) }
         .accessibilityIdentifier("day-event-row")
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 deleteDayEvent(entry.event)
@@ -430,7 +430,7 @@ struct ReportView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StudioTheme.neutralCategorySurface)
+            .background(StudioTheme.neutralCategorySurface, in: StudioTheme.bottomStripeShape)
         }
         .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
     }
@@ -480,7 +480,7 @@ struct ReportView: View {
             .padding(.vertical, 6)
             .frame(minHeight: 44)
             .foregroundStyle(StudioTheme.coral)
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -515,7 +515,7 @@ struct ReportView: View {
             }
         }
         .foregroundStyle(recording.processingState == .failed ? StudioTheme.coral : StudioTheme.mint)
-        .padding(14).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        .padding(14).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
     }
 
     private func processingTitle(for recording: Recording) -> String {

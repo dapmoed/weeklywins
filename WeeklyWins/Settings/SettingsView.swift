@@ -47,6 +47,8 @@ struct SettingsView: View {
                     NavigationLink("Настроить кнопку действия") { ActionButtonGuideView() }
                 }.listRowBackground(StudioTheme.surface)
                 Section("Данные") {
+                    NavigationLink("Хранилище аудиозаписей") { AudioStorageView() }
+                        .accessibilityIdentifier("settings-audio-storage")
                     Button("Выгрузить расшифровки (JSON)") { exportTranscripts() }
                         .accessibilityIdentifier("settings-export-transcripts")
                     Button("Импортировать расшифровки (JSON)") { showImporter = true }
@@ -131,6 +133,145 @@ struct SettingsView: View {
 
     private var legacyAvailability: String {
         SFSpeechRecognizer(locale: Locale(identifier: "ru-RU"))?.supportsOnDeviceRecognition == true ? "Готова" : "Недоступна"
+    }
+}
+
+struct AudioStorageView: View {
+    @ObservedObject private var service = RecordingService.shared
+    @AppStorage(AudioRetentionPreferences.enabledKey) private var autoDeleteEnabled = false
+    @AppStorage(AudioRetentionPreferences.daysKey) private var retentionDays = AudioRetentionPreferences.defaultDays
+    @State private var errorMessage: String?
+
+    private var items: [AudioStorageItem] { service.audioStorageItems }
+    private var totalBytes: Int64 { items.reduce(Int64.zero) { $0 + $1.byteCount } }
+
+    var body: some View {
+        List {
+            Section("Использование") {
+                LabeledContent("Занято аудиозаписями", value: formattedSize(totalBytes))
+                LabeledContent("Аудиофайлов", value: "\(items.count)")
+            }
+            .listRowBackground(StudioTheme.surface)
+
+            Section("Автоматическое удаление") {
+                Toggle("Удалять старое аудио", isOn: $autoDeleteEnabled)
+                    .accessibilityIdentifier("audio-retention-toggle")
+                if autoDeleteEnabled {
+                    Stepper(value: $retentionDays, in: AudioRetentionPreferences.dayRange) {
+                        LabeledContent("Срок хранения", value: retentionPeriodTitle)
+                    }
+                    .accessibilityIdentifier("audio-retention-days")
+                }
+                Text("Удаляются только аудиофайлы. Расшифровки и дела сохраняются.")
+                    .font(.footnote)
+                    .foregroundStyle(StudioTheme.secondary)
+            }
+            .listRowBackground(StudioTheme.surface)
+
+            Section("Аудиозаписи") {
+                if items.isEmpty {
+                    ContentUnavailableView(
+                        "Аудиофайлов нет",
+                        systemImage: "waveform.slash",
+                        description: Text("Тексты и дела остаются доступны в приложении.")
+                    )
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(items) { item in
+                        audioRow(item)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(StudioTheme.background)
+        .foregroundStyle(StudioTheme.text)
+        .tint(StudioTheme.mint)
+        .navigationTitle("Хранилище аудио")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if !AudioRetentionPreferences.dayRange.contains(retentionDays) {
+                retentionDays = AudioRetentionPreferences.defaultDays
+            }
+            service.refreshRecordings()
+            applyRetention()
+        }
+        .onChange(of: autoDeleteEnabled) { _, _ in applyRetention() }
+        .onChange(of: retentionDays) { _, _ in
+            if autoDeleteEnabled { applyRetention() }
+        }
+        .alert("Не удалось удалить аудио", isPresented: Binding(
+            get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("Закрыть", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private var retentionPeriodTitle: String {
+        let lastTwoDigits = retentionDays % 100
+        let lastDigit = retentionDays % 10
+        let unit: String
+        if (11...14).contains(lastTwoDigits) { unit = "дней" }
+        else if lastDigit == 1 { unit = "день" }
+        else if (2...4).contains(lastDigit) { unit = "дня" }
+        else { unit = "дней" }
+        return "\(retentionDays) \(unit)"
+    }
+
+    private func audioRow(_ item: AudioStorageItem) -> some View {
+        let dateTitle = item.recording.recordedAt.formatted(
+            .dateTime.day().month(.wide).year().hour().minute().locale(Locale(identifier: "ru_RU"))
+        )
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Запись от \(dateTitle)").font(.headline)
+            HStack {
+                Text("Аудио · \(durationTitle(item.recording.duration))")
+                    .font(.subheadline)
+                    .foregroundStyle(StudioTheme.secondary)
+                Spacer(minLength: 8)
+                Text(formattedSize(item.byteCount))
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(StudioTheme.secondary)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 8, trailing: 20))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) { deleteAudio(item.id) } label: {
+                Label("Удалить аудио", systemImage: "trash")
+            }
+            .tint(StudioTheme.coral)
+            .disabled(!item.canDelete)
+            .accessibilityIdentifier("audio-storage-delete")
+        }
+    }
+
+    private func formattedSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private func durationTitle(_ duration: TimeInterval?) -> String {
+        guard let duration, duration.isFinite else { return "длительность не определена" }
+        let seconds = max(0, Int(duration.rounded()))
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func applyRetention() {
+        do { _ = try service.applyAudioRetention(enabled: autoDeleteEnabled, days: retentionDays) }
+        catch { errorMessage = error.localizedDescription }
+    }
+
+    private func deleteAudio(_ id: UUID) {
+        do { try service.deleteAudio(recordingID: id) }
+        catch { errorMessage = error.localizedDescription }
     }
 }
 

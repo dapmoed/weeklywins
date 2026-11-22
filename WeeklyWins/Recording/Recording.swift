@@ -38,6 +38,7 @@ struct Recording: Identifiable, Codable, Equatable {
     var deletedAt: Date?
     var deletedEventIDs: [UUID]?
     var automaticTranscriptionPending: Bool?
+    var audioDeletedAt: Date?
 
     init(
         id: UUID,

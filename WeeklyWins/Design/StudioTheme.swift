@@ -1,6 +1,7 @@
 import SwiftUI
 
 enum StudioTheme {
+    static let cornerRadius: CGFloat = 16
     static let background = Color(red: 17/255, green: 21/255, blue: 21/255)
     static let surface = Color(red: 29/255, green: 36/255, blue: 36/255)
     static let text = Color(red: 243/255, green: 246/255, blue: 244/255)
@@ -10,6 +11,15 @@ enum StudioTheme {
     static let sand = Color(red: 233/255, green: 200/255, blue: 137/255)
     static let hobby = Color(red: 197/255, green: 163/255, blue: 255/255)
     static let neutralCategorySurface = Color(red: 48/255, green: 58/255, blue: 54/255)
+
+    static var bottomStripeShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: 0,
+            bottomLeadingRadius: cornerRadius,
+            bottomTrailingRadius: cornerRadius,
+            topTrailingRadius: 0
+        )
+    }
 
     static func categoryColor(_ category: EventCategory) -> Color {
         switch category {
@@ -83,7 +93,7 @@ struct CategoryFilter: View {
             .padding(.vertical, 6)
             .frame(minHeight: 44)
             .foregroundStyle(StudioTheme.background)
-            .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: 18))
+            .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         }
         .accessibilityLabel("Категория")
         .accessibilityValue(category?.title ?? "Все")

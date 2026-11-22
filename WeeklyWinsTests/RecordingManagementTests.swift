@@ -104,6 +104,118 @@ final class RecordingManagementTests: XCTestCase {
         let leftover = ReportQuery.events(in: service.recordings, period: .month, date: .now)
         XCTAssertEqual(Set(leftover.map(\.recording.id)), [kept.id])
     }
+
+    @MainActor
+    func testAudioStorageListsExistingAudioAndTotalsItsSize() throws {
+        let directory = try makeAudioStorageDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let first = try makeAudioStorageRecording(store: store, at: .now, audioBytes: 7,
+                                                  transcript: "Купил хлеб")
+        let second = try makeAudioStorageRecording(store: store, at: .now.addingTimeInterval(-60), audioBytes: 11,
+                                                   transcript: "Подготовил отчёт")
+
+        let items = store.audioStorageItems()
+
+        XCTAssertEqual(Set(items.map(\.id)), [first.id, second.id])
+        XCTAssertEqual(items.reduce(Int64.zero) { $0 + $1.byteCount }, 18)
+    }
+
+    @MainActor
+    func testDeletingAudioKeepsTranscriptAndEvents() throws {
+        let directory = try makeAudioStorageDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let recording = try makeAudioStorageRecording(store: store, at: .now, audioBytes: 9,
+                                                      transcript: "Купил хлеб")
+        let deletedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let removedBytes = try store.deleteAudio(recordingID: recording.id, at: deletedAt)
+        let restoredStore = RecordingStore(directory: directory)
+        let restored = try XCTUnwrap(restoredStore.recordings.first { $0.id == recording.id })
+
+        XCTAssertEqual(removedBytes, 9)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: restoredStore.fileURL(for: restored).path))
+        XCTAssertEqual(restored.audioDeletedAt, deletedAt)
+        XCTAssertEqual(restored.transcript, "Купил хлеб")
+        XCTAssertEqual(restored.events?.map(\.text), ["Купил хлеб"])
+        XCTAssertTrue(restoredStore.audioStorageItems().isEmpty)
+    }
+
+    @MainActor
+    func testRetentionDeletesOnlyEligibleOlderAudio() throws {
+        let directory = try makeAudioStorageDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let old = try makeAudioStorageRecording(store: store, at: now.addingTimeInterval(-31 * 86_400),
+                                                audioBytes: 5, transcript: "Подготовил отчёт")
+        let recent = try makeAudioStorageRecording(store: store, at: now.addingTimeInterval(-3 * 86_400),
+                                                   audioBytes: 13, transcript: "Купил хлеб")
+        let processing = try makeAudioStorageRecording(store: store, at: now.addingTimeInterval(-40 * 86_400),
+                                                       audioBytes: 17, transcript: nil)
+        try store.updateTranscription(recordingID: processing.id, transcript: nil,
+                                      processingState: .processing, errorMessage: nil)
+        let cutoff = now.addingTimeInterval(-30 * 86_400)
+
+        let deletedIDs = try store.deleteAudio(olderThan: cutoff, at: now)
+        let recordsByID = Dictionary(uniqueKeysWithValues: store.recordings.map { ($0.id, $0) })
+
+        XCTAssertEqual(deletedIDs, [old.id])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: old).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.fileURL(for: recent).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.fileURL(for: processing).path))
+        XCTAssertEqual(recordsByID[old.id]?.transcript, "Подготовил отчёт")
+        XCTAssertEqual(recordsByID[old.id]?.events?.count, 1)
+        XCTAssertNil(recordsByID[recent.id]?.audioDeletedAt)
+        XCTAssertNil(recordsByID[processing.id]?.audioDeletedAt)
+    }
+
+    @MainActor
+    func testServiceRetentionIsOptInAndRefreshesPreservedRecording() throws {
+        let directory = try makeAudioStorageDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let old = try makeAudioStorageRecording(store: store, at: now.addingTimeInterval(-31 * 86_400),
+                                                audioBytes: 5, transcript: "Подготовил отчёт")
+        let service = RecordingService(recordingDirectory: directory, transcriber: StubTranscriber(),
+                                       isApplicationActive: { false })
+
+        XCTAssertTrue(try service.applyAudioRetention(enabled: false, days: 30, now: now).isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.fileURL(for: old).path))
+
+        let deletedIDs = try service.applyAudioRetention(enabled: true, days: 30, now: now)
+        let refreshed = try XCTUnwrap(service.recordings.first { $0.id == old.id })
+
+        XCTAssertEqual(deletedIDs, [old.id])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: old).path))
+        XCTAssertEqual(refreshed.audioDeletedAt, now)
+        XCTAssertEqual(refreshed.transcript, "Подготовил отчёт")
+        XCTAssertEqual(refreshed.events?.count, 1)
+    }
+
+    @MainActor
+    private func makeAudioStorageRecording(
+        store: RecordingStore,
+        at date: Date,
+        audioBytes: Int,
+        transcript: String?
+    ) throws -> Recording {
+        let pending = try store.beginRecording(startedAt: date)
+        try Data(repeating: 1, count: audioBytes).write(to: store.fileURL(for: pending))
+        let saved = try store.finalizeRecording(id: pending.id, duration: 1)
+        try store.updateTranscription(recordingID: saved.id, transcript: transcript,
+                                      processingState: transcript == nil ? .pending : .completed,
+                                      errorMessage: nil)
+        return try XCTUnwrap(store.recordings.first { $0.id == saved.id })
+    }
+
+    private func makeAudioStorageDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
 }
 
 private actor StubTranscriber: Transcriber {

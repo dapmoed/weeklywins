@@ -10,6 +10,8 @@ struct StudioRootView: View {
     @State private var selectedTab = 0
     @FocusState private var isRecordingSearchFocused: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage(AudioRetentionPreferences.enabledKey) private var audioRetentionEnabled = false
+    @AppStorage(AudioRetentionPreferences.daysKey) private var audioRetentionDays = AudioRetentionPreferences.defaultDays
     @Environment(\.scenePhase) private var scenePhase
 
     private enum RecorderPresentation: String, Identifiable {
@@ -28,10 +30,24 @@ struct StudioRootView: View {
                 }
             }
         }
-        .task { service.resumeAutomaticTranscription() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { service.refreshRecordings(); service.resumeAutomaticTranscription() }
+        .task {
+            applyAudioRetention()
+            service.resumeAutomaticTranscription()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                service.refreshRecordings()
+                applyAudioRetention()
+                service.resumeAutomaticTranscription()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            applyAudioRetention()
+        }
+    }
+
+    private func applyAudioRetention() {
+        _ = try? service.applyAudioRetention(enabled: audioRetentionEnabled, days: audioRetentionDays)
     }
 
     private var mainInterface: some View {
@@ -115,7 +131,7 @@ struct StudioRootView: View {
         .foregroundStyle(StudioTheme.mint)
         .padding(.leading, 12)
         .padding(.vertical, 4)
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         .padding(.horizontal, 20)
         .padding(.bottom, 6)
         .background(StudioTheme.background)
@@ -147,7 +163,7 @@ struct StudioRootView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .frame(minHeight: 44)
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 20))
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -211,9 +227,9 @@ struct StudioRootView: View {
             .buttonStyle(.plain)
             .foregroundStyle(StudioTheme.coral)
             .padding(12)
-            .background(StudioTheme.coral.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+            .background(StudioTheme.coral.opacity(0.12), in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             .overlay {
-                RoundedRectangle(cornerRadius: 18).strokeBorder(StudioTheme.coral.opacity(0.25))
+                RoundedRectangle(cornerRadius: StudioTheme.cornerRadius).strokeBorder(StudioTheme.coral.opacity(0.25))
                     .allowsHitTesting(false)
             }
         } else {
@@ -222,7 +238,7 @@ struct StudioRootView: View {
                     .font(.title3.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 60)
                     .foregroundStyle(StudioTheme.background)
-                    .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: 26))
+                    .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             }
             .buttonStyle(.plain)
             .disabled(service.isStarting)

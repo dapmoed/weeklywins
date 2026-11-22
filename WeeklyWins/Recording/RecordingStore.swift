@@ -1,6 +1,16 @@
 import AVFoundation
 import Foundation
 
+struct AudioStorageItem: Identifiable, Equatable {
+    let recording: Recording
+    let byteCount: Int64
+
+    var id: UUID { recording.id }
+    var canDelete: Bool {
+        recording.state != .recording && recording.processingState != .processing
+    }
+}
+
 @MainActor
 final class RecordingStore {
     let directory: URL
@@ -23,6 +33,7 @@ final class RecordingStore {
             }
             purgeDeletedAudio()
             try recoverIncompleteRecordings()
+            purgeMarkedAudioDeletions()
             try importLegacyAudioFiles()
             var importedEvents = false
             for index in recordings.indices where recordings[index].events == nil && recordings[index].deletedAt == nil {
@@ -106,6 +117,62 @@ final class RecordingStore {
 
     func fileURL(for recording: Recording) -> URL {
         directory.appendingPathComponent(recording.fileName)
+    }
+
+    func audioStorageItems() -> [AudioStorageItem] {
+        recordings.compactMap { recording in
+            guard recording.deletedAt == nil else { return nil }
+            let url = fileURL(for: recording)
+            guard fileManager.fileExists(atPath: url.path),
+                  let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+                  let byteCount = (attributes[.size] as? NSNumber)?.int64Value else { return nil }
+            return AudioStorageItem(recording: recording, byteCount: byteCount)
+        }
+    }
+
+    @discardableResult
+    func deleteAudio(recordingID: UUID, at deletedAt: Date = .now) throws -> Int64 {
+        try validateReady()
+        guard let index = recordings.firstIndex(where: { $0.id == recordingID && $0.deletedAt == nil }) else {
+            throw RecordingStoreError.recordingNotFound
+        }
+        guard recordings[index].state != .recording, recordings[index].processingState != .processing else {
+            throw RecordingManagementError.busy
+        }
+
+        let recording = recordings[index]
+        let url = fileURL(for: recording)
+        guard fileManager.fileExists(atPath: url.path),
+              let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let byteCount = (attributes[.size] as? NSNumber)?.int64Value else {
+            throw RecordingStoreError.audioFileMissing
+        }
+
+        let previous = recordings[index]
+        recordings[index].audioDeletedAt = deletedAt
+        do { try persist() }
+        catch { recordings[index] = previous; throw error }
+
+        do { try fileManager.removeItem(at: url) }
+        catch {
+            recordings[index] = previous
+            try? persist()
+            throw RecordingManagementError.audioDeletionPending
+        }
+        return byteCount
+    }
+
+    func deleteAudio(olderThan cutoff: Date, at deletedAt: Date = .now) throws -> [UUID] {
+        try validateReady()
+        let eligibleItems = audioStorageItems().filter {
+            $0.recording.recordedAt < cutoff && $0.canDelete
+        }
+        var deletedIDs: [UUID] = []
+        for item in eligibleItems {
+            try deleteAudio(recordingID: item.id, at: deletedAt)
+            deletedIDs.append(item.id)
+        }
+        return deletedIDs
     }
 
     func updateTranscription(
@@ -231,6 +298,13 @@ final class RecordingStore {
             TranscriptDraftStore().remove(recordingID: recording.id)
             EventReviewDraftStore().remove(recordingID: recording.id)
             for id in recording.deletedEventIDs ?? [] { EventDraftStore().remove(id: id) }
+            let url = fileURL(for: recording)
+            if fileManager.fileExists(atPath: url.path) { try? fileManager.removeItem(at: url) }
+        }
+    }
+
+    private func purgeMarkedAudioDeletions() {
+        for recording in recordings where recording.deletedAt == nil && recording.audioDeletedAt != nil {
             let url = fileURL(for: recording)
             if fileManager.fileExists(atPath: url.path) { try? fileManager.removeItem(at: url) }
         }

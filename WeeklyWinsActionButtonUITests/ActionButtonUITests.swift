@@ -548,6 +548,24 @@ final class ActionButtonUITests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsOpenAudioStorageManagement() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+
+        let settingsButton = app.buttons["settings-button"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), app.debugDescription)
+        settingsButton.tap()
+        let storageLink = app.buttons["settings-audio-storage"]
+        XCTAssertTrue(storageLink.waitForExistence(timeout: 5), app.debugDescription)
+        storageLink.tap()
+
+        XCTAssertTrue(app.staticTexts["Хранилище аудио"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.switches["audio-retention-toggle"].exists, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Занято аудиозаписями"].exists, app.debugDescription)
+    }
+
+    @MainActor
     func testDeniedMicrophoneShowsRecordingPreparationAndRetry() throws {
         #if targetEnvironment(simulator)
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_DENIED_MIC_UI_TEST"] == "1",

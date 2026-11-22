@@ -51,7 +51,7 @@ struct RecordingView: View {
             .frame(minHeight: 48)
             .padding(.leading, 14)
             .padding(.trailing, query.isEmpty ? 14 : 0)
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             if groups.isEmpty {
                 ContentUnavailableView(
                     query.isEmpty ? "Пока нет записей" : "Ничего не найдено",
@@ -182,14 +182,13 @@ private struct RecordingRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     StudioTheme.neutralCategorySurface,
-                    in: UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 16,
-                                               bottomTrailingRadius: 16, topTrailingRadius: 0)
+                    in: StudioTheme.bottomStripeShape
                 )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
     }
 
     private var title: String {
@@ -203,13 +202,19 @@ private struct RecordingRow: View {
     }
 
     private var statusText: String {
-        if recording.state != .saved { return recording.state.displayName }
-        switch recording.processingState {
-        case .pending: return recording.automaticTranscriptionPending == true ? "Ожидает расшифровки" : "Готова к расшифровке"
-        case .processing: return "Расшифровывается"
-        case .completed: return "Расшифрована · \(eventCountText)"
-        case .failed: return "Не удалось расшифровать"
+        if recording.audioDeletedAt != nil { return "Аудио удалено" }
+        let processingStatus: String
+        if recording.state != .saved {
+            processingStatus = recording.state.displayName
+        } else {
+            switch recording.processingState {
+            case .pending: processingStatus = recording.automaticTranscriptionPending == true ? "Ожидает расшифровки" : "Готова к расшифровке"
+            case .processing: processingStatus = "Расшифровывается"
+            case .completed: processingStatus = "Расшифрована · \(eventCountText)"
+            case .failed: processingStatus = "Не удалось расшифровать"
+            }
         }
+        return processingStatus
     }
 
     private var eventCountText: String {

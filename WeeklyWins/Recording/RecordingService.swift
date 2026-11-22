@@ -5,11 +5,36 @@ import Foundation
 import OSLog
 import UIKit
 
+enum AudioRetentionPreferences {
+    static let enabledKey = "weeklywins.audioRetention.enabled"
+    static let daysKey = "weeklywins.audioRetention.days"
+    static let defaultDays = 30
+    static let dayRange = 1...365
+
+    static func normalizedDays(_ days: Int) -> Int {
+        dayRange.contains(days) ? days : defaultDays
+    }
+
+    static var current: AudioRetentionPolicy {
+        let defaults = UserDefaults.standard
+        return AudioRetentionPolicy(
+            enabled: defaults.bool(forKey: enabledKey),
+            days: normalizedDays(defaults.object(forKey: daysKey) as? Int ?? defaultDays)
+        )
+    }
+}
+
+struct AudioRetentionPolicy: Equatable {
+    let enabled: Bool
+    let days: Int
+}
+
 @MainActor
 final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegate {
     static let shared = RecordingService(
         recordingDirectory: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0],
-        maxRecordingDuration: 300
+        maxRecordingDuration: 300,
+        initialAudioRetentionPolicy: AudioRetentionPreferences.current
     )
 
     @Published private(set) var transcribingRecordingIDs: Set<UUID> = []
@@ -44,6 +69,8 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     private var interruptionObserver: NSObjectProtocol?
     private let logger = Logger(subsystem: "com.weeklywins.app", category: "RecordingService")
 
+    var audioStorageItems: [AudioStorageItem] { store.audioStorageItems() }
+
     init(
         recordingDirectory: URL,
         maxRecordingDuration: TimeInterval = 300,
@@ -51,7 +78,8 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         backgroundSessionFactory: @escaping @MainActor () -> any TranscriptionExecutionSession = { TranscriptionBackgroundSession() },
         isApplicationActive: @escaping @MainActor () -> Bool = { UIApplication.shared.applicationState == .active },
         activateRecordingSession: @escaping @MainActor (AVAudioSession) throws -> Void = { try $0.setActive(true) },
-        beginAudioCapture: @escaping @MainActor (AVAudioRecorder, TimeInterval) -> Bool = { $0.record(forDuration: $1) }
+        beginAudioCapture: @escaping @MainActor (AVAudioRecorder, TimeInterval) -> Bool = { $0.record(forDuration: $1) },
+        initialAudioRetentionPolicy: AudioRetentionPolicy? = nil
     ) {
         store = RecordingStore(directory: recordingDirectory)
         self.maxRecordingDuration = maxRecordingDuration
@@ -64,6 +92,10 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         super.init()
         refreshRecordings()
         removeEmptyRecordings()
+        if let initialAudioRetentionPolicy {
+            _ = try? applyAudioRetention(enabled: initialAudioRetentionPolicy.enabled,
+                                         days: initialAudioRetentionPolicy.days)
+        }
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance(),
@@ -192,6 +224,30 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         if playingRecordingID == id { stopPlayback() }
         defer { refreshRecordings() }
         try store.deleteRecording(id: id)
+    }
+
+    @discardableResult
+    func deleteAudio(recordingID: UUID) throws -> Int64 {
+        guard !transcribingRecordingIDs.contains(recordingID) else { throw RecordingManagementError.busy }
+        if playingRecordingID == recordingID { stopPlayback() }
+        defer { refreshRecordings() }
+        return try store.deleteAudio(recordingID: recordingID)
+    }
+
+    @discardableResult
+    func applyAudioRetention(enabled: Bool, days: Int, now: Date = .now) throws -> [UUID] {
+        guard enabled else { return [] }
+        let retentionDays = AudioRetentionPreferences.normalizedDays(days)
+        guard let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: now) else {
+            return []
+        }
+        defer { refreshRecordings() }
+        if let playingRecordingID,
+           let playing = store.recordings.first(where: { $0.id == playingRecordingID }),
+           playing.recordedAt < cutoff {
+            stopPlayback()
+        }
+        return try store.deleteAudio(olderThan: cutoff, at: now)
     }
 
     func resumeAutomaticTranscription(userInitiatedRecordingID: UUID? = nil) {

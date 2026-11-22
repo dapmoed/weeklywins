@@ -163,7 +163,7 @@ struct TranscriptView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
-                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
                 } else {
                     player
                 }
@@ -220,7 +220,7 @@ struct TranscriptView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
     }
 
     private var emptyTranscriptMessage: String {
@@ -235,7 +235,7 @@ struct TranscriptView: View {
                     .accessibilityIdentifier("full-transcript")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
-                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
                     .padding(20)
             }
             .background(StudioTheme.background)
@@ -307,7 +307,7 @@ struct TranscriptView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+            .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             TextEditor(text: $transcript)
                 .focused($editorFocused)
                 .disabled(isBusy)
@@ -324,7 +324,7 @@ struct TranscriptView: View {
                     }
                 }
                 .padding(8)
-                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
             if hasChanges {
                 Text("Черновик сохранён")
                     .font(.caption)
@@ -384,13 +384,15 @@ struct TranscriptView: View {
                 Spacer()
                 Text(timeText(playbackDuration))
             }.font(.caption.monospacedDigit()).foregroundStyle(StudioTheme.secondary)
-        }.padding(16).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        }.padding(16).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
     }
 
     private func prepareAudio() {
         do {
             try recordingService.preparePlayback(id: recording.id)
             audioUnavailableMessage = nil
+        } catch RecordingStoreError.audioFileMissing where currentRecording.audioDeletedAt != nil {
+            audioUnavailableMessage = "Аудиофайл удалён"
         } catch RecordingStoreError.audioFileMissing where currentRecording.state == .failed {
             audioUnavailableMessage = "Аудио не сохранилось"
         } catch {

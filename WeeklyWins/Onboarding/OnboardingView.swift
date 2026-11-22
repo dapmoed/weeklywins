@@ -39,7 +39,7 @@ struct OnboardingView: View {
                                 .foregroundStyle(StudioTheme.mint)
                             Label("Купил продукты", systemImage: "house")
                                 .foregroundStyle(StudioTheme.sand)
-                        }.padding(20).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 22))
+                        }.padding(20).background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
                         Text("Ваши дела появятся в ленте дня и отчётах. Время и длительность можно уточнить позже.")
                             .foregroundStyle(StudioTheme.secondary)
                     }
@@ -53,7 +53,7 @@ struct OnboardingView: View {
                             .padding(.horizontal, 16).padding(.vertical, 8)
                             .frame(maxWidth: .infinity, minHeight: 56)
                             .foregroundStyle(StudioTheme.background)
-                            .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: 26))
+                            .background(StudioTheme.mint, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
                     }.buttonStyle(.plain)
                     .disabled(requestingPermission)
                     if showsMicrophone {

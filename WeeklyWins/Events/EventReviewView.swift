@@ -139,7 +139,7 @@ struct EventReviewView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(StudioTheme.mint)
-                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
                 .accessibilityIdentifier("review-undo-deletion")
             }
             ViewThatFits(in: .horizontal) {
