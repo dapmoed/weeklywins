@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>WeeklyWins — закат</title>
+  <desc>Алое солнце над двумя серыми полосами на тёмном фоне.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#222222"/>
+      <stop offset="1" stop-color="#111111"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#background)"/>
+  <path d="M 280 488 A 232 238 0 0 1 744 488 Z" fill="#FA2524"/>
+  <rect x="196" y="488" width="632" height="170" rx="85" fill="#383B42"/>
+  <rect x="196" y="657" width="632" height="162" rx="81" fill="#797882"/>
+</svg>
