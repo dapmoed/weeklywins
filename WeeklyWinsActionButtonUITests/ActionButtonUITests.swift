@@ -4,6 +4,91 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testCustomReportRangeUsesTwoDatesInOneCalendar() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let period = app.buttons["Выбрать период"]
+        let calendar = app.navigationBars["Свой период"]
+        let day = { (number: Int) in app.buttons["report-range-day-\(number)"] }
+        func openCalendar() {
+            period.tap()
+            app.buttons["Свой период…"].tap()
+            XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        }
+        func attach(_ name: String) {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = name
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+
+        openCalendar()
+        day(1).tap()
+        XCTAssertTrue(app.staticTexts["Выберите конец периода"].exists)
+        attach("A16-report-range-start")
+        app.buttons["Следующий месяц"].tap()
+        day(2).tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        let range = period.value as? String
+        XCTAssertTrue(range?.contains(" — ") == true)
+        XCTAssertEqual(app.buttons["Категория"].value as? String, "Работа")
+        let report = app.staticTexts["report-share-text"]
+        if report.exists, let range { XCTAssertTrue(report.label.contains(range)) }
+
+        openCalendar()
+        day(3).tap()
+        app.buttons["Отмена"].tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(period.value as? String, range)
+
+        openCalendar()
+        day(4).tap()
+        day(4).tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        XCTAssertTrue((period.value as? String)?.hasPrefix("4 ") == true)
+        XCTAssertFalse((period.value as? String)?.contains(" — ") == true)
+    }
+
+    @MainActor
+    func testReportRangeCalendarAtLargestTextSize() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = [
+            "-hasCompletedOnboarding", "YES",
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let period = app.buttons["Выбрать период"]
+        period.tap()
+        app.buttons["Свой период…"].tap()
+        let calendar = app.navigationBars["Свой период"]
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        let firstDay = app.buttons["report-range-day-1"]
+        let secondDay = app.buttons["report-range-day-2"]
+        XCTAssertTrue(firstDay.isHittable)
+        XCTAssertGreaterThanOrEqual(firstDay.frame.height, 43.99)
+        secondDay.tap()
+        XCTAssertTrue(app.staticTexts["Выберите конец периода"].exists)
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A16-report-range-largest-text"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        firstDay.tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        XCTAssertTrue((period.value as? String)?.hasPrefix("1 ") == true)
+        XCTAssertTrue((period.value as? String)?.contains(" — 2 ") == true)
+    }
+
+    @MainActor
     func testReportPeriodMenuSwipesByWeekAndMonth() {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
@@ -335,8 +420,14 @@ final class ActionButtonUITests: XCTestCase {
             period.tap()
             app.buttons[title].tap()
             if title == "Свой период…" {
-                XCTAssertTrue(app.datePickers["С"].waitForExistence(timeout: 5))
-                XCTAssertTrue(app.datePickers["По"].exists)
+                let calendar = app.navigationBars["Свой период"]
+                XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+                app.buttons["report-range-day-1"].tap()
+                let lastDay = Calendar.current.component(.day, from: .now)
+                let end = app.buttons["report-range-day-\(lastDay)"]
+                for _ in 0..<4 where !end.isHittable { app.scrollViews.firstMatch.swipeUp() }
+                end.tap()
+                XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
             }
             XCTAssertTrue(shareText.waitForExistence(timeout: 5))
             XCTAssertTrue(share.isHittable)
@@ -988,11 +1079,15 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(monthText.contains("Работал два часа"), monthText)
         attach("A15-report-month")
 
-        // Свой период: появляются поля «С/По», диапазон по умолчанию — текущая неделя.
+        // Свой период: две даты в одном календаре.
         menuButton.tap()
         app.buttons["Свой период…"].tap()
-        XCTAssertTrue(app.datePickers["С"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.datePickers["По"].exists)
+        let rangeCalendar = app.navigationBars["Свой период"]
+        XCTAssertTrue(rangeCalendar.waitForExistence(timeout: 5))
+        app.buttons["report-range-day-1"].tap()
+        let todayNumber = Calendar.current.component(.day, from: .now)
+        app.buttons["report-range-day-\(todayNumber)"].tap()
+        XCTAssertTrue(rangeCalendar.waitForNonExistence(timeout: 5))
         let customText = shareLabel()
         XCTAssertTrue(customText.contains("Дела за"), customText)
         XCTAssertTrue(customText.contains("Работал два часа"), customText)
