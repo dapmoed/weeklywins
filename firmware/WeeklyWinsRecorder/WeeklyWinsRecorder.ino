@@ -8,11 +8,14 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "RecorderButton.h"
+
 namespace {
 const int clockPin = 7;
 const int wordSelectPin = 8;
 const int dataPin = 9;
-const int buttonPin = 0;  // BOOT on the YD-ESP32-23
+const int bootButtonPin = 0;
+const int switchPin = 6;
 const int ledPin = 48;
 const int sampleRate = 16000;
 const size_t maxAudioBytes = 90 * sampleRate * sizeof(int16_t);
@@ -29,9 +32,7 @@ String finalPath;
 size_t audioBytes = 0;
 size_t audioLimit = 0;
 bool initialized = false;
-bool buttonReading = HIGH;
-bool stableButton = HIGH;
-unsigned long lastButtonChange = 0;
+RecorderButton recordButton;
 
 struct WavHeader {
     char riff[4] = {'R', 'I', 'F', 'F'};
@@ -239,14 +240,10 @@ bool startServer(Preferences &preferences) {
 }
 
 void checkButton() {
-    const bool reading = digitalRead(buttonPin);
-    if (reading != buttonReading) {
-        buttonReading = reading;
-        lastButtonChange = millis();
-    }
-    if (reading == stableButton || millis() - lastButtonChange < 30) return;
-    stableButton = reading;
-    if (reading == HIGH) return;
+    const bool bootPressed = digitalRead(bootButtonPin) == LOW;
+    const bool switchPressed = digitalRead(switchPin) == LOW;
+    if (!recordButton.update(bootPressed, switchPressed, millis())) return;
+
     if (capture) finishCapture();
     else startCapture();
 }
@@ -254,7 +251,8 @@ void checkButton() {
 
 void setup() {
     Serial.begin(115200);
-    pinMode(buttonPin, INPUT_PULLUP);
+    pinMode(bootButtonPin, INPUT_PULLUP);
+    pinMode(switchPin, INPUT_PULLUP);
     indicator(0, 0, 0);
     Preferences preferences;
     if (!preferences.begin("weeklywins")
