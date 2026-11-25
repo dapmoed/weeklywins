@@ -17,6 +17,7 @@
 		1D17C71F35BCF24E082FF404 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE5367230E943B0D9CED569 /* SettingsView.swift */; };
 		309F284A21A26CCDE4A33C07 /* TranscriptDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8035E07F91D9A7FD96739C /* TranscriptDraftStore.swift */; };
 		3A31164B0E61C983530575CF /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95CF5286D64FEA6FDBA927AE /* ReportView.swift */; };
+		3CCA1C200A6A66F81115D9CA /* EventCategoryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1909B2E95DC02FAF5BCF709D /* EventCategoryClassifier.swift */; };
 		3FD94E8DDE579EA697ABD850 /* WeeklyWinsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22A8540FCB9466240EFD6C9 /* WeeklyWinsApp.swift */; };
 		401A3E92D7B4D72B4A8996DD /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B7C4617FE9030FE05242D6 /* RecordingStore.swift */; };
 		470F32EA05E4D4B081AC6B16 /* EventReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E203B86F33DFC4FC122410 /* EventReviewView.swift */; };
@@ -106,6 +107,7 @@
 		08BD30CB1E63ACDC433A9BBD /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
 		0D32F7959F317070BF0DCC68 /* ReportQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportQuery.swift; sourceTree = "<group>"; };
 		162C0FF1037DDF0EA12E27C4 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
+		1909B2E95DC02FAF5BCF709D /* EventCategoryClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCategoryClassifier.swift; sourceTree = "<group>"; };
 		229AC6441731A85E299E7AA7 /* TranscriptExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptExport.swift; sourceTree = "<group>"; };
 		2428565F608522AB8D17F70F /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		2A9F233CF6973641817FFFB2 /* SpeechRecognitionSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionSessionTests.swift; sourceTree = "<group>"; };
@@ -244,6 +246,7 @@
 			isa = PBXGroup;
 			children = (
 				8E2346B601698823F3803A57 /* Event.swift */,
+				1909B2E95DC02FAF5BCF709D /* EventCategoryClassifier.swift */,
 				162C0FF1037DDF0EA12E27C4 /* EventDetailView.swift */,
 				F492CC51EDACCAC0BDAB6BB3 /* EventDraftStore.swift */,
 				5C04EC83453B9AB49AA9DE7E /* EventExtractor.swift */,
@@ -477,6 +480,7 @@
 			files = (
 				61225E302B10CE2223123EC7 /* DeviceTestSession.swift in Sources */,
 				1AB7752C0BC8EADC6A8D28B7 /* Event.swift in Sources */,
+				3CCA1C200A6A66F81115D9CA /* EventCategoryClassifier.swift in Sources */,
 				D19BE596F4D00345B807D6E0 /* EventDetailView.swift in Sources */,
 				B7282A343125FEA177D0AD39 /* EventDraftStore.swift in Sources */,
 				BFA139E75FAC31F87B1A41CE /* EventExtractor.swift in Sources */,

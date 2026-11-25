@@ -189,7 +189,14 @@ final class RecordingStore {
         let previous = recordings[index]
         if recordings[index].events == nil || recordings[index].eventsManuallyEdited == false,
            let transcript, processingState == .completed {
-            recordings[index].events = EventExtractor.extract(transcript, recordingID: recordingID)
+            let classifier = EventCategoryClassifier(recordings: recordings)
+            let events = EventExtractor.extract(transcript, recordingID: recordingID).map { event in
+                var event = event
+                event.category = classifier.category(for: event.text)
+                return event
+            }
+            recordings[index].events = events
+            recordings[index].eventCategorySources = Dictionary(uniqueKeysWithValues: events.map { ($0.id, .automatic) })
             recordings[index].eventsManuallyEdited = false
         }
         recordings[index].transcript = transcript
@@ -216,7 +223,20 @@ final class RecordingStore {
             throw EventEditingError.conflictingChanges
         }
         let previous = recordings[index]
+        let previousEvents = Dictionary((previous.events ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var sources = previous.eventCategorySources ?? [:]
+        for event in previousEvents.values where sources[event.id] == nil {
+            sources[event.id] = previous.eventsManuallyEdited == true && event.category != .unclassified ? .manual : .automatic
+        }
+        for event in events {
+            if let original = previousEvents[event.id] {
+                if original.category != event.category { sources[event.id] = .manual }
+            } else if sources[event.id] == nil {
+                sources[event.id] = event.category == .unclassified ? .automatic : .manual
+            }
+        }
         recordings[index].events = events
+        recordings[index].eventCategorySources = sources
         recordings[index].eventsManuallyEdited = true
         do { try persist() }
         catch {

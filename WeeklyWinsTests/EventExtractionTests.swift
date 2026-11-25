@@ -2,6 +2,80 @@ import XCTest
 @testable import WeeklyWins
 
 final class EventExtractionTests: XCTestCase {
+    @MainActor
+    func testCompletedTranscriptionLearnsSeparatelyFromUserCategoryChanges() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStore(directory: directory)
+
+        func addTranscript(_ text: String, to store: RecordingStore) throws -> Recording {
+            let recording = try store.beginRecording()
+            try store.updateTranscription(recordingID: recording.id, transcript: text,
+                                          processingState: .completed, errorMessage: nil)
+            return try XCTUnwrap(store.recordings.first { $0.id == recording.id })
+        }
+        func label(_ recording: Recording, as category: EventCategory, in store: RecordingStore) throws {
+            var events = try XCTUnwrap(store.recordings.first { $0.id == recording.id }?.events)
+            events[0].category = category
+            try store.saveEvents(recordingID: recording.id, events: events)
+        }
+
+        let work1 = try addTranscript("Обсудил созвон команды релиза продукта", to: store)
+        try label(work1, as: .work, in: store)
+        let sparse = try addTranscript("Подготовил созвон команды релиза", to: store)
+        XCTAssertEqual(sparse.events?.map(\.category), [.unclassified])
+
+        let work2 = try addTranscript("Провел созвон команды релиза", to: store)
+        try label(work2, as: .work, in: store)
+        let home1 = try addTranscript("Купил хлеб молоко продукты", to: store)
+        try label(home1, as: .home, in: store)
+        let home2 = try addTranscript("Заказал хлеб молоко продукты", to: store)
+        try label(home2, as: .home, in: store)
+
+        let new = try addTranscript("Подготовил созвон команды релиза. Выбрал хлеб молоко продукты. Катался на велосипеде", to: store)
+        XCTAssertEqual(new.events?.map(\.category), [.work, .home, .unclassified])
+        try label(new, as: .hobby, in: store)
+        let reloaded = RecordingStore(directory: directory)
+        try reloaded.updateTranscription(recordingID: new.id, transcript: "Повторная расшифровка",
+                                         processingState: .completed, errorMessage: nil)
+        XCTAssertEqual(reloaded.recordings.first { $0.id == new.id }?.events?.map(\.category),
+                       [.hobby, .home, .unclassified])
+
+        // A formerly automatic guess and its unchanged sibling never become training labels.
+        let reloadedRecording = try XCTUnwrap(reloaded.recordings.first { $0.id == new.id })
+        let reloadedEvents = try XCTUnwrap(reloadedRecording.events)
+        XCTAssertEqual(reloadedEvents.map { reloadedRecording.eventCategorySources?[$0.id] },
+                       [.manual, .automatic, .automatic])
+        try label(work2, as: .hobby, in: reloaded)
+        let revised = try addTranscript("Подготовил созвон команды релиза", to: reloaded)
+        XCTAssertEqual(revised.events?.map(\.category), [.hobby])
+    }
+
+    func testCategoryClassifierUsesLegacyLabelsButAbstainsWhenTheyDisagree() {
+        func recording(_ text: String, category: EventCategory, confirmed: Bool? = nil) -> Recording {
+            let id = UUID()
+            var recording = Recording(id: id, recordedAt: .now, fileName: "", state: .saved)
+            recording.eventsManuallyEdited = true
+            let event = DiaryEvent(recordingID: id, sourceText: text, text: text, category: category)
+            recording.events = [event]
+            if let confirmed { recording.eventCategorySources = [event.id: confirmed ? .manual : .automatic] }
+            return recording
+        }
+        let work = [
+            recording("Обсудил созвон команды релиза", category: .work),
+            recording("Провел созвон команды релиза", category: .work)
+        ]
+        let input = "Подготовил созвон команды релиза"
+        XCTAssertEqual(EventCategoryClassifier(recordings: work).category(for: input), .work)
+        let competing = [
+            recording("Обсудил созвон команды релиза", category: .hobby),
+            recording("Провел созвон команды релиза", category: .hobby)
+        ]
+        XCTAssertEqual(EventCategoryClassifier(recordings: work + competing).category(for: input), .unclassified)
+        let automatic = recording("Провел созвон команды релиза", category: .work, confirmed: false)
+        XCTAssertEqual(EventCategoryClassifier(recordings: [work[0], automatic]).category(for: input), .unclassified)
+    }
+
     func testNaturalUnpunctuatedDiarySpeechKeepsEachActivitySeparate() {
         // The fixture uses an authored script, with the formatting observed in Apple's transcript.
         let text = "вчера после работы я зашёл в магазин у дома и купил хлеб яйца и корм для кота молоко забыл поэтому сегодня утром вернулся за ним дома я приготовил ужин и убрал на кухне на это ушло около 20 минут посуду вечером не мыл оставил её до утра сегодня в 05:30 позвонил Анне и подтвердил встречу на четверг ещё нужно отправить документы и забрать посылку сначала проверю почту потом заеду домой на выходных хочу разобрать коробки в прихожей но ремонт пока начинать не буду"
