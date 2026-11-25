@@ -7,18 +7,13 @@ struct EventDetailView: View {
     @FocusState private var textFocused: Bool
     @State private var draft: DiaryEvent?
     @State private var baseline: DiaryEvent?
-    @State private var source: Source?
+    @State private var showSource = false
     @State private var showCategoryPicker = false
     @State private var showFragment = false
     @State private var confirmDiscard = false
     @State private var confirmDelete = false
     @State private var error: String?
     @State private var deletedEvent: RecordingService.DeletedEvent?
-
-    private enum Source: String, Identifiable {
-        case playback, editing
-        var id: Self { self }
-    }
 
     private let drafts = EventDraftStore()
     private let dateFormat = Date.FormatStyle.dateTime.day().month(.wide).year().hour().minute()
@@ -65,9 +60,9 @@ struct EventDetailView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if draft != nil { saveControl }
         }
-        .sheet(item: $source) { source in
+        .sheet(isPresented: $showSource) {
             if let recording {
-                TranscriptView(recording: recording, recordingService: service, startEditing: source == .editing)
+                TranscriptView(recording: recording, recordingService: service, isReadOnly: true)
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -135,12 +130,9 @@ struct EventDetailView: View {
                     .accessibilityLabel("Время записи")
                     .accessibilityValue(date)
                     .accessibilityIdentifier("event-time")
-                Button("Изменить расшифровку") { source = .editing }
-                    .disabled(service.transcribingRecordingIDs.contains(event.recordingID))
-                    .accessibilityIdentifier("edit-event-transcript")
+                Button("Открыть аудиозапись и текст") { showSource = true }
                 DisclosureGroup("Источник", isExpanded: $showFragment) {
                     Text(event.sourceText).foregroundStyle(StudioTheme.secondary)
-                    Button("Открыть аудиозапись и текст") { source = .playback }
                 }
             }.listRowBackground(StudioTheme.surface)
 

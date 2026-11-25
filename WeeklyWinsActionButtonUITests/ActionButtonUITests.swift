@@ -1138,7 +1138,9 @@ final class ActionButtonUITests: XCTestCase {
         let title = app.buttons["edit-event"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "event-time").count, 1)
-        XCTAssertFalse(app.buttons["Открыть аудиозапись и текст"].exists)
+        let openSource = app.buttons["Открыть аудиозапись и текст"]
+        XCTAssertTrue(openSource.isHittable)
+        XCTAssertFalse(app.buttons["edit-event-transcript"].exists)
         attach("A11-event-detail")
 
         title.tap()
@@ -1164,29 +1166,18 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(title.label.contains("сохранено"))
 
-        app.buttons["edit-event-transcript"].tap()
-        let transcript = app.textViews["transcriptEditor"]
-        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
-        XCTAssertEqual(transcript.value as? String, "Исходная расшифровка для проверки")
-        if !app.keyboards.firstMatch.exists { transcript.tap() }
-        transcript.typeText(" изменена")
-        attach("A09-direct-transcript-editor")
-        app.buttons["save-transcript"].tap()
+        openSource.tap()
+        let sourceTranscript = app.staticTexts["source-transcript"]
+        XCTAssertTrue(sourceTranscript.waitForExistence(timeout: 5))
+        XCTAssertEqual(sourceTranscript.label, "Исходная расшифровка для проверки")
+        let play = app.buttons["Прослушать"]
+        XCTAssertTrue(play.isHittable)
+        XCTAssertTrue(play.isEnabled)
+        XCTAssertFalse(app.buttons["Изменить текст"].exists)
+        XCTAssertFalse(app.textViews["transcriptEditor"].exists)
+        attach("A08-recording-source")
+        app.buttons["recording-details-back"].tap()
         XCTAssertTrue(title.waitForExistence(timeout: 5))
-        XCTAssertTrue(title.label.contains("сохранено"))
-
-        app.buttons["edit-event-transcript"].tap()
-        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
-        XCTAssertTrue((transcript.value as? String)?.contains("изменена") == true)
-        app.buttons["Отмена"].tap()
-        XCTAssertTrue(title.waitForExistence(timeout: 5))
-
-        app.buttons["Источник"].tap()
-        app.buttons["Открыть аудиозапись и текст"].tap()
-        let preview = app.buttons["transcript-preview"]
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
-        preview.tap()
-        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
 
         app.terminate()
         app.launchArguments += [
@@ -1781,9 +1772,8 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(sourceText.waitForNonExistence(timeout: 5))
         event.tap()
         XCTAssertTrue(app.buttons["edit-event"].waitForExistence(timeout: 5))
-        app.buttons["Источник"].tap()
         app.buttons["Открыть аудиозапись и текст"].tap()
-        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["source-transcript"].waitForExistence(timeout: 5))
         #else
         throw XCTSkip("This recorder-flow check is for Simulator; Action Button end-to-end is covered by the device test.")
         #endif

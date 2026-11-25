@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TranscriptView: View {
     let recording: Recording
-    private let startEditing: Bool
+    private let isReadOnly: Bool
     @ObservedObject var recordingService: RecordingService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -26,15 +26,15 @@ struct TranscriptView: View {
     @State private var fullTranscriptHeight: CGFloat = 0
     private let drafts = TranscriptDraftStore()
 
-    init(recording: Recording, recordingService: RecordingService, startEditing: Bool = false) {
+    init(recording: Recording, recordingService: RecordingService, isReadOnly: Bool = false) {
         self.recording = recording
-        self.startEditing = startEditing
+        self.isReadOnly = isReadOnly
         self.recordingService = recordingService
         let savedText = recording.transcript ?? ""
-        let draft = TranscriptDraftStore().load(recordingID: recording.id) ?? savedText
+        let draft = isReadOnly ? savedText : (TranscriptDraftStore().load(recordingID: recording.id) ?? savedText)
         _savedText = State(initialValue: savedText)
         _transcript = State(initialValue: draft)
-        _editingTranscript = State(initialValue: startEditing || draft != savedText)
+        _editingTranscript = State(initialValue: draft != savedText)
     }
 
     private var isBusy: Bool { isTranscribing || recordingService.transcribingRecordingIDs.contains(recording.id) }
@@ -81,7 +81,7 @@ struct TranscriptView: View {
                         }
                         .disabled(isBusy || !hasChanges)
                         .accessibilityIdentifier("save-transcript")
-                    } else if !showEvents {
+                    } else if !showEvents && !isReadOnly {
                         Menu {
                             Button("Удалить запись", role: .destructive) { confirmDeletion = true }
                                 .disabled(isBusy)
@@ -103,9 +103,6 @@ struct TranscriptView: View {
             .interactiveDismissDisabled(hasChanges)
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showFullTranscript) { fullTranscript }
-            .task {
-                if startEditing && !isBusy { editorFocused = true }
-            }
             .task(id: isAudioBlocked) {
                 if !isAudioBlocked { prepareAudio() }
             }
@@ -163,8 +160,10 @@ struct TranscriptView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(audioUnavailableMessage).font(.headline)
                             .accessibilityIdentifier("recording-audio-unavailable")
-                        Text("Текст и события можно добавить вручную.")
-                            .font(.subheadline).foregroundStyle(StudioTheme.secondary)
+                        if !isReadOnly {
+                            Text("Текст и события можно добавить вручную.")
+                                .font(.subheadline).foregroundStyle(StudioTheme.secondary)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
@@ -176,21 +175,23 @@ struct TranscriptView: View {
                 if let message = errorMessage ?? currentRecording.errorMessage {
                     Text(message).font(.footnote).foregroundStyle(StudioTheme.coral)
                 }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { transcriptActions }
-                    VStack(alignment: .leading, spacing: 8) { transcriptActions }
+                if !isReadOnly {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) { transcriptActions }
+                        VStack(alignment: .leading, spacing: 8) { transcriptActions }
+                    }
                 }
                 if isBusy {
                     ProgressView("Расшифровывается…")
                         .frame(minHeight: 44)
-                } else if audioUnavailableMessage == nil {
+                } else if !isReadOnly && audioUnavailableMessage == nil {
                     Button(savedText.isEmpty ? "Расшифровать" : "Расшифровать заново") {
                         if savedText.isEmpty && !hasChanges { Task { await transcribe() } }
                         else { confirmTranscription = true }
                     }
                     .frame(minHeight: 44)
                 }
-                if currentRecording.processingState == .failed && audioUnavailableMessage == nil {
+                if !isReadOnly && currentRecording.processingState == .failed && audioUnavailableMessage == nil {
                     Button("Настройки распознавания") { showSettings = true }
                         .frame(minHeight: 44)
                 }
@@ -201,39 +202,52 @@ struct TranscriptView: View {
     private var transcriptPreview: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Расшифровка").font(.headline).accessibilityAddTraits(.isHeader)
-            Button {
-                editingTranscript = true
-                editorFocused = true
-            } label: {
-                Text(savedText.isEmpty ? emptyTranscriptMessage : savedText)
+            if isReadOnly {
+                Text(savedText.isEmpty ? "Расшифровки нет" : savedText)
                     .foregroundStyle(savedText.isEmpty ? StudioTheme.secondary : StudioTheme.text)
-                    .lineLimit(savedText.isEmpty ? nil : dynamicTypeSize.isAccessibilitySize ? 2 : 4)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { previewHeight = $0 }
-                    .background(alignment: .topLeading) {
-                        if !savedText.isEmpty {
-                            Text(savedText)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullTranscriptHeight = $0 }
-                                .hidden()
-                        }
-                    }
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(isBusy)
-            .accessibilityHint("Редактировать текст записи")
-            .accessibilityIdentifier("transcript-preview")
-            if !savedText.isEmpty, fullTranscriptHeight > previewHeight + 1 {
-                Button("Показать весь текст") { showFullTranscript = true }
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("show-full-transcript")
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("source-transcript")
+            } else {
+                editableTranscriptPreview
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+    }
+
+    @ViewBuilder
+    private var editableTranscriptPreview: some View {
+        Button {
+            editingTranscript = true
+            editorFocused = true
+        } label: {
+            Text(savedText.isEmpty ? emptyTranscriptMessage : savedText)
+                .foregroundStyle(savedText.isEmpty ? StudioTheme.secondary : StudioTheme.text)
+                .lineLimit(savedText.isEmpty ? nil : dynamicTypeSize.isAccessibilitySize ? 2 : 4)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { previewHeight = $0 }
+                .background(alignment: .topLeading) {
+                    if !savedText.isEmpty {
+                        Text(savedText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullTranscriptHeight = $0 }
+                            .hidden()
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isBusy)
+        .accessibilityHint("Редактировать текст записи")
+        .accessibilityIdentifier("transcript-preview")
+        if !savedText.isEmpty, fullTranscriptHeight > previewHeight + 1 {
+            Button("Показать весь текст") { showFullTranscript = true }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("show-full-transcript")
+        }
     }
 
     private var emptyTranscriptMessage: String {
@@ -415,8 +429,7 @@ struct TranscriptView: View {
 
     private func closeEditor() {
         editorFocused = false
-        if startEditing { dismiss() }
-        else { editingTranscript = false }
+        editingTranscript = false
     }
 
     private func timeText(_ time: TimeInterval) -> String {
@@ -425,6 +438,7 @@ struct TranscriptView: View {
     }
 
     private func persistDraft(previousText: String? = nil) {
+        guard !isReadOnly else { return }
         if hasChanges { drafts.save(recordingID: recording.id, text: transcript) }
         else { drafts.remove(recordingID: recording.id, matching: previousText ?? transcript) }
     }
