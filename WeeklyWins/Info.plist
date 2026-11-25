@@ -22,6 +22,19 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>192.168.4.1</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Передача аудиозаписей с диктофона WeeklyWins по Wi-Fi.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Запись голосовых заметок о делах в течение дня.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

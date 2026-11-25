@@ -54,6 +54,8 @@ struct SettingsView: View {
                         .foregroundStyle(StudioTheme.secondary)
                 }.listRowBackground(StudioTheme.surface)
                 Section("Данные") {
+                    NavigationLink("Диктофон ESP32") { RecorderSyncView() }
+                        .accessibilityIdentifier("settings-esp32-recorder")
                     NavigationLink("Хранилище аудиозаписей") { AudioStorageView() }
                         .accessibilityIdentifier("settings-audio-storage")
                     Button("Выгрузить расшифровки (JSON)") { exportTranscripts() }
@@ -289,5 +291,40 @@ struct ActionButtonGuideView: View {
         }
         .navigationTitle("Кнопка действия").navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+    }
+}
+
+private struct RecorderSyncView: View {
+    @State private var syncing = false
+    @State private var result: String?
+
+    var body: some View {
+        List {
+            Section {
+                Text("Подключитесь в настройках Wi-Fi к сети WeeklyWins диктофона. После включения выполните первую синхронизацию, чтобы передать дату и время.")
+                    .font(.subheadline)
+                    .foregroundStyle(StudioTheme.secondary)
+                Button(syncing ? "Синхронизация…" : "Синхронизировать") {
+                    syncing = true
+                    result = nil
+                    Task {
+                        defer { syncing = false }
+                        do {
+                            let count = try await RecordingService.shared.synchronizeRecorder()
+                            result = count == 0 ? "Новых записей нет. Часы настроены." : "Импортировано записей: \(count)."
+                        } catch {
+                            result = "Не удалось завершить синхронизацию. \(error.localizedDescription)"
+                        }
+                    }
+                }
+                .disabled(syncing)
+                .accessibilityIdentifier("sync-esp32-recorder")
+                if let result { Text(result) }
+            }.listRowBackground(StudioTheme.surface)
+        }
+        .scrollContentBackground(.hidden)
+        .background(StudioTheme.background)
+        .navigationTitle("Диктофон ESP32")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

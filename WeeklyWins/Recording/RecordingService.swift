@@ -59,6 +59,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
     private let beginAudioCapture: @MainActor (AVAudioRecorder, TimeInterval) -> Bool
     private var automaticTranscriptionTask: Task<Void, Never>?
     private var automaticResumeRequested = false
+    private var isSynchronizingRecorder = false
     private var player: AVAudioPlayer?
     private var playbackTask: Task<Void, Never>?
     private var isPlaybackSessionActive = false
@@ -185,6 +186,31 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         let summary = try store.importRecordings(entries)
         refreshRecordings()
         return summary
+    }
+
+    func synchronizeRecorder(using client: RecorderSyncClient = RecorderSyncClient()) async throws -> Int {
+        guard !isSynchronizingRecorder else { throw RecorderSyncError.busy }
+        isSynchronizingRecorder = true
+        defer {
+            isSynchronizingRecorder = false
+            refreshRecordings()
+            resumeAutomaticTranscription()
+        }
+
+        try await client.synchronizeClock()
+        let entries = try await client.pendingRecordings()
+        var imported = 0
+        for entry in entries {
+            if !store.hasImportedAudio(id: entry.id) {
+                let audio = try await client.audio(for: entry.id)
+                try Task.checkCancellation()
+                if try store.importAudio(id: entry.id, recordedAt: entry.recordedAt, wav: audio) {
+                    imported += 1
+                }
+            }
+            try await client.acknowledge(entry.id)
+        }
+        return imported
     }
 
     struct DeletedEvent {
