@@ -87,12 +87,15 @@ final class TranscriptionTests: XCTestCase {
         let service = TranscriptionService(store: store, transcriber: transcriber)
 
         let transcript = try await service.transcribe(recordingID: recording.id, locale: Locale(identifier: "ru-RU"))
+        let extractedEvents = try XCTUnwrap(store.recordings.first?.events)
+        XCTAssertFalse(extractedEvents.isEmpty)
         try service.saveEditedTranscript(recordingID: recording.id, text: "Исправленный текст о работе приложения.")
 
         let reloadedStore = RecordingStore(directory: directory)
         let reloadedRecording = try XCTUnwrap(reloadedStore.recordings.first)
         XCTAssertEqual(transcript, "Проверил работу приложения.")
         XCTAssertEqual(reloadedRecording.transcript, "Исправленный текст о работе приложения.")
+        XCTAssertEqual(reloadedRecording.events, extractedEvents)
         XCTAssertEqual(reloadedRecording.processingState, .completed)
         XCTAssertTrue(FileManager.default.fileExists(atPath: reloadedStore.fileURL(for: reloadedRecording).path))
     }
