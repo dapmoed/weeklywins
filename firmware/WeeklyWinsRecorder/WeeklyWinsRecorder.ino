@@ -3,12 +3,11 @@
 #include <SD.h>
 #include <SPI.h>
 #include <Preferences.h>
-#include <WebServer.h>
-#include <WiFi.h>
 #include <esp_random.h>
 #include <sys/time.h>
 #include <time.h>
 
+#include "RecorderBluetooth.h"
 #include "RecorderButton.h"
 #include "RecordingFileName.h"
 
@@ -29,18 +28,19 @@ const size_t maxAudioBytes = 90 * sampleRate * sizeof(int16_t);
 const size_t fileSystemReserve = 64 * 1024;
 const time_t earliestTime = 1704067200;  // 2024-01-01 UTC
 const time_t latestTime = 4102444800;    // 2100-01-01 UTC
-const char *requestHeader = "X-WeeklyWins-Recorder";
 const char *recordingDirectory = "/weeklywins";
 const char *partialPath = "/weeklywins/capture.part";
 
 I2SClass microphone;
-WebServer server(80);
 File capture;
+File downloads;
+File listing;
 String finalPath;
 size_t audioBytes = 0;
 size_t audioLimit = 0;
 bool initialized = false;
 RecorderButton recordButton;
+uint32_t transferSession = UINT32_MAX;
 
 struct WavHeader {
     char riff[4] = {'R', 'I', 'F', 'F'};
@@ -127,6 +127,7 @@ void finishCapture() {
         return;
     }
     indicator(0, 0, 0);
+    RecorderBluetooth::recordingAvailable();
 }
 
 void captureSamples() {
@@ -153,12 +154,6 @@ void captureSamples() {
     if (audioLimit - audioBytes < sizeof(int16_t)) finishCapture();
 }
 
-bool authorized() {
-    if (server.header(requestHeader) == "1") return true;
-    server.send(403);
-    return false;
-}
-
 String nextRecordingPath(File &directory) {
     bool isDirectory = false;
     for (String path = directory.getNextFileName(&isDirectory); !path.isEmpty();
@@ -169,94 +164,96 @@ String nextRecordingPath(File &directory) {
     return "";
 }
 
-String pathForID(const String &id) {
-    if (id.length() != 36) return "";
+String pathForID(const uint8_t *id) {
     File directory = SD.open(recordingDirectory);
     for (String path = nextRecordingPath(directory); !path.isEmpty(); path = nextRecordingPath(directory)) {
-        const unsigned int start = path.lastIndexOf('/') + 1;
-        if (path.substring(start, start + 36).equalsIgnoreCase(id)) return path;
+        const int start = path.lastIndexOf('/') + 1;
+        uint8_t existing[16];
+        recorderParseUUID(path.c_str() + start, existing);
+        if (memcmp(existing, id, sizeof(existing)) == 0) return path;
     }
     return "";
 }
 
-void setClock() {
-    if (!authorized()) return;
-    String value = server.arg("unix");
-    char *end;
-    const time_t seconds = strtoll(value.c_str(), &end, 10);
-    if (*end || seconds < earliestTime || seconds >= latestTime) {
-        server.send(400);
+void handleTransfer(const RecorderBluetooth::Request &request) {
+    using namespace RecorderBluetooth;
+    const auto command = static_cast<RecorderCommand>(request.bytes[1]);
+    const uint8_t argumentSize = request.size - 2;
+    const uint8_t *arguments = request.bytes + 2;
+    uint8_t *output = responseBuffer();
+    if (capture) {
+        reply(request, RecorderReply::busy);
         return;
     }
-    const timeval timeOfDay = {seconds, 0};
-    server.send(settimeofday(&timeOfDay, nullptr) == 0 ? 204 : 500);
-}
-
-void listRecordings() {
-    if (!authorized()) return;
-    File directory = SD.open(recordingDirectory);
-    if (!directory || !directory.isDirectory()) {
-        server.send(500);
-        return;
+    switch (command) {
+        case RecorderCommand::clock: {
+            if (argumentSize != 4) break;
+            const time_t seconds = recorderReadUInt32(arguments);
+            if (seconds < earliestTime || seconds >= latestTime) break;
+            const timeval timeOfDay = {seconds, 0};
+            reply(request, settimeofday(&timeOfDay, nullptr) == 0 ? RecorderReply::success : RecorderReply::storage);
+            return;
+        }
+        case RecorderCommand::list: {
+            if (argumentSize != 1 || arguments[0] > 1) break;
+            if (arguments[0] == 1) {
+                listing.close();
+                listing = SD.open(recordingDirectory);
+            }
+            if (!listing || !listing.isDirectory()) {
+                reply(request, RecorderReply::storage);
+                return;
+            }
+            uint8_t count = 0;
+            while (count < pageSize) {
+                const String path = nextRecordingPath(listing);
+                if (path.isEmpty()) {
+                    listing.close();
+                    break;
+                }
+                const char *name = path.c_str() + (path.lastIndexOf('/') + 1);
+                auto *entry = output + count * entrySize;
+                recorderParseUUID(name, entry);
+                recorderWriteUInt32(entry + 16, strtoul(name + 37, nullptr, 10));
+                ++count;
+            }
+            reply(request, RecorderReply::success, count * entrySize);
+            return;
+        }
+        case RecorderCommand::open: {
+            if (argumentSize != 16) break;
+            downloads.close();
+            const String path = pathForID(arguments);
+            if (!path.isEmpty()) downloads = SD.open(path, FILE_READ);
+            if (!downloads || downloads.size() > UINT32_MAX) {
+                reply(request, RecorderReply::storage);
+                return;
+            }
+            recorderWriteUInt32(output, downloads.size());
+            reply(request, RecorderReply::success, 4);
+            return;
+        }
+        case RecorderCommand::read: {
+            if (argumentSize != 4 || !downloads) break;
+            const uint32_t offset = recorderReadUInt32(arguments);
+            if (offset >= downloads.size()) break;
+            const uint16_t bytes = min<size_t>(maxWindow, downloads.size() - offset);
+            if (!downloads.seek(offset) || downloads.read(output, bytes) != bytes) {
+                reply(request, RecorderReply::storage);
+                return;
+            }
+            reply(request, RecorderReply::success, bytes);
+            return;
+        }
+        case RecorderCommand::acknowledge: {
+            if (argumentSize != 16) break;
+            downloads.close();
+            const String path = pathForID(arguments);
+            reply(request, path.isEmpty() || SD.remove(path) ? RecorderReply::success : RecorderReply::storage);
+            return;
+        }
     }
-    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-    server.send(200, "application/json", "");
-    server.sendContent("[");
-    bool first = true;
-    for (String path = nextRecordingPath(directory); !path.isEmpty(); path = nextRecordingPath(directory)) {
-        const unsigned int start = path.lastIndexOf('/') + 1;
-        const String item = (first ? "{" : ",{") + String("\"id\":\"") + path.substring(start, start + 36)
-            + "\",\"recordedAt\":" + path.substring(start + 37, start + 47) + "}";
-        server.sendContent(item);
-        first = false;
-    }
-    server.sendContent("]");
-    server.sendContent("");
-}
-
-void downloadRecording() {
-    if (!authorized()) return;
-    const String path = pathForID(server.arg("id"));
-    if (path.isEmpty()) {
-        server.send(404);
-        return;
-    }
-    File audio = SD.open(path, FILE_READ);
-    if (!audio) {
-        server.send(500);
-        return;
-    }
-    server.streamFile(audio, "audio/wav");
-}
-
-void acknowledgeRecording() {
-    if (!authorized()) return;
-    const String path = pathForID(server.arg("id"));
-    server.send(path.isEmpty() || SD.remove(path) ? 204 : 500);
-}
-
-bool startServer(Preferences &preferences) {
-    char ssid[24];
-    snprintf(ssid, sizeof(ssid), "WeeklyWins-%06lX", static_cast<unsigned long>(ESP.getEfuseMac() & 0xFFFFFF));
-    String password = preferences.getString("wifi-password");
-    if (password.isEmpty()) {
-        char generated[17];
-        snprintf(generated, sizeof(generated), "%08lX%08lX",
-                 static_cast<unsigned long>(esp_random()), static_cast<unsigned long>(esp_random()));
-        if (!preferences.putString("wifi-password", generated)) return false;
-        password = generated;
-    }
-    WiFi.mode(WIFI_AP);
-    if (!WiFi.softAP(ssid, password.c_str())) return false;
-    Serial.printf("Wi-Fi: %s  Password: %s\n", ssid, password.c_str());
-    const char *headers[] = {requestHeader};
-    server.collectHeaders(headers, 1);
-    server.on("/clock", HTTP_POST, setClock);
-    server.on("/recordings", HTTP_GET, listRecordings);
-    server.on("/recording", HTTP_GET, downloadRecording);
-    server.on("/recording", HTTP_DELETE, acknowledgeRecording);
-    server.begin();
-    return true;
+    reply(request, RecorderReply::invalid);
 }
 
 void checkButton() {
@@ -292,8 +289,8 @@ void setup() {
         signalFailure("Can't open recorder settings.");
         return;
     }
-    if (!startServer(preferences)) {
-        signalFailure("Can't start the Wi-Fi access point.");
+    if (!RecorderBluetooth::begin(preferences)) {
+        signalFailure("Can't start Bluetooth.");
         return;
     }
     microphone.setPins(clockPin, wordSelectPin, -1, dataPin);
@@ -307,8 +304,14 @@ void loop() {
     }
     checkButton();
     if (capture) captureSamples();
-    else {
-        server.handleClient();
-        delay(1);
+    const uint32_t currentSession = RecorderBluetooth::session();
+    if (transferSession != currentSession) {
+        listing.close();
+        downloads.close();
+        transferSession = currentSession;
     }
+    RecorderBluetooth::poll();
+    RecorderBluetooth::Request request;
+    if (RecorderBluetooth::receive(request)) handleTransfer(request);
+    if (!capture) delay(1);
 }

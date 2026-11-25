@@ -295,31 +295,27 @@ struct ActionButtonGuideView: View {
 }
 
 private struct RecorderSyncView: View {
-    @State private var syncing = false
-    @State private var result: String?
+    @ObservedObject private var recorder = RecorderBluetooth.shared
 
     var body: some View {
         List {
             Section {
-                Text("Подключитесь в настройках Wi-Fi к сети WeeklyWins диктофона. После включения выполните первую синхронизацию, чтобы передать дату и время.")
-                    .font(.subheadline)
-                    .foregroundStyle(StudioTheme.secondary)
-                Button(syncing ? "Синхронизация…" : "Синхронизировать") {
-                    syncing = true
-                    result = nil
-                    Task {
-                        defer { syncing = false }
-                        do {
-                            let count = try await RecordingService.shared.synchronizeRecorder()
-                            result = count == 0 ? "Новых записей нет. Часы настроены." : "Импортировано записей: \(count)."
-                        } catch {
-                            result = "Не удалось завершить синхронизацию. \(error.localizedDescription)"
-                        }
-                    }
+                if recorder.pairedID == nil {
+                    Text("Включите диктофон и добавьте его один раз. Если iPhone запросит код, он виден в мониторе порта ESP32.")
+                        .font(.subheadline)
+                        .foregroundStyle(StudioTheme.secondary)
+                    Button("Подключить диктофон") { recorder.pair() }
+                        .accessibilityIdentifier("pair-esp32-recorder")
+                } else {
+                    Text("WeeklyWins сам импортирует новые записи, когда диктофон рядом.")
+                        .font(.subheadline)
+                        .foregroundStyle(StudioTheme.secondary)
                 }
-                .disabled(syncing)
-                .accessibilityIdentifier("sync-esp32-recorder")
-                if let result { Text(result) }
+                Text(recorder.status)
+                    .accessibilityIdentifier("esp32-recorder-status")
+                if recorder.pairedID != nil {
+                    Button("Забыть диктофон", role: .destructive) { recorder.forget() }
+                }
             }.listRowBackground(StudioTheme.surface)
         }
         .scrollContentBackground(.hidden)

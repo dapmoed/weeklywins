@@ -53,6 +53,7 @@
 		BFA139E75FAC31F87B1A41CE /* EventExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C04EC83453B9AB49AA9DE7E /* EventExtractor.swift */; };
 		C2D33A7A4E50D2D85D272C37 /* EventExtractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E0DDD9E859A5F61E0029675 /* EventExtractionTests.swift */; };
 		C4FEBD47219FAE5DEBAD4D84 /* TranscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD26E219926EAEF3B0047BC /* TranscriptionTests.swift */; };
+		C97822A478DFC583CDD9573C /* RecorderBluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4246192E91D9E4BA1B9CE625 /* RecorderBluetooth.swift */; };
 		CA56C1D353DF1B505D46AF81 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F502298901B4C79C171B12 /* Transcriber.swift */; };
 		CE6F34C3BA28262442B392D3 /* LegacySpeechTranscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F88AE6C11484EB0C9B41BA /* LegacySpeechTranscriptionTests.swift */; };
 		CF353D1212704CD2A8F88B89 /* RecordingLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3833C2886304C113145742 /* RecordingLibrary.swift */; };
@@ -124,6 +125,7 @@
 		3E0DDD9E859A5F61E0029675 /* EventExtractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventExtractionTests.swift; sourceTree = "<group>"; };
 		3F71417F4D1F33857CE68E29 /* AutomaticTranscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomaticTranscriptionTests.swift; sourceTree = "<group>"; };
 		40A1DF110C56D424A14C3B62 /* LegacyTranscriptMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyTranscriptMerger.swift; sourceTree = "<group>"; };
+		4246192E91D9E4BA1B9CE625 /* RecorderBluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecorderBluetooth.swift; sourceTree = "<group>"; };
 		430B9FF7A3A9B24C632CCB81 /* RecordingManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingManagementTests.swift; sourceTree = "<group>"; };
 		4457EDEC4FBE45AD31FE55DA /* RecordingAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingAttributes.swift; sourceTree = "<group>"; };
 		45D65F801F7051B4386BEABC /* StudioTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioTheme.swift; sourceTree = "<group>"; };
@@ -282,6 +284,7 @@
 		A7BF4C7BCBCA5EBDA4942F02 /* Recording */ = {
 			isa = PBXGroup;
 			children = (
+				4246192E91D9E4BA1B9CE625 /* RecorderBluetooth.swift */,
 				791C838010082D15AEFF451A /* RecorderSync.swift */,
 				F2C55114DEB902418A4F146F /* Recording.swift */,
 				57EBB2A914489654CE8F86B6 /* RecordingActivityWidget.swift */,
@@ -498,6 +501,7 @@
 				E90784078822FF402F4153C8 /* LegacySpeechTranscription.swift in Sources */,
 				4D8DA50B93C898C0BA827985 /* LegacyTranscriptMerger.swift in Sources */,
 				1960D842126C58C351ADD9D1 /* OnboardingView.swift in Sources */,
+				C97822A478DFC583CDD9573C /* RecorderBluetooth.swift in Sources */,
 				B653575364690584100F77A0 /* RecorderSync.swift in Sources */,
 				B5A340F31D86FE474D3C7E46 /* Recording.swift in Sources */,
 				889BDCCFFAA5C11766396C81 /* RecordingAttributes.swift in Sources */,

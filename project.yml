@@ -22,15 +22,11 @@ targets:
     info:
       path: WeeklyWins/Info.plist
       properties:
-        NSLocalNetworkUsageDescription: "Передача аудиозаписей с диктофона WeeklyWins по Wi-Fi."
-        NSAppTransportSecurity:
-          NSExceptionDomains:
-            "192.168.4.1":
-              NSExceptionAllowsInsecureHTTPLoads: true
+        NSBluetoothAlwaysUsageDescription: "Подключение к диктофону WeeklyWins и автоматический импорт голосовых заметок."
         NSMicrophoneUsageDescription: "Запись голосовых заметок о делах в течение дня."
         NSSpeechRecognitionUsageDescription: "Расшифровка голосовых заметок на устройстве."
         UILaunchScreen: {}
-        UIBackgroundModes: [audio, processing]
+        UIBackgroundModes: [audio, processing, bluetooth-central]
         BGTaskSchedulerPermittedIdentifiers: ["com.weeklywins.app.transcription.*"]
         NSSupportsLiveActivities: true
         CFBundleShortVersionString: "$(MARKETING_VERSION)"

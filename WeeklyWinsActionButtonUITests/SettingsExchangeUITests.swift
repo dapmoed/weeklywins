@@ -14,7 +14,7 @@ final class SettingsExchangeUITests: XCTestCase {
         XCTAssertTrue(recorder.isHittable)
         recorder.tap()
         XCTAssertTrue(app.navigationBars["Диктофон ESP32"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["sync-esp32-recorder"].isHittable)
+        XCTAssertTrue(app.buttons["pair-esp32-recorder"].isHittable)
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "A18-recorder-sync"

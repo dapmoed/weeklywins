@@ -1,4 +1,5 @@
 import AVFoundation
+import Foundation
 import XCTest
 @testable import WeeklyWins
 
@@ -8,13 +9,7 @@ final class RecorderSyncTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let fixture = RecorderEndpointFixture()
-        RecorderURLProtocol.fixture = fixture
-        defer { RecorderURLProtocol.fixture = nil }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [RecorderURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer { session.invalidateAndCancel() }
-        let client = RecorderSyncClient(session: session)
+        let client = RecorderSyncClient(partialDirectory: directory.appendingPathComponent("parts"), exchange: fixture.respond)
 
         let store = RecordingStore(directory: directory)
         let phone = try store.beginRecording(startedAt: fixture.recordedAt.addingTimeInterval(300))
@@ -59,6 +54,42 @@ final class RecorderSyncTests: XCTestCase {
             XCTAssertEqual(events.map(\.event.text), ["Запись с телефона", "Запись с диктофона"], period.rawValue)
         }
     }
+    @MainActor
+    func testBluetoothDownloadResumesAtLastCompleteWindow() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let id = UUID()
+        let wav = fixtureWAV(sampleBytes: 16_000)
+        let firstWindow = RecorderSyncClient.windowSize
+        var offsets: [Int] = []
+        var fails = true
+        let exchange: (RecorderBLECommand, Data) async throws -> Data = { command, payload in
+            if command == .open { return uint32Bytes(UInt32(wav.count)) }
+            XCTAssertEqual(command, .read)
+            let offset = Int(payload.withUnsafeBytes { UInt32(littleEndian: $0.loadUnaligned(as: UInt32.self)) })
+            offsets.append(offset)
+            if offset == firstWindow && fails {
+                fails = false
+                throw RecorderSyncError.disconnected
+            }
+            return wav.subdata(in: offset..<min(offset + firstWindow, wav.count))
+        }
+        do {
+            _ = try await RecorderSyncClient(partialDirectory: directory, exchange: exchange).audio(for: id)
+            XCTFail("The second window should fail once.")
+        } catch RecorderSyncError.disconnected {}
+        let bytes = try await RecorderSyncClient(partialDirectory: directory, exchange: exchange).audio(for: id)
+        XCTAssertEqual(bytes, wav)
+        XCTAssertEqual(offsets, [0, firstWindow, firstWindow])
+    }
+
+    func testRecorderReplyChecksOffsetAndFinalFragment() throws {
+        var response = RecorderBLEReply(tag: 42)
+        XCTAssertNil(try response.consume(Data([42, 0, 0, 0, 10, 11])))
+        XCTAssertThrowsError(try response.consume(Data([42, 0x80, 3, 0, 12])))
+        XCTAssertEqual(try response.consume(Data([42, 0x80, 2, 0, 12])), Data([10, 11, 12]))
+    }
+
 }
 
 private struct RecorderFixtureTranscriber: Transcriber {
@@ -71,69 +102,53 @@ private struct RecorderFixtureTranscriber: Transcriber {
     }
 }
 
-private final class RecorderEndpointFixture: @unchecked Sendable {
+@MainActor
+private final class RecorderEndpointFixture {
     let id = UUID()
     let recordedAt = Date(timeIntervalSince1970: 1_795_550_400)
-    private let lock = NSLock()
-    private var history: [String] = []
+    private(set) var requests: [String] = []
     private var acknowledged = false
 
-    var requests: [String] { lock.withLock { history } }
-
-    func respond(to request: URLRequest) -> (Int, Data) {
-        lock.withLock {
-            guard let url = request.url, request.value(forHTTPHeaderField: "X-WeeklyWins-Recorder") == "1" else {
-                return (403, Data())
-            }
-            switch (request.httpMethod, url.path) {
-            case ("POST", "/clock"):
-                guard let value = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first?.value,
-                      let seconds = Double(value), abs(seconds - Date.now.timeIntervalSince1970) < 60 else { return (400, Data()) }
-                history.append("clock")
-                return (204, Data())
-            case ("GET", "/recordings"):
-                history.append("list")
-                let json = acknowledged ? "[]" : #"[{"id":"\#(id.uuidString.lowercased())","recordedAt":\#(Int(recordedAt.timeIntervalSince1970))}]"#
-                return (200, Data(json.utf8))
-            case ("GET", "/recording"):
-                guard url.query == "id=\(id.uuidString)" else { return (404, Data()) }
-                let failFirstDownload = !history.contains("download")
-                history.append("download")
-                if failFirstDownload { return (503, Data()) }
-                var wav = Data(base64Encoded: "UklGRqQMAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YYAMAAA=")!
-                wav.append(Data(count: 3_200))
-                return (200, wav)
-            case ("DELETE", "/recording"):
-                guard url.query == "id=\(id.uuidString)" else { return (404, Data()) }
-                let failFirstAck = !history.contains("ack")
-                history.append("ack")
-                if failFirstAck { return (503, Data()) }
-                acknowledged = true
-                return (204, Data())
-            default:
-                return (404, Data())
-            }
+    func respond(to command: RecorderBLECommand, payload: Data) throws -> Data {
+        switch command {
+        case .clock:
+            XCTAssertEqual(payload.count, 4)
+            requests.append("clock")
+            return Data()
+        case .list:
+            XCTAssertEqual(payload, Data([1]))
+            requests.append("list")
+            return acknowledged ? Data() : uuidBytes(id) + uint32Bytes(UInt32(recordedAt.timeIntervalSince1970))
+        case .open:
+            XCTAssertEqual(payload, uuidBytes(id))
+            let fail = !requests.contains("download")
+            requests.append("download")
+            if fail { throw RecorderSyncError.disconnected }
+            return uint32Bytes(3_244)
+        case .read:
+            XCTAssertEqual(payload, uint32Bytes(0))
+            return fixtureWAV(sampleBytes: 3_200)
+        case .acknowledge:
+            XCTAssertEqual(payload, uuidBytes(id))
+            let fail = !requests.contains("ack")
+            requests.append("ack")
+            if fail { throw RecorderSyncError.disconnected }
+            acknowledged = true
+            return Data()
         }
     }
 }
 
-private final class RecorderURLProtocol: URLProtocol, @unchecked Sendable {
-    static var fixture: RecorderEndpointFixture?
+private func uuidBytes(_ id: UUID) -> Data { withUnsafeBytes(of: id.uuid) { Data($0) } }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+private func uint32Bytes(_ value: UInt32) -> Data {
+    withUnsafeBytes(of: value.littleEndian) { Data($0) }
+}
 
-    override func startLoading() {
-        guard let fixture = Self.fixture, let url = request.url else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-        let (status, body) = fixture.respond(to: request)
-        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
-        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: body)
-        client?.urlProtocolDidFinishLoading(self)
-    }
-
-    override func stopLoading() {}
+private func fixtureWAV(sampleBytes: Int) -> Data {
+    var wav = Data(base64Encoded: "UklGRqQMAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YYAMAAA=")!
+    wav.replaceSubrange(4..<8, with: uint32Bytes(UInt32(36 + sampleBytes)))
+    wav.replaceSubrange(40..<44, with: uint32Bytes(UInt32(sampleBytes)))
+    wav.append(Data(count: sampleBytes))
+    return wav
 }

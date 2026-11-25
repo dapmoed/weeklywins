@@ -188,7 +188,7 @@ final class RecordingService: NSObject, ObservableObject, AVAudioRecorderDelegat
         return summary
     }
 
-    func synchronizeRecorder(using client: RecorderSyncClient = RecorderSyncClient()) async throws -> Int {
+    func synchronizeRecorder(using client: RecorderSyncClient) async throws -> Int {
         guard !isSynchronizingRecorder else { throw RecorderSyncError.busy }
         isSynchronizingRecorder = true
         defer {
