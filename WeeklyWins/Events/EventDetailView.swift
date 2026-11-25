@@ -3,61 +3,30 @@ import SwiftUI
 struct EventDetailView: View {
     let entry: ReportEntry
     @ObservedObject var service: RecordingService
-    @State private var editing = false
+    @Environment(\.scenePhase) private var scenePhase
+    @FocusState private var textFocused: Bool
+    @State private var draft: DiaryEvent?
+    @State private var baseline: DiaryEvent?
     @State private var showSource = false
     @State private var showCategoryPicker = false
+    @State private var showFragment = false
+    @State private var confirmDiscard = false
+    @State private var confirmDelete = false
     @State private var error: String?
     @State private var deletedEvent: RecordingService.DeletedEvent?
 
+    private let drafts = EventDraftStore()
     private let dateFormat = Date.FormatStyle.dateTime.day().month(.wide).year().hour().minute()
         .locale(Locale(identifier: "ru_RU"))
 
     private var recording: Recording? { service.recordings.first { $0.id == entry.recording.id } }
     private var event: DiaryEvent? { recording?.events?.first { $0.id == entry.event.id } }
+    private var hasChanges: Bool { draft != baseline }
 
     var body: some View {
         Group {
             if let event {
-                List {
-                    Section {
-                        Text(event.text).font(.title2.weight(.semibold))
-                        Button {
-                            showCategoryPicker = true
-                        } label: {
-                            Label(event.category.title, systemImage: categoryIcon(event.category))
-                                .foregroundStyle(StudioTheme.categoryColor(event.category))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("event-category")
-                        .confirmationDialog("Категория", isPresented: $showCategoryPicker, titleVisibility: .visible) {
-                            ForEach(EventCategory.allCases) { category in
-                                Button(category.title) { updateCategory(of: event, to: category) }
-                            }
-                            Button("Отмена", role: .cancel) {}
-                        }
-                    }.listRowBackground(StudioTheme.surface)
-                    Section("Когда") {
-                        LabeledContent("Время записи", value: entry.recording.recordedAt.formatted(dateFormat))
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("Время записи")
-                            .accessibilityValue(entry.recording.recordedAt.formatted(dateFormat))
-                            .accessibilityIdentifier("event-time")
-                    }.listRowBackground(StudioTheme.surface)
-                    Section("Источник") {
-                        Text(event.sourceText).foregroundStyle(StudioTheme.secondary)
-                        Button("Открыть аудиозапись и текст") { showSource = true }
-                        Text("Записано \(entry.recording.recordedAt.formatted(dateFormat))")
-                            .font(.footnote).foregroundStyle(StudioTheme.secondary)
-                    }.listRowBackground(StudioTheme.surface)
-                    Section {
-                        Button("Изменить") { editing = true }.accessibilityIdentifier("edit-event")
-                        Button("Удалить событие", role: .destructive) {
-                            do { try delete(event) }
-                            catch { self.error = error.localizedDescription }
-                        }
-                    }.listRowBackground(StudioTheme.surface)
-                    if let error { Text(error).foregroundStyle(StudioTheme.coral) }
-                }
+                details(event)
             } else {
                 VStack(spacing: 20) {
                     ContentUnavailableView("Событие удалено", systemImage: "trash")
@@ -70,27 +39,110 @@ struct EventDetailView: View {
         }
         .scrollContentBackground(.hidden).background(StudioTheme.background)
         .navigationTitle("Событие").navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showSource) {
-            TranscriptView(recording: recording ?? entry.recording, recordingService: service)
-        }
-        .sheet(isPresented: $editing) {
-            if let event {
-                EventEditorView(event: event, service: service) { draft, baseline in
-                    try delete(baseline, editorDraft: draft)
+        .interactiveDismissDisabled(hasChanges)
+        .toolbar {
+            if draft != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Удалить событие", role: .destructive) {
+                            textFocused = false
+                            confirmDelete = true
+                        }
+                        .accessibilityIdentifier("event-editor-delete")
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .accessibilityLabel("Действия события")
+                    .accessibilityIdentifier("event-editor-actions")
                 }
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if draft != nil { saveControl }
+        }
+        .sheet(isPresented: $showSource) {
+            if let recording {
+                TranscriptView(recording: recording, recordingService: service, isReadOnly: true)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { persistDraft() }
+        }
+        .confirmationDialog("Закрыть редактор?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+            Button("Сохранить изменения", action: save)
+            Button("Отбросить изменения", role: .destructive, action: endEditing)
+        }
+        .confirmationDialog("Удалить событие?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Удалить событие", role: .destructive) {
+                if let event { delete(event) }
+            }
+            .accessibilityIdentifier("confirm-event-deletion")
+        }
     }
 
-    private func updateCategory(of event: DiaryEvent, to category: EventCategory) {
-        guard event.category != category else { return }
-        do {
-            guard let recording = self.recording,
-                  let index = recording.events?.firstIndex(where: { $0.id == event.id }) else { throw RecordingStoreError.recordingNotFound }
-            var events = recording.events ?? []
-            events[index].category = category
-            try service.saveEvents(recordingID: recording.id, events: events)
-        } catch { self.error = error.localizedDescription }
+    private func details(_ event: DiaryEvent) -> some View {
+        List {
+            Section {
+                if let draft {
+                    TextField("Что сделали", text: Binding(
+                        get: { self.draft?.text ?? draft.text },
+                        set: { self.draft?.text = $0 }
+                    ), axis: .vertical)
+                    .focused($textFocused)
+                    .accessibilityIdentifier("event-editor-title")
+                } else {
+                    Button { beginEditing(event) } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(event.text).font(.title2.weight(.semibold))
+                                .foregroundStyle(StudioTheme.text)
+                            Spacer(minLength: 4)
+                            Image(systemName: "pencil")
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Редактировать текст события")
+                    .accessibilityIdentifier("edit-event")
+                }
+
+                let category = draft?.category ?? event.category
+                Button { showCategoryPicker = true } label: {
+                    Label(category.title, systemImage: categoryIcon(category))
+                        .foregroundStyle(StudioTheme.categoryColor(category))
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("event-category")
+                .confirmationDialog("Категория", isPresented: $showCategoryPicker, titleVisibility: .visible) {
+                    ForEach(EventCategory.allCases) { option in
+                        Button(option.title) { selectCategory(option, for: event) }
+                    }
+                    Button("Отмена", role: .cancel) {}
+                }
+            }.listRowBackground(StudioTheme.surface)
+
+            Section {
+                let date = entry.recording.recordedAt.formatted(dateFormat)
+                Text("Запись \(date)")
+                    .foregroundStyle(StudioTheme.secondary)
+                    .accessibilityLabel("Время записи")
+                    .accessibilityValue(date)
+                    .accessibilityIdentifier("event-time")
+                Button("Открыть аудиозапись и текст") { showSource = true }
+                DisclosureGroup("Источник", isExpanded: $showFragment) {
+                    Text(event.sourceText).foregroundStyle(StudioTheme.secondary)
+                }
+            }.listRowBackground(StudioTheme.surface)
+
+            if draft == nil {
+                Section {
+                    Button("Удалить событие", role: .destructive) { delete(event) }
+                }.listRowBackground(StudioTheme.surface)
+            }
+            if let error { Text(error).foregroundStyle(StudioTheme.coral) }
+        }
     }
 
     private func categoryIcon(_ category: EventCategory) -> String {
@@ -102,8 +154,74 @@ struct EventDetailView: View {
         }
     }
 
-    private func delete(_ event: DiaryEvent, editorDraft: DiaryEvent? = nil) throws {
-        deletedEvent = try service.deleteEvent(event, editorDraft: editorDraft)
+    private func beginEditing(_ event: DiaryEvent) {
+        error = nil
+        baseline = event
+        draft = drafts.load(for: event) ?? event
+        textFocused = true
+    }
+
+    private func cancelEditing() {
+        textFocused = false
+        if hasChanges { confirmDiscard = true }
+        else { endEditing() }
+    }
+
+    private func endEditing() {
+        if let draft { drafts.remove(id: draft.id) }
+        resetEditing()
+    }
+
+    private func resetEditing() {
+        textFocused = false
+        baseline = nil
+        draft = nil
+        error = nil
+    }
+
+    private func selectCategory(_ category: EventCategory, for event: DiaryEvent) {
+        if draft != nil {
+            draft?.category = category
+        } else {
+            guard event.category != category else { return }
+            var updated = event
+            updated.category = category
+            do { try save(updated, replacing: event) }
+            catch { self.error = error.localizedDescription }
+        }
+    }
+
+    private func save() {
+        guard let draft, let baseline else { return }
+        do {
+            try save(draft, replacing: baseline)
+            endEditing()
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func save(_ draft: DiaryEvent, replacing baseline: DiaryEvent) throws {
+        guard let recording, var events = recording.events,
+              let index = events.firstIndex(where: { $0.id == baseline.id }) else {
+            throw RecordingStoreError.recordingNotFound
+        }
+        guard events[index] == baseline else { throw EventEditingError.conflictingChanges }
+        events[index] = draft
+        try service.saveEvents(recordingID: recording.id, events: events, expectedEvents: recording.events)
+    }
+
+    private func persistDraft() {
+        guard let draft, let baseline, event != nil else { return }
+        do {
+            if hasChanges { try drafts.save(draft, baseline: baseline) }
+            else { drafts.remove(id: draft.id) }
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func delete(_ event: DiaryEvent) {
+        do {
+            deletedEvent = try service.deleteEvent(baseline ?? event, editorDraft: draft)
+            resetEditing()
+        } catch { self.error = error.localizedDescription }
     }
 
     private func restore(_ deletion: RecordingService.DeletedEvent) {
@@ -112,91 +230,10 @@ struct EventDetailView: View {
             deletedEvent = nil
         } catch { self.error = error.localizedDescription }
     }
-}
-
-private struct EventEditorView: View {
-    @State private var event: DiaryEvent
-    @ObservedObject var service: RecordingService
-    let onDelete: (DiaryEvent, DiaryEvent) throws -> Void
-    @State private var error: String?
-    @State private var confirmDiscard = false
-    @State private var confirmDelete = false
-    @State private var isClosing = false
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
-    private let drafts = EventDraftStore()
-    @State private var baseline: DiaryEvent
-
-    init(event: DiaryEvent, service: RecordingService, onDelete: @escaping (DiaryEvent, DiaryEvent) throws -> Void) {
-        self.service = service
-        self.onDelete = onDelete
-        _baseline = State(initialValue: event)
-        _event = State(initialValue: EventDraftStore().load(for: event) ?? event)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Дело") {
-                    TextField("Что сделали", text: $event.text, axis: .vertical)
-                        .accessibilityIdentifier("event-editor-title")
-                }.listRowBackground(StudioTheme.surface)
-                Section {
-                    Picker("Категория", selection: $event.category) {
-                        ForEach(EventCategory.allCases) { Text($0.title).tag($0) }
-                    }
-                }.listRowBackground(StudioTheme.surface)
-            }
-            .scrollContentBackground(.hidden).background(StudioTheme.background)
-            .navigationTitle("Изменить событие").navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Отмена") { confirmDiscard = true } }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Удалить событие", role: .destructive) { confirmDelete = true }
-                            .accessibilityIdentifier("event-editor-delete")
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                    .accessibilityLabel("Действия события")
-                    .accessibilityIdentifier("event-editor-actions")
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                saveControl
-            }
-            .interactiveDismissDisabled()
-            .onChange(of: scenePhase) { _, phase in
-                guard phase == .background, !isClosing,
-                      service.recordings.first(where: { $0.id == event.recordingID })?
-                        .events?.contains(where: { $0.id == event.id }) == true else { return }
-                do {
-                    if event == baseline { drafts.remove(id: event.id) }
-                    else { try drafts.save(event, baseline: baseline) }
-                } catch { self.error = error.localizedDescription }
-            }
-            .confirmationDialog("Закрыть редактор?", isPresented: $confirmDiscard, titleVisibility: .visible) {
-                Button("Сохранить изменения") { save() }
-                Button("Отбросить изменения", role: .destructive, action: closeEditor)
-            }
-            .confirmationDialog("Удалить событие?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Удалить событие", role: .destructive) {
-                    do {
-                        try onDelete(event, baseline)
-                        closeEditor()
-                    } catch { self.error = error.localizedDescription }
-                }
-                .accessibilityIdentifier("confirm-event-deletion")
-            }
-        }.tint(StudioTheme.mint).preferredColorScheme(.dark)
-    }
 
     private var saveControl: some View {
-        let canSave = !event.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let canSave = hasChanges && draft?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         return VStack(alignment: .leading, spacing: 8) {
-            if let error {
-                Text(error).font(.footnote).foregroundStyle(StudioTheme.coral)
-            }
             Button(action: save) {
                 Text("Сохранить")
                     .font(.headline)
@@ -208,27 +245,12 @@ private struct EventEditorView: View {
             .disabled(!canSave)
             .opacity(canSave ? 1 : 0.55)
             .accessibilityIdentifier("save-event")
+            Button("Отмена", action: cancelEditing)
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .background(StudioTheme.background)
     }
 
-    private func closeEditor() {
-        isClosing = true
-        drafts.remove(id: event.id)
-        dismiss()
-    }
-
-    private func save() {
-        do {
-            guard let recording = service.recordings.first(where: { $0.id == event.recordingID }),
-                  let index = recording.events?.firstIndex(where: { $0.id == event.id }) else { throw RecordingStoreError.recordingNotFound }
-            var events = recording.events ?? []
-            guard events[index] == baseline else { throw EventEditingError.conflictingChanges }
-            events[index] = event
-            try service.saveEvents(recordingID: event.recordingID, events: events)
-            closeEditor()
-        } catch { self.error = error.localizedDescription }
-    }
 }

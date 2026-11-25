@@ -4,6 +4,169 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testCustomReportRangeUsesTwoDatesInOneCalendar() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let period = app.buttons["Выбрать период"]
+        let calendar = app.navigationBars["Свой период"]
+        let day = { (number: Int) in app.buttons["report-range-day-\(number)"] }
+        func openCalendar() {
+            period.tap()
+            app.buttons["Свой период…"].tap()
+            XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        }
+        func attach(_ name: String) {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = name
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+
+        openCalendar()
+        day(1).tap()
+        XCTAssertTrue(app.staticTexts["Выберите конец периода"].exists)
+        attach("A16-report-range-start")
+        app.buttons["Следующий месяц"].tap()
+        day(2).tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        let range = period.value as? String
+        XCTAssertTrue(range?.contains(" — ") == true)
+        XCTAssertEqual(app.buttons["Категория"].value as? String, "Работа")
+        let report = app.staticTexts["report-share-text"]
+        if report.exists, let range { XCTAssertTrue(report.label.contains(range)) }
+
+        openCalendar()
+        day(3).tap()
+        app.buttons["Отмена"].tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(period.value as? String, range)
+
+        openCalendar()
+        day(4).tap()
+        day(4).tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        XCTAssertTrue((period.value as? String)?.hasPrefix("4 ") == true)
+        XCTAssertFalse((period.value as? String)?.contains(" — ") == true)
+    }
+
+    @MainActor
+    func testReportRangeCalendarAtLargestTextSize() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = [
+            "-hasCompletedOnboarding", "YES",
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let period = app.buttons["Выбрать период"]
+        period.tap()
+        app.buttons["Свой период…"].tap()
+        let calendar = app.navigationBars["Свой период"]
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        let firstDay = app.buttons["report-range-day-1"]
+        let secondDay = app.buttons["report-range-day-2"]
+        XCTAssertTrue(firstDay.isHittable)
+        XCTAssertGreaterThanOrEqual(firstDay.frame.height, 43.99)
+        secondDay.tap()
+        XCTAssertTrue(app.staticTexts["Выберите конец периода"].exists)
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A16-report-range-largest-text"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        firstDay.tap()
+        XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
+        XCTAssertTrue((period.value as? String)?.hasPrefix("1 ") == true)
+        XCTAssertTrue((period.value as? String)?.contains(" — 2 ") == true)
+    }
+
+    @MainActor
+    func testReportPeriodMenuSwipesByWeekAndMonth() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let period = app.buttons["Выбрать период"]
+        let category = app.buttons["Категория"]
+        let report = app.staticTexts["report-share-text"]
+        XCTAssertTrue(period.waitForExistence(timeout: 5))
+        for mode in ["Неделя (текущая)", "Месяц"] {
+            period.tap()
+            app.buttons[mode].tap()
+
+            let initial = period.value as? String
+            let initialReport = report.exists ? report.label : nil
+            let initialCategory = category.value as? String
+            XCTAssertNotNil(initial)
+            period.swipeRight()
+            let previous = period.value as? String
+            XCTAssertNotEqual(previous, initial, mode)
+            if let initialReport {
+                XCTAssertTrue(!report.exists || report.label != initialReport)
+            }
+            period.swipeUp()
+            XCTAssertEqual(period.value as? String, previous)
+            period.swipeLeft()
+            XCTAssertEqual(period.value as? String, initial)
+            if let initialReport { XCTAssertEqual(report.label, initialReport) }
+
+            period.swipeLeft()
+            XCTAssertNotEqual(period.value as? String, initial)
+            period.swipeRight()
+            XCTAssertEqual(period.value as? String, initial)
+            XCTAssertEqual(category.value as? String, initialCategory)
+        }
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A15-report-period-swipe"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
+    func testRecordingPeriodSwipesInBothDirections() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+
+        for mode in ["Неделя", "Месяц"] {
+            app.buttons["recording-period-mode"].tap()
+            app.buttons[mode].tap()
+            let range = app.staticTexts["recording-period-range"]
+            XCTAssertTrue(range.waitForExistence(timeout: 5))
+            let initial = range.label
+            range.swipeRight()
+            let previous = range.label
+            XCTAssertNotEqual(previous, initial, mode)
+            range.swipeUp()
+            XCTAssertEqual(range.label, previous)
+            range.swipeLeft()
+            XCTAssertEqual(range.label, initial)
+            range.swipeLeft()
+            XCTAssertNotEqual(range.label, initial)
+            range.swipeRight()
+            XCTAssertEqual(range.label, initial)
+            XCTAssertEqual(app.buttons["recording-period-mode"].label, mode)
+        }
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A07-recording-period"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testCaptureFinalOverviewScreens() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
@@ -257,8 +420,14 @@ final class ActionButtonUITests: XCTestCase {
             period.tap()
             app.buttons[title].tap()
             if title == "Свой период…" {
-                XCTAssertTrue(app.datePickers["С"].waitForExistence(timeout: 5))
-                XCTAssertTrue(app.datePickers["По"].exists)
+                let calendar = app.navigationBars["Свой период"]
+                XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+                app.buttons["report-range-day-1"].tap()
+                let lastDay = Calendar.current.component(.day, from: .now)
+                let end = app.buttons["report-range-day-\(lastDay)"]
+                for _ in 0..<4 where !end.isHittable { app.scrollViews.firstMatch.swipeUp() }
+                end.tap()
+                XCTAssertTrue(calendar.waitForNonExistence(timeout: 5))
             }
             XCTAssertTrue(shareText.waitForExistence(timeout: 5))
             XCTAssertTrue(share.isHittable)
@@ -720,7 +889,7 @@ final class ActionButtonUITests: XCTestCase {
         let failure = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ошибка расшифровки")).firstMatch
         XCTAssertTrue(failure.waitForExistence(timeout: 5), app.debugDescription)
         failure.tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Прослушать"].exists)
         app.buttons["Настройки распознавания"].tap()
         XCTAssertTrue(app.navigationBars["Настройки"].waitForExistence(timeout: 5))
@@ -765,7 +934,7 @@ final class ActionButtonUITests: XCTestCase {
         app.buttons["Повторить расшифровку"].firstMatch.tap()
         XCTAssertTrue(failure.waitForExistence(timeout: 10))
         failure.tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Прослушать"].exists)
         #endif
     }
@@ -910,11 +1079,15 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(monthText.contains("Работал два часа"), monthText)
         attach("A15-report-month")
 
-        // Свой период: появляются поля «С/По», диапазон по умолчанию — текущая неделя.
+        // Свой период: две даты в одном календаре.
         menuButton.tap()
         app.buttons["Свой период…"].tap()
-        XCTAssertTrue(app.datePickers["С"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.datePickers["По"].exists)
+        let rangeCalendar = app.navigationBars["Свой период"]
+        XCTAssertTrue(rangeCalendar.waitForExistence(timeout: 5))
+        app.buttons["report-range-day-1"].tap()
+        let todayNumber = Calendar.current.component(.day, from: .now)
+        app.buttons["report-range-day-\(todayNumber)"].tap()
+        XCTAssertTrue(rangeCalendar.waitForNonExistence(timeout: 5))
         let customText = shareLabel()
         XCTAssertTrue(customText.contains("Дела за"), customText)
         XCTAssertTrue(customText.contains("Работал два часа"), customText)
@@ -938,6 +1111,94 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertTrue(compactStop.isHittable)
         compactStop.tap()
         XCTAssertEqual(menuButton.value as? String, selected)
+    }
+
+    @MainActor
+    func testEventAndTranscriptEditIndependently() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
+        app.launch()
+        defer { app.terminate() }
+
+        let originalTitle = "Проверил правку существующего события"
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", originalTitle)).firstMatch
+        guard card.waitForExistence(timeout: 5) else {
+            throw XCTSkip("Requires the inline editing recording fixture.")
+        }
+        card.tap()
+
+        func attach(_ name: String) {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = name
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+
+        let title = app.buttons["edit-event"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "event-time").count, 1)
+        let openSource = app.buttons["Открыть аудиозапись и текст"]
+        XCTAssertTrue(openSource.isHittable)
+        XCTAssertFalse(app.buttons["edit-event-transcript"].exists)
+        attach("A11-event-detail")
+
+        title.tap()
+        let field = app.descendants(matching: .any).matching(identifier: "event-editor-title").firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        if !app.keyboards.firstMatch.exists { field.tap() }
+        field.typeText(" правка")
+        let save = app.buttons["save-event"]
+        XCTAssertTrue(save.isHittable)
+        if app.keyboards.firstMatch.exists {
+            XCTAssertLessThanOrEqual(save.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+        }
+        attach("A12-inline-editor")
+        app.buttons["Отмена"].tap()
+        app.buttons["Отбросить изменения"].tap()
+        XCTAssertEqual(title.label, originalTitle)
+
+        title.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        if !app.keyboards.firstMatch.exists { field.tap() }
+        field.typeText(" сохранено")
+        save.tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.label.contains("сохранено"))
+
+        openSource.tap()
+        let sourceTranscript = app.staticTexts["source-transcript"]
+        XCTAssertTrue(sourceTranscript.waitForExistence(timeout: 5))
+        XCTAssertEqual(sourceTranscript.label, "Исходная расшифровка для проверки")
+        let play = app.buttons["Прослушать"]
+        XCTAssertTrue(play.isHittable)
+        XCTAssertTrue(play.isEnabled)
+        XCTAssertFalse(app.buttons["Изменить текст"].exists)
+        XCTAssertFalse(app.textViews["transcriptEditor"].exists)
+        attach("A08-recording-source")
+        app.buttons["recording-details-back"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments += [
+            "-UIPreferredContentSizeCategoryName",
+            UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
+        ]
+        app.launch()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.label.contains("сохранено"))
+        title.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        if !app.keyboards.firstMatch.exists { field.tap() }
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        field.typeText(" проверка")
+        XCTAssertTrue(save.isHittable)
+        XCTAssertLessThanOrEqual(save.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+        attach("A12-inline-editor-largest-text")
+        app.buttons["Отмена"].tap()
+        app.buttons["Отбросить изменения"].tap()
     }
 
     @MainActor
@@ -1206,7 +1467,7 @@ final class ActionButtonUITests: XCTestCase {
         let savedAudio = app.buttons["open-saved-audio"]
         XCTAssertTrue(savedAudio.waitForExistence(timeout: 5))
         savedAudio.tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5))
         app.buttons["Изменить текст"].tap()
         let editor = app.textViews["transcriptEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
@@ -1325,7 +1586,7 @@ final class ActionButtonUITests: XCTestCase {
         add(largest)
         app.buttons["Отмена"].tap()
         app.buttons["Отбросить изменения"].tap()
-        let preview = app.staticTexts["transcript-preview"]
+        let preview = app.buttons["transcript-preview"]
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
         XCTAssertNotEqual(preview.label, marker)
         app.buttons["recording-details-back"].tap()
@@ -1451,7 +1712,7 @@ final class ActionButtonUITests: XCTestCase {
         confirmation.lifetime = .keepAlways
         add(confirmation)
         savedAudio.tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5))
         app.buttons["recording-details-back"].tap()
         app.buttons["studio-tab-1"].tap()
 
@@ -1465,7 +1726,7 @@ final class ActionButtonUITests: XCTestCase {
         recordingsList.lifetime = .keepAlways
         add(recordingsList)
         recordingRow.tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["Расшифровать"].exists)
         let editor = app.textViews["transcriptEditor"]
         XCTAssertFalse(editor.exists)
@@ -1484,7 +1745,7 @@ final class ActionButtonUITests: XCTestCase {
         keyboardDone.tap()
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         app.buttons["save-transcript"].tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["transcript-preview"].waitForExistence(timeout: 5))
         let detailsScreenshot = XCTAttachment(screenshot: app.screenshot())
         detailsScreenshot.name = "A08-recording-details"
         detailsScreenshot.lifetime = .keepAlways
@@ -1504,7 +1765,7 @@ final class ActionButtonUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(audio.frame.width, 44 - 0.01)
         XCTAssertGreaterThanOrEqual(audio.frame.height, 44 - 0.01)
         audio.tap()
-        let sourceText = app.staticTexts["transcript-preview"]
+        let sourceText = app.buttons["transcript-preview"]
         XCTAssertTrue(sourceText.waitForExistence(timeout: 5))
         XCTAssertTrue(sourceText.label.contains(eventTitle))
         app.buttons["recording-details-back"].tap()
@@ -1512,7 +1773,7 @@ final class ActionButtonUITests: XCTestCase {
         event.tap()
         XCTAssertTrue(app.buttons["edit-event"].waitForExistence(timeout: 5))
         app.buttons["Открыть аудиозапись и текст"].tap()
-        XCTAssertTrue(app.staticTexts["transcript-preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["source-transcript"].waitForExistence(timeout: 5))
         #else
         throw XCTSkip("This recorder-flow check is for Simulator; Action Button end-to-end is covered by the device test.")
         #endif

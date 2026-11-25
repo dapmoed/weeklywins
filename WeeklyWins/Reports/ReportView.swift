@@ -4,10 +4,10 @@ struct ReportView: View {
     @ObservedObject private var service = RecordingService.shared
     @State private var choice: ReportChoice = .week
     @State private var date = Date.now
-    @State private var customStart: Date
-    @State private var customEnd: Date
+    @State private var customRange: ClosedRange<Date>
     @State private var category: EventCategory?
     @State private var showCalendar = false
+    @State private var showRangeCalendar = false
     @State private var selectedEntry: ReportEntry?
     @State private var selectedRecording: Recording?
     @State private var followsToday = true
@@ -32,8 +32,9 @@ struct ReportView: View {
         _category = State(initialValue: isToday ? nil : .work)
         let calendar = ReportQuery.calendar
         let week = calendar.dateInterval(of: .weekOfYear, for: .now)
-        _customStart = State(initialValue: week?.start ?? .now)
-        _customEnd = State(initialValue: week.flatMap { calendar.date(byAdding: .day, value: -1, to: $0.end) } ?? .now)
+        let start = week?.start ?? calendar.startOfDay(for: .now)
+        let end = week.flatMap { calendar.date(byAdding: .day, value: -1, to: $0.end) } ?? start
+        _customRange = State(initialValue: start...end)
     }
 
     private enum ReportChoice: String, CaseIterable, Identifiable {
@@ -51,8 +52,8 @@ struct ReportView: View {
             items = ReportQuery.events(in: service.recordings, period: .day, date: date)
         } else if choice == .custom {
             let calendar = ReportQuery.calendar
-            let start = calendar.startOfDay(for: customStart)
-            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: customEnd)) ?? customEnd
+            let start = calendar.startOfDay(for: customRange.lowerBound)
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: customRange.upperBound)) ?? customRange.upperBound
             items = ReportQuery.events(in: service.recordings, from: start, to: end)
         } else {
             items = ReportQuery.events(in: service.recordings, period: choice == .month ? .month : .week, date: date)
@@ -75,12 +76,6 @@ struct ReportView: View {
                 }
             }
             .onChange(of: choice) { textScrollPosition.scrollTo(edge: .top) }
-            .onChange(of: customStart) { newValue in
-                if newValue > customEnd { customEnd = newValue }
-            }
-            .onChange(of: customEnd) { newValue in
-                if newValue < customStart { customStart = newValue }
-            }
             .onChange(of: scenePhase) { _, phase in if phase == .active { refreshCalendarContext() } }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshFollowingToday() }
             .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
@@ -107,6 +102,13 @@ struct ReportView: View {
                 .environment(\.locale, Locale(identifier: "ru_RU"))
                 .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $showRangeCalendar) {
+                ReportRangeCalendar(initialDate: choice == .custom ? customRange.lowerBound : date) { range in
+                    customRange = range
+                    choice = .custom
+                    textScrollPosition.scrollTo(edge: .top)
+                }
+            }
             .sheet(item: $selectedEntry) { entry in
                 NavigationStack { EventDetailView(entry: entry, service: service) }
                     .preferredColorScheme(.dark).tint(StudioTheme.mint)
@@ -127,7 +129,6 @@ struct ReportView: View {
                 SettingsButton()
             }
             periodMenu
-            if choice == .custom { customRangePickers }
             CategoryFilter(category: $category, compact: true, showsSelectedCategorySummary: false)
             if items.isEmpty {
                 ContentUnavailableView("За этот период нет событий", systemImage: "chart.bar")
@@ -181,7 +182,7 @@ struct ReportView: View {
                 date = .now
             }
             Button("Свой период…") {
-                choice = .custom
+                showRangeCalendar = true
             }
         } label: {
             HStack(spacing: 6) {
@@ -198,8 +199,24 @@ struct ReportView: View {
             .contentShape(Rectangle())
             .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         }
+        .simultaneousGesture(PeriodSwipe(onShift: shiftReportPeriod), isEnabled: swipeableReportPeriod != nil)
         .accessibilityLabel("Выбрать период")
         .accessibilityValue(periodMenuTitle)
+    }
+
+    private var swipeableReportPeriod: ReportPeriod? {
+        switch choice {
+        case .week: return .week
+        case .month: return .month
+        case .day, .custom: return nil
+        }
+    }
+
+    private func shiftReportPeriod(_ offset: Int) {
+        guard let period = swipeableReportPeriod,
+              let shifted = ReportQuery.shiftedDate(date, period: period, offset: offset) else { return }
+        date = shifted
+        textScrollPosition.scrollTo(edge: .top)
     }
 
     private var periodMenuTitle: String {
@@ -207,26 +224,8 @@ struct ReportView: View {
         case .day: return ReportQuery.periodTitle(period: .day, date: date)
         case .week: return "Неделя \(ReportQuery.periodTitle(period: .week, date: date))"
         case .month: return ReportQuery.periodTitle(period: .month, date: date)
-        case .custom: return "Свой период"
+        case .custom: return customRangeTitle
         }
-    }
-
-    private var customRangePickers: some View {
-        HStack(spacing: 12) {
-            Text("С").font(.subheadline).foregroundStyle(StudioTheme.secondary)
-            DatePicker("С", selection: $customStart, displayedComponents: .date)
-                .labelsHidden()
-                .tint(StudioTheme.mint)
-            Text("По").font(.subheadline).foregroundStyle(StudioTheme.secondary)
-            DatePicker("По", selection: $customEnd, displayedComponents: .date)
-                .labelsHidden()
-                .tint(StudioTheme.mint)
-        }
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .padding(.horizontal, 12)
-        .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
-        .environment(\.calendar, ReportQuery.calendar)
-        .environment(\.locale, Locale(identifier: "ru_RU"))
     }
 
     private var shareGrouping: ReportQuery.ReportGrouping {
@@ -234,8 +233,8 @@ struct ReportView: View {
         case .month: return .week
         case .custom:
             let calendar = ReportQuery.calendar
-            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: customStart),
-                                                to: calendar.startOfDay(for: customEnd)).day ?? 0
+            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: customRange.lowerBound),
+                                                to: calendar.startOfDay(for: customRange.upperBound)).day ?? 0
             return days > 6 ? .week : .day
         case .day, .week: return .day
         }
@@ -265,11 +264,14 @@ struct ReportView: View {
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "d MMMM"
-        let start = formatter.string(from: customStart)
-        let end = formatter.string(from: customEnd)
-        if calendar.component(.year, from: customStart) != calendar.component(.year, from: customEnd) {
+        if calendar.isDate(customRange.lowerBound, inSameDayAs: customRange.upperBound) {
+            return formatter.string(from: customRange.lowerBound)
+        }
+        let start = formatter.string(from: customRange.lowerBound)
+        let end = formatter.string(from: customRange.upperBound)
+        if calendar.component(.year, from: customRange.lowerBound) != calendar.component(.year, from: customRange.upperBound) {
             formatter.dateFormat = "d MMMM yyyy"
-            return "\(formatter.string(from: customStart)) — \(formatter.string(from: customEnd))"
+            return "\(formatter.string(from: customRange.lowerBound)) — \(formatter.string(from: customRange.upperBound))"
         }
         return "\(start) — \(end)"
     }
@@ -537,11 +539,9 @@ struct ReportView: View {
             if !(isToday && followsToday) {
                 date = ReportQuery.preservingCalendarDate(date, from: previous, to: current) ?? date
             }
-            if let rebasedStart = ReportQuery.preservingCalendarDate(customStart, from: previous, to: current) {
-                customStart = rebasedStart
-            }
-            if let rebasedEnd = ReportQuery.preservingCalendarDate(customEnd, from: previous, to: current) {
-                customEnd = rebasedEnd
+            if let start = ReportQuery.preservingCalendarDate(customRange.lowerBound, from: previous, to: current),
+               let end = ReportQuery.preservingCalendarDate(customRange.upperBound, from: previous, to: current) {
+                customRange = start...end
             }
             selectedTimeZone = newZone
         }
@@ -556,6 +556,18 @@ struct ReportView: View {
         guard let shifted = ReportQuery.shiftedDate(date, period: .day, offset: direction) else { return }
         date = shifted
         if isToday { followsToday = Calendar.current.isDateInToday(shifted) }
+    }
+}
+
+struct PeriodSwipe: Gesture {
+    let onShift: (Int) -> Void
+
+    var body: some Gesture {
+        DragGesture(minimumDistance: 24).onEnded { value in
+            let movement = value.translation
+            guard abs(movement.width) >= 48, abs(movement.width) > abs(movement.height) * 1.5 else { return }
+            onShift(movement.width > 0 ? -1 : 1)
+        }
     }
 }
 

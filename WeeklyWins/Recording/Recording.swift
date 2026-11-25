@@ -23,6 +23,10 @@ enum RecordingProcessingState: String, Codable, Equatable {
     case failed
 }
 
+enum EventCategorySource: String, Codable {
+    case automatic, manual
+}
+
 struct Recording: Identifiable, Codable, Equatable {
     let id: UUID
     let recordedAt: Date
@@ -35,6 +39,7 @@ struct Recording: Identifiable, Codable, Equatable {
     var transcriptUpdatedAt: Date?
     var events: [DiaryEvent]?
     var eventsManuallyEdited: Bool?
+    var eventCategorySources: [UUID: EventCategorySource]?
     var deletedAt: Date?
     var deletedEventIDs: [UUID]?
     var automaticTranscriptionPending: Bool?
