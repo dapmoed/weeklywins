@@ -34,6 +34,8 @@ struct EventCategoryClassifier {
 
         let queryWeight = Self.weight(of: features)
         var scores: [EventCategory: [Double]] = [:]
+        var strongestByCategory: [EventCategory: Double] = [:]
+        var distinctiveMatches: [EventCategory: Double] = [:]
         for example in examples {
             let shared = features.intersection(example.features)
             let commonWords = shared.count(where: { !$0.contains(" ") })
@@ -43,6 +45,14 @@ struct EventCategoryClassifier {
             let overlap = Double(commonWords + 2 * commonPhrases)
             let coverage = overlap / Double(max(queryWeight, example.weight))
             if coverage >= 0.30 { scores[example.category, default: []].append(coverage) }
+
+            // A short, distinctive phrase can be buried within a much longer voice note.
+            // Normalize against both lengths so surrounding details do not hide that overlap.
+            let similarity = overlap / sqrt(Double(queryWeight) * Double(example.weight))
+            strongestByCategory[example.category] = max(strongestByCategory[example.category, default: 0], similarity)
+            if commonWords >= 4, commonPhrases >= 1, similarity >= 0.36 {
+                distinctiveMatches[example.category] = max(distinctiveMatches[example.category, default: 0], similarity)
+            }
         }
 
         let ranked = scores.compactMap { category, matches -> (category: EventCategory, score: Double)? in
@@ -50,9 +60,14 @@ struct EventCategoryClassifier {
             let best = matches.sorted(by: >).prefix(2)
             return (category, best.reduce(0, +) / 2)
         }.sorted { $0.score > $1.score }
-        guard let best = ranked.first, best.score >= 0.38,
-              best.score - (ranked.dropFirst().first?.score ?? 0) >= 0.12 else { return .unclassified }
-        return best.category
+        if let best = ranked.first, best.score >= 0.38 {
+            let runnerUp = ranked.dropFirst().first?.score ?? 0
+            return best.score - runnerUp >= 0.12 ? best.category : .unclassified
+        }
+
+        guard let best = distinctiveMatches.max(by: { $0.value < $1.value }) else { return .unclassified }
+        let rival = strongestByCategory.filter { $0.key != best.key }.values.max() ?? 0
+        return best.value - rival >= 0.10 ? best.key : .unclassified
     }
 
     private static func weight(of features: Set<String>) -> Int {

@@ -76,6 +76,28 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertEqual(EventCategoryClassifier(recordings: [work[0], automatic]).category(for: input), .unclassified)
     }
 
+    func testCategoryClassifierAcceptsOneStrongMatchButRejectsWeakOrConflictingEvidence() {
+        func example(_ text: String, category: EventCategory) -> Recording {
+            let id = UUID()
+            var recording = Recording(id: id, recordedAt: .now, fileName: "", state: .saved)
+            let event = DiaryEvent(recordingID: id, sourceText: text, text: text, category: category)
+            recording.events = [event]
+            recording.eventCategorySources = [event.id: .manual]
+            return recording
+        }
+
+        let sample = "Настроил доступ личного кабинета клиента"
+        let related = "Проверил доступ личного кабинета клиента после установки обновления"
+        let work = example(sample, category: .work)
+        let classifier = EventCategoryClassifier(recordings: [work])
+        XCTAssertEqual(classifier.category(for: related), .work)
+        XCTAssertEqual(classifier.category(for: "Проверил доступ к фотографиям"), .unclassified)
+        XCTAssertEqual(classifier.category(for: "Доступ клиента настроил кабинет личного помощника"), .unclassified)
+
+        let conflicting = example(sample, category: .hobby)
+        XCTAssertEqual(EventCategoryClassifier(recordings: [work, conflicting]).category(for: related), .unclassified)
+    }
+
     func testNaturalUnpunctuatedDiarySpeechKeepsEachActivitySeparate() {
         // The fixture uses an authored script, with the formatting observed in Apple's transcript.
         let text = "вчера после работы я зашёл в магазин у дома и купил хлеб яйца и корм для кота молоко забыл поэтому сегодня утром вернулся за ним дома я приготовил ужин и убрал на кухне на это ушло около 20 минут посуду вечером не мыл оставил её до утра сегодня в 05:30 позвонил Анне и подтвердил встречу на четверг ещё нужно отправить документы и забрать посылку сначала проверю почту потом заеду домой на выходных хочу разобрать коробки в прихожей но ремонт пока начинать не буду"
