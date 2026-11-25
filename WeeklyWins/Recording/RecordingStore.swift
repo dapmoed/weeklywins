@@ -179,7 +179,8 @@ final class RecordingStore {
         recordingID: UUID,
         transcript: String?,
         processingState: RecordingProcessingState,
-        errorMessage: String?
+        errorMessage: String?,
+        preserveExistingEvents: Bool = false
     ) throws {
         try validateReady()
         guard let index = recordings.firstIndex(where: { $0.id == recordingID && $0.deletedAt == nil }) else {
@@ -187,7 +188,7 @@ final class RecordingStore {
         }
 
         let previous = recordings[index]
-        if recordings[index].events == nil || recordings[index].eventsManuallyEdited == false,
+        if previous.events == nil || (!preserveExistingEvents && previous.eventsManuallyEdited == false),
            let transcript, processingState == .completed {
             let classifier = EventCategoryClassifier(recordings: recordings)
             let events = EventExtractor.extract(transcript, recordingID: recordingID).map { event in

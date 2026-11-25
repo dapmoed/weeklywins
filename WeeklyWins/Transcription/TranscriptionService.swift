@@ -69,7 +69,8 @@ final class TranscriptionService {
             recordingID: recordingID,
             transcript: text,
             processingState: .completed,
-            errorMessage: nil
+            errorMessage: nil,
+            preserveExistingEvents: true
         )
     }
 }
