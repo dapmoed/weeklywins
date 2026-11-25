@@ -70,7 +70,7 @@ struct RecordingView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
-                .gesture(periodSwipe, isEnabled: period != nil)
+                .gesture(PeriodSwipe(onShift: shiftPeriod), isEnabled: period != nil)
             } else {
                 List {
                     ForEach(groups.keys.sorted(by: >), id: \.self) { day in
@@ -148,7 +148,7 @@ struct RecordingView: View {
                 }
                 .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
                 .contentShape(Rectangle())
-                .simultaneousGesture(periodSwipe)
+                .simultaneousGesture(PeriodSwipe(onShift: shiftPeriod))
             }
         }
     }
@@ -161,14 +161,6 @@ struct RecordingView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-    }
-
-    private var periodSwipe: some Gesture {
-        DragGesture(minimumDistance: 24).onEnded { value in
-            let movement = value.translation
-            guard abs(movement.width) >= 48, abs(movement.width) > abs(movement.height) * 1.5 else { return }
-            shiftPeriod(movement.width > 0 ? -1 : 1)
-        }
     }
 
     private func shiftPeriod(_ offset: Int) {

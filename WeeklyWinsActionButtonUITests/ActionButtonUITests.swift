@@ -4,6 +4,51 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testReportPeriodMenuSwipesByWeekAndMonth() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
+        app.launch()
+        app.buttons["studio-tab-2"].tap()
+
+        let period = app.buttons["Выбрать период"]
+        let category = app.buttons["Категория"]
+        let report = app.staticTexts["report-share-text"]
+        XCTAssertTrue(period.waitForExistence(timeout: 5))
+        for mode in ["Неделя (текущая)", "Месяц"] {
+            period.tap()
+            app.buttons[mode].tap()
+
+            let initial = period.value as? String
+            let initialReport = report.exists ? report.label : nil
+            let initialCategory = category.value as? String
+            XCTAssertNotNil(initial)
+            period.swipeRight()
+            let previous = period.value as? String
+            XCTAssertNotEqual(previous, initial, mode)
+            if let initialReport {
+                XCTAssertTrue(!report.exists || report.label != initialReport)
+            }
+            period.swipeUp()
+            XCTAssertEqual(period.value as? String, previous)
+            period.swipeLeft()
+            XCTAssertEqual(period.value as? String, initial)
+            if let initialReport { XCTAssertEqual(report.label, initialReport) }
+
+            period.swipeLeft()
+            XCTAssertNotEqual(period.value as? String, initial)
+            period.swipeRight()
+            XCTAssertEqual(period.value as? String, initial)
+            XCTAssertEqual(category.value as? String, initialCategory)
+        }
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A15-report-period-swipe"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testRecordingPeriodSwipesInBothDirections() {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")

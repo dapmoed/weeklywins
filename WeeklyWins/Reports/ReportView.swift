@@ -198,8 +198,24 @@ struct ReportView: View {
             .contentShape(Rectangle())
             .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
         }
+        .simultaneousGesture(PeriodSwipe(onShift: shiftReportPeriod), isEnabled: swipeableReportPeriod != nil)
         .accessibilityLabel("Выбрать период")
         .accessibilityValue(periodMenuTitle)
+    }
+
+    private var swipeableReportPeriod: ReportPeriod? {
+        switch choice {
+        case .week: return .week
+        case .month: return .month
+        case .day, .custom: return nil
+        }
+    }
+
+    private func shiftReportPeriod(_ offset: Int) {
+        guard let period = swipeableReportPeriod,
+              let shifted = ReportQuery.shiftedDate(date, period: period, offset: offset) else { return }
+        date = shifted
+        textScrollPosition.scrollTo(edge: .top)
     }
 
     private var periodMenuTitle: String {
@@ -556,6 +572,18 @@ struct ReportView: View {
         guard let shifted = ReportQuery.shiftedDate(date, period: .day, offset: direction) else { return }
         date = shifted
         if isToday { followsToday = Calendar.current.isDateInToday(shifted) }
+    }
+}
+
+struct PeriodSwipe: Gesture {
+    let onShift: (Int) -> Void
+
+    var body: some Gesture {
+        DragGesture(minimumDistance: 24).onEnded { value in
+            let movement = value.translation
+            guard abs(movement.width) >= 48, abs(movement.width) > abs(movement.height) * 1.5 else { return }
+            onShift(movement.width > 0 ? -1 : 1)
+        }
     }
 }
 
