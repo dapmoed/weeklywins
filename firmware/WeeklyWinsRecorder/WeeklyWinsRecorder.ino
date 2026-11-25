@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ESP_I2S.h>
-#include <LittleFS.h>
+#include <SD.h>
+#include <SPI.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
@@ -9,6 +10,7 @@
 #include <time.h>
 
 #include "RecorderButton.h"
+#include "RecordingFileName.h"
 
 namespace {
 const int clockPin = 7;
@@ -17,13 +19,19 @@ const int dataPin = 9;
 const int bootButtonPin = 0;
 const int switchPin = 6;
 const int ledPin = 48;
+const int sdChipSelectPin = 10;
+const int sdMosiPin = 11;
+const int sdClockPin = 12;
+const int sdMisoPin = 13;
+const uint32_t sdFrequencyHz = 4000000;
 const int sampleRate = 16000;
 const size_t maxAudioBytes = 90 * sampleRate * sizeof(int16_t);
 const size_t fileSystemReserve = 64 * 1024;
 const time_t earliestTime = 1704067200;  // 2024-01-01 UTC
 const time_t latestTime = 4102444800;    // 2100-01-01 UTC
 const char *requestHeader = "X-WeeklyWins-Recorder";
-const char *partialPath = "/capture.part";
+const char *recordingDirectory = "/weeklywins";
+const char *partialPath = "/weeklywins/capture.part";
 
 I2SClass microphone;
 WebServer server(80);
@@ -77,29 +85,31 @@ void startCapture() {
         signalFailure("Set the clock from WeeklyWins before recording.");
         return;
     }
-    const size_t freeBytes = LittleFS.totalBytes() - LittleFS.usedBytes();
+    const uint64_t totalBytes = SD.totalBytes();
+    const uint64_t usedBytes = SD.usedBytes();
+    const uint64_t freeBytes = totalBytes > usedBytes ? totalBytes - usedBytes : 0;
     if (freeBytes < fileSystemReserve + sampleRate * sizeof(int16_t)) {
         signalFailure("Storage full. Import recordings to free space.");
         return;
     }
 
-    capture = LittleFS.open(partialPath, FILE_WRITE);
+    capture = SD.open(partialPath, FILE_WRITE);
     const WavHeader header;
     if (!capture || capture.write(reinterpret_cast<const uint8_t *>(&header), sizeof(header)) != sizeof(header)) {
         capture.close();
-        LittleFS.remove(partialPath);
+        SD.remove(partialPath);
         signalFailure("Can't allocate a recording.");
         return;
     }
     if (!microphone.begin(I2S_MODE_STD, sampleRate, I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO)) {
         capture.close();
-        LittleFS.remove(partialPath);
+        SD.remove(partialPath);
         signalFailure("Can't start the microphone.");
         return;
     }
-    finalPath = "/" + generateID() + "_" + String(static_cast<unsigned long>(now)) + ".wav";
+    finalPath = String(recordingDirectory) + "/" + generateID() + "_" + String(static_cast<unsigned long>(now)) + ".wav";
     audioBytes = 0;
-    audioLimit = min(maxAudioBytes, freeBytes - fileSystemReserve);
+    audioLimit = static_cast<size_t>(min<uint64_t>(maxAudioBytes, freeBytes - fileSystemReserve));
     indicator(24, 0, 0);
 }
 
@@ -111,8 +121,8 @@ void finishCapture() {
     bool finalized = audioBytes > 0 && capture.seek(0)
         && capture.write(reinterpret_cast<const uint8_t *>(&header), sizeof(header)) == sizeof(header);
     capture.close();
-    if (!finalized || !LittleFS.rename(partialPath, finalPath)) {
-        LittleFS.remove(partialPath);
+    if (!finalized || !SD.rename(partialPath, finalPath)) {
+        SD.remove(partialPath);
         signalFailure("Can't finalize the recording.");
         return;
     }
@@ -149,16 +159,22 @@ bool authorized() {
     return false;
 }
 
-bool recordingName(const String &name) {
-    return name.length() == 51 && name[36] == '_' && name.endsWith(".wav");
+String nextRecordingPath(File &directory) {
+    bool isDirectory = false;
+    for (String path = directory.getNextFileName(&isDirectory); !path.isEmpty();
+         path = directory.getNextFileName(&isDirectory)) {
+        const int separator = path.lastIndexOf('/');
+        if (!isDirectory && isRecordingFileName(path.c_str() + (separator + 1))) return path;
+    }
+    return "";
 }
 
 String pathForID(const String &id) {
     if (id.length() != 36) return "";
-    File root = LittleFS.open("/");
-    for (String path = root.getNextFileName(); !path.isEmpty(); path = root.getNextFileName()) {
-        const String name = path.startsWith("/") ? path.substring(1) : path;
-        if (recordingName(name) && name.substring(0, 36).equalsIgnoreCase(id)) return "/" + name;
+    File directory = SD.open(recordingDirectory);
+    for (String path = nextRecordingPath(directory); !path.isEmpty(); path = nextRecordingPath(directory)) {
+        const unsigned int start = path.lastIndexOf('/') + 1;
+        if (path.substring(start, start + 36).equalsIgnoreCase(id)) return path;
     }
     return "";
 }
@@ -178,20 +194,24 @@ void setClock() {
 
 void listRecordings() {
     if (!authorized()) return;
-    File root = LittleFS.open("/");
-    if (!root) {
+    File directory = SD.open(recordingDirectory);
+    if (!directory || !directory.isDirectory()) {
         server.send(500);
         return;
     }
-    String body = "[";
-    for (String path = root.getNextFileName(); !path.isEmpty(); path = root.getNextFileName()) {
-        const String name = path.startsWith("/") ? path.substring(1) : path;
-        if (!recordingName(name)) continue;
-        if (body.length() > 1) body += ',';
-        body += "{\"id\":\"" + name.substring(0, 36) + "\",\"recordedAt\":" + name.substring(37, 47) + "}";
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(200, "application/json", "");
+    server.sendContent("[");
+    bool first = true;
+    for (String path = nextRecordingPath(directory); !path.isEmpty(); path = nextRecordingPath(directory)) {
+        const unsigned int start = path.lastIndexOf('/') + 1;
+        const String item = (first ? "{" : ",{") + String("\"id\":\"") + path.substring(start, start + 36)
+            + "\",\"recordedAt\":" + path.substring(start + 37, start + 47) + "}";
+        server.sendContent(item);
+        first = false;
     }
-    body += ']';
-    server.send(200, "application/json", body);
+    server.sendContent("]");
+    server.sendContent("");
 }
 
 void downloadRecording() {
@@ -201,7 +221,7 @@ void downloadRecording() {
         server.send(404);
         return;
     }
-    File audio = LittleFS.open(path, FILE_READ);
+    File audio = SD.open(path, FILE_READ);
     if (!audio) {
         server.send(500);
         return;
@@ -212,7 +232,7 @@ void downloadRecording() {
 void acknowledgeRecording() {
     if (!authorized()) return;
     const String path = pathForID(server.arg("id"));
-    server.send(path.isEmpty() || LittleFS.remove(path) ? 204 : 500);
+    server.send(path.isEmpty() || SD.remove(path) ? 204 : 500);
 }
 
 bool startServer(Preferences &preferences) {
@@ -254,14 +274,24 @@ void setup() {
     pinMode(bootButtonPin, INPUT_PULLUP);
     pinMode(switchPin, INPUT_PULLUP);
     indicator(0, 0, 0);
-    Preferences preferences;
-    if (!preferences.begin("weeklywins")
-        || !LittleFS.begin(!preferences.getBool("fs-ready"))
-        || (!preferences.getBool("fs-ready") && !preferences.putBool("fs-ready", true))) {
-        signalFailure("Can't mount recording storage.");
+    SPI.begin(sdClockPin, sdMisoPin, sdMosiPin, sdChipSelectPin);
+    if (!SD.begin(sdChipSelectPin, SPI, sdFrequencyHz, "/sd", 5, false)) {
+        signalFailure("Can't mount microSD. Insert a FAT32 card and restart.");
         return;
     }
-    LittleFS.remove(partialPath);
+    if (!SD.exists(recordingDirectory) && !SD.mkdir(recordingDirectory)) {
+        signalFailure("Can't create the WeeklyWins directory on microSD.");
+        return;
+    }
+    if (SD.exists(partialPath) && !SD.remove(partialPath)) {
+        signalFailure("Can't remove the unfinished recording on microSD.");
+        return;
+    }
+    Preferences preferences;
+    if (!preferences.begin("weeklywins")) {
+        signalFailure("Can't open recorder settings.");
+        return;
+    }
     if (!startServer(preferences)) {
         signalFailure("Can't start the Wi-Fi access point.");
         return;
