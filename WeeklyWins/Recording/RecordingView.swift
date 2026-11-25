@@ -6,6 +6,8 @@ struct RecordingView: View {
     @ObservedObject private var recorder = RecordingService.shared
     @State private var selectedRecording: Recording?
     @State private var query = ""
+    @State private var period: ReportPeriod?
+    @State private var periodDate = Date.now
     @State private var error: String?
     @State private var isScrolling = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -17,8 +19,14 @@ struct RecordingView: View {
     }
 
     private var recordingsByDay: [Date: [Recording]] {
-        let calendar = Calendar.current
-        let matching = recorder.recordings.filter { RecordingSearch.matches($0, query: query) }
+        let calendar = ReportQuery.calendar
+        let interval = period.flatMap { calendar.dateInterval(of: $0.component, for: periodDate) }
+        let matching = recorder.recordings.filter { recording in
+            if let interval, recording.recordedAt < interval.start || recording.recordedAt >= interval.end {
+                return false
+            }
+            return RecordingSearch.matches(recording, query: query)
+        }
         return Dictionary(grouping: matching) { calendar.startOfDay(for: $0.recordedAt) }
     }
 
@@ -52,12 +60,17 @@ struct RecordingView: View {
             .padding(.leading, 14)
             .padding(.trailing, query.isEmpty ? 14 : 0)
             .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+            periodControls
             if groups.isEmpty {
                 ContentUnavailableView(
-                    query.isEmpty ? "Пока нет записей" : "Ничего не найдено",
+                    query.isEmpty && period != nil ? "За этот период нет записей"
+                        : query.isEmpty ? "Пока нет записей" : "Ничего не найдено",
                     systemImage: query.isEmpty ? "waveform" : "magnifyingglass",
                     description: Text(query.isEmpty ? "Начните голосовую запись кнопкой внизу." : "Попробуйте другое слово или дату.")
-                ).frame(maxWidth: .infinity, maxHeight: .infinity)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(periodSwipe, isEnabled: period != nil)
             } else {
                 List {
                     ForEach(groups.keys.sorted(by: >), id: \.self) { day in
@@ -104,6 +117,63 @@ struct RecordingView: View {
         )) {
             Button("Готово") { error = nil }
         } message: { Text(error ?? "") }
+    }
+
+    private var periodControls: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Menu {
+                Button("Все записи") { period = nil }
+                ForEach([ReportPeriod.week, .month]) { option in
+                    Button(option.title) {
+                        if period == nil { periodDate = .now }
+                        period = option
+                    }
+                }
+            } label: {
+                Label(period?.title ?? "Все записи", systemImage: "calendar")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+            }
+            .accessibilityIdentifier("recording-period-mode")
+
+            if let period {
+                HStack(spacing: 4) {
+                    periodArrow(-1, label: "Предыдущий период", icon: "chevron.left")
+                    Text(ReportQuery.periodTitle(period: period, date: periodDate))
+                        .font(.subheadline.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .accessibilityIdentifier("recording-period-range")
+                    periodArrow(1, label: "Следующий период", icon: "chevron.right")
+                }
+                .background(StudioTheme.surface, in: RoundedRectangle(cornerRadius: StudioTheme.cornerRadius))
+                .contentShape(Rectangle())
+                .simultaneousGesture(periodSwipe)
+            }
+        }
+    }
+
+    private func periodArrow(_ offset: Int, label: String, icon: String) -> some View {
+        Button { shiftPeriod(offset) } label: {
+            Image(systemName: icon)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private var periodSwipe: some Gesture {
+        DragGesture(minimumDistance: 24).onEnded { value in
+            let movement = value.translation
+            guard abs(movement.width) >= 48, abs(movement.width) > abs(movement.height) * 1.5 else { return }
+            shiftPeriod(movement.width > 0 ? -1 : 1)
+        }
+    }
+
+    private func shiftPeriod(_ offset: Int) {
+        guard let period, let shifted = ReportQuery.shiftedDate(periodDate, period: period, offset: offset) else { return }
+        periodDate = shifted
     }
 
     private func openRecording(_ recording: Recording) {

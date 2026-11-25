@@ -4,6 +4,39 @@ import UIKit
 
 final class ActionButtonUITests: XCTestCase {
     @MainActor
+    func testRecordingPeriodSwipesInBothDirections() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
+        app.launch()
+        app.buttons["studio-tab-1"].tap()
+
+        for mode in ["Неделя", "Месяц"] {
+            app.buttons["recording-period-mode"].tap()
+            app.buttons[mode].tap()
+            let range = app.staticTexts["recording-period-range"]
+            XCTAssertTrue(range.waitForExistence(timeout: 5))
+            let initial = range.label
+            range.swipeRight()
+            let previous = range.label
+            XCTAssertNotEqual(previous, initial, mode)
+            range.swipeUp()
+            XCTAssertEqual(range.label, previous)
+            range.swipeLeft()
+            XCTAssertEqual(range.label, initial)
+            range.swipeLeft()
+            XCTAssertNotEqual(range.label, initial)
+            range.swipeRight()
+            XCTAssertEqual(range.label, initial)
+            XCTAssertEqual(app.buttons["recording-period-mode"].label, mode)
+        }
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "A07-recording-period"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testCaptureFinalOverviewScreens() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "com.weeklywins.app")
