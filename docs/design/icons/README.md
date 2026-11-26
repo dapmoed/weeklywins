@@ -33,13 +33,13 @@
 
 ### Текущая «Шов / Студия»
 
-В issue [#12](https://github.com/dapmoed/weeklywins/issues/12) утверждена иконка «Шов» в палитре «Студия». В `AppIcon.appiconset` подключены предоставленные светлый и тёмный PNG, а тонированный вариант собран из подготовленного монохромного SVG-слоя, чтобы iOS могла применить выбранный оттенок. Исходники находятся в [дизайн-комплекте issue](https://github.com/dapmoed/weeklywins/tree/0f6912a3d24d270f8f317c1adfc30ddda7c218ca/design/app-icon/assets/seam).
+В issue [#12](https://github.com/dapmoed/weeklywins/issues/12) утверждена иконка «Шов» в палитре «Студия». По запросу пользователя фоны светлого и тёмного вариантов установлены в чёрный цвет (`#000000`), цвета и геометрия знака сохранены. Исходные SVG находятся в [seam-studio](seam-studio/). Тонированный вариант использует подготовленный монохромный SVG-слой на прозрачном фоне, чтобы iOS могла применить выбранный оттенок. Остальные исходники доступны в [дизайн-комплекте issue](https://github.com/dapmoed/weeklywins/tree/0f6912a3d24d270f8f317c1adfc30ddda7c218ca/design/app-icon/assets/seam).
 
 Проверено на домашнем экране iPhone 17 Pro Simulator с iOS 26.5:
 
-- [Стандартное оформление](verification/weeklywins-seam-studio-light-simulator-2026-11-26.png)
-- [Тёмное оформление](verification/weeklywins-seam-studio-dark-simulator-2026-11-26.png)
-- [Однотонное оформление с системным оттенком](verification/weeklywins-seam-studio-tinted-simulator-2026-11-26.png)
+- [Стандартное оформление с чёрным фоном](verification/weeklywins-seam-studio-black-light-simulator-2026-11-26.png)
+- [Тёмное оформление с чёрным фоном](verification/weeklywins-seam-studio-black-dark-simulator-2026-11-26.png)
+- [Однотонное оформление с системным оттенком](verification/weeklywins-seam-studio-black-tinted-simulator-2026-11-26.png)
 
 ### Предыдущие варианты
 
