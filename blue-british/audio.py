@@ -1,8 +1,9 @@
-import json, math, os, subprocess
+import json, os, subprocess, sys
 import numpy as np
 import soundfile as sf
 
-ROOT=os.path.dirname(os.path.abspath(__file__)); SR=44100; DUR=35.0
+ROOT=os.path.abspath(sys.argv[1]) if len(sys.argv)>1 else os.path.dirname(os.path.abspath(__file__))
+SR=44100; DUR=35.0
 with open(os.path.join(ROOT,'lines.json'),encoding='utf8') as f: lines=json.load(f)
 mix=np.zeros((int(SR*DUR),2),dtype=np.float32)
 
