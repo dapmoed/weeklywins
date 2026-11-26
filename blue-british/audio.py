@@ -33,6 +33,12 @@ for b in range(63):
 for sec,freq,amp in [(3.4,880,.10),(7.8,1318,.09),(11.5,784,.06),(19.7,698,.05),(27.5,1175,.17),(31.5,988,.08)]:
     add_tone(freq,sec,.45,amp,partials=(1,.5,.18, .05),decay=5)
 
+if len(sys.argv)>1:
+    for hit, second in enumerate(np.arange(27.84, 34.5, .245)):
+        add_tone(106+16*(hit%2),second,.115,.031,(-.12 if hit%2 else .14),decay=22)
+    for second, frequency in [(29.25,294),(30.09,247),(32.80,392),(33.06,294)]:
+        add_tone(frequency,second,.22,.065,partials=(1,.41,.06),decay=11)
+
 for item in lines:
     base=os.path.join(ROOT,'out','voice_'+item['id'])
     aiff=base+'.aiff'; wav=base+'.wav'
