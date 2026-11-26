@@ -1,14 +1,19 @@
 import * as T from '/node_modules/three/build/three.module.js';
 
+const portrait = new URLSearchParams(location.search).get('format') === 'phone';
+const width = portrait ? 1080 : 1920;
+const height = portrait ? 1920 : 1080;
 const renderer = new T.WebGLRenderer({canvas: document.querySelector('#picture'), antialias:true, preserveDrawingBuffer:true});
-renderer.setSize(1920,1080,false);
+renderer.setSize(width,height,false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = T.PCFShadowMap;
 renderer.toneMapping = T.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.14;
-const camera = new T.PerspectiveCamera(34,16/9,.1,50);
+const camera = new T.PerspectiveCamera(portrait ? 46 : 34,width/height,.1,50);
 const scene = new T.Scene();
 const canvas = document.querySelector('#titles');
+canvas.width=width;
+canvas.height=height;
 const titles = canvas.getContext('2d');
 const clamp = t => Math.min(1,Math.max(0,t));
 const smooth = t => { const v=clamp(t); return v*v*(3-2*v); };
@@ -88,9 +93,11 @@ const tile=[clay(0x8ea6a0),clay(0x9aafab),clay(0x839d9d)];
 const planks=[clay(0xaf7551),clay(0xb9815a),clay(0xc18b64)];
 scene.background=new T.Color(0x574650);
 box(scene,timber,0,-.18,0,32,.32,24);
-box(scene,plaster,-3,2.2,-2.9,12,4.4,.22);
-box(scene,bathWall,5.9,2.4,-2.9,6,4.8,.22);
-box(scene,bathWall,8.83,2.4,-.03,.21,4.8,5.84);
+const wallHeight=portrait?7:4.4;
+box(scene,plaster,-3,wallHeight/2,-2.9,12,wallHeight,.22);
+const bathWallHeight=portrait?7:4.8;
+box(scene,bathWall,5.9,bathWallHeight/2,-2.9,6,bathWallHeight,.22);
+box(scene,bathWall,8.83,bathWallHeight/2,-.03,.21,bathWallHeight,5.84);
 box(scene,ivory,-3,.14,-2.74,12,.24,.12);
 for(let row=0;row<21;row++){
   for(let col=0;col<4;col++){
@@ -285,8 +292,37 @@ function solidText(text,x,y,size,color,align='center',family='Georgia'){
   titles.font='700 '+size+'px '+family;
   titles.fillText(text,x,y);
 }
+function phoneLettering(shot,t){
+  const cream='#fff1d5';
+  if(shot===0){
+    solidText('КУЗЯ',width/2,187,106,cream);
+    solidText('И ТРИ ВАЖНЫХ ДЕЛА',width/2,272,40,cream);
+  } else if(shot<4||t>=32){
+    const labels=['','01   ПОЕСТЬ','02   ПОСПАТЬ','03   ЛОТОК','ДОГОНЯЙ!'];
+    solidText(labels[shot],100,189,40,cream,'left','Arial');
+  }
+  const lines=[
+    [captions[0]],
+    ['Первый: съесть всё. Проверить','миску. На всякий случай.'],
+    [captions[2]],
+    ['Третий: сходить в туалет.','Лоток почти пригодился.'],
+    [captions[4]]
+  ][shot];
+  const rowHeight=57;
+  const captionHeight=lines.length*rowHeight+40;
+  const captionBottom=1708;
+  titles.fillStyle='#392d34e8';
+  titles.beginPath();
+  titles.roundRect(76,captionBottom-captionHeight,width-152,captionHeight,31);
+  titles.fill();
+  lines.forEach((line,i)=>solidText(line,width/2,captionBottom-captionHeight+20+rowHeight*(i+.5),43,cream,'center','Arial'));
+}
 function lettering(shot,t){
-  titles.clearRect(0,0,1920,1080);
+  titles.clearRect(0,0,width,height);
+  if(portrait){
+    phoneLettering(shot,t);
+    return;
+  }
   const cream='#fff1d5';
   if(shot===0){
     solidText('КУЗЯ',960,88,84,cream);
@@ -378,7 +414,9 @@ window.render=t=>{
   paws[0].position.y+=.19*reach;
   paws[0].position.z+=.34*reach;
 
-  if(t<12){
+  if(portrait){
+    framePhone(t,x);
+  } else if(t<12){
     camera.position.set(shot===0?1.15:-.91,3.02,8.05);
     camera.lookAt(.13,1.56,.05);
   } else if(t<20){
@@ -402,6 +440,32 @@ window.render=t=>{
   renderer.render(scene,camera);
   lettering(shot,t);
 };
+function framePhone(t,catX){
+  if(t<12){
+    camera.position.set(t<4?.96:-.15,3.24,7.45);
+    camera.lookAt(.48,1.48,.12);
+  } else if(t<20){
+    const dolly=smooth((t-12)/8);
+    camera.position.set(-.15+dolly*.30,2.74,7.75-dolly*.54);
+    camera.lookAt(-.66,1.2,.02);
+  } else if(t<22.25){
+    const follow=catX+.70;
+    camera.position.set(follow-.26,3.12,8.3);
+    camera.lookAt(follow,1.41,.05);
+  } else if(t>=26.55&&t<27.75){
+    camera.position.set(6.38,3.18,7.05);
+    camera.lookAt(5.91,1.19,.89);
+  } else if(t<28.65){
+    const follow=Math.max(4.42,Math.min(5.87,catX+.66));
+    camera.position.set(follow+.35,3.14,8.21);
+    camera.lookAt(follow,1.40,.17);
+  } else {
+    const focus=(catX+toy.position.x)/2;
+    const spread=Math.abs(catX-toy.position.x);
+    camera.position.set(focus-.16,2.92,8.3+Math.max(0,spread-1.1)*1.55);
+    camera.lookAt(focus,1.30,.24);
+  }
+}
 function movingPhase(time,running) {
   return time*(running?14.7:10.2);
 }
