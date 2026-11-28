@@ -2,27 +2,39 @@
 #include <cassert>
 #include <cstdint>
 
+constexpr int noAction = 0;
+constexpr int toggleRecording = 1;
+constexpr int openPairingWindow = 2;
+
 int main() {
     RecorderButton button;
-    assert(!button.update(false, false, 0));
-    assert(!button.update(false, true, 10));
-    assert(!button.update(false, false, 14));
-    assert(!button.update(false, true, 17));
-    assert(!button.update(false, true, 46));
-    assert(button.update(false, true, 47));
-    assert(!button.update(false, true, 200));
 
-    // Pressing BOOT while the external switch is held is still one gesture.
-    assert(!button.update(true, true, 230));
-    assert(!button.update(true, false, 250));
-    assert(!button.update(false, false, 280));
-    assert(!button.update(false, false, 310));
+    // A short external-switch tap toggles recording only after release.
+    assert(button.update(false, false, 0) == noAction);
+    assert(button.update(false, true, 10) == noAction);
+    assert(button.update(false, true, 40) == noAction);
+    assert(button.update(false, false, 50) == noAction);
+    assert(button.update(false, false, 80) == toggleRecording);
 
-    assert(!button.update(true, false, 320));
-    assert(button.update(true, false, 350));
-    assert(!button.update(true, false, 500));
+    // Holding the external switch for five seconds opens pairing once.
+    assert(button.update(false, true, 100) == noAction);
+    assert(button.update(false, true, 130) == noAction);
+    assert(button.update(false, true, 5129) == noAction);
+    assert(button.update(false, true, 5130) == openPairingWindow);
+    assert(button.update(false, true, 8000) == noAction);
+    assert(button.update(false, false, 8010) == noAction);
+    assert(button.update(false, false, 8040) == noAction);
 
-    RecorderButton ticker;
-    assert(!ticker.update(false, true, UINT32_MAX - 10));
-    assert(ticker.update(false, true, 19));
+    // The built-in BOOT button remains a record toggle, never pairing.
+    assert(button.update(true, false, 9000) == noAction);
+    assert(button.update(true, false, 9030) == noAction);
+    assert(button.update(true, false, 14030) == noAction);
+    assert(button.update(false, false, 14040) == noAction);
+    assert(button.update(false, false, 14070) == toggleRecording);
+
+    // Hold timing remains correct across millis() wraparound.
+    RecorderButton wraparound;
+    assert(wraparound.update(false, true, UINT32_MAX - 20) == noAction);
+    assert(wraparound.update(false, true, 9) == noAction);
+    assert(wraparound.update(false, true, 5009) == openPairingWindow);
 }

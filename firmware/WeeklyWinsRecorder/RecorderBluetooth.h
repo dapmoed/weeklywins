@@ -3,8 +3,6 @@
 #include <Arduino.h>
 #include "RecorderBLEFrames.h"
 
-class Preferences;
-
 namespace RecorderBluetooth {
 constexpr uint16_t maxWindow = 8192;
 constexpr uint8_t pageSize = 16;
@@ -16,7 +14,10 @@ struct Request {
     uint8_t bytes[20];  // Request tag, operation, then arguments.
 };
 
-bool begin(Preferences &preferences);
+bool begin();
+void openPairingWindow();
+void closePairingWindow();
+bool pairingWindowActive();
 uint32_t session();
 bool receive(Request &request);
 uint8_t *responseBuffer();

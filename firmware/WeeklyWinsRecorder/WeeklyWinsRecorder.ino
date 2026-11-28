@@ -2,7 +2,6 @@
 #include <ESP_I2S.h>
 #include <SD.h>
 #include <SPI.h>
-#include <Preferences.h>
 #include <esp_random.h>
 #include <sys/time.h>
 #include <time.h>
@@ -40,6 +39,7 @@ size_t audioBytes = 0;
 size_t audioLimit = 0;
 bool initialized = false;
 RecorderButton recordButton;
+bool pairingIndicatorOn = false;
 uint32_t transferSession = UINT32_MAX;
 
 struct WavHeader {
@@ -80,6 +80,7 @@ String generateID() {
 }
 
 void startCapture() {
+    RecorderBluetooth::closePairingWindow();
     const time_t now = time(nullptr);
     if (now < earliestTime || now >= latestTime) {
         signalFailure("Set the clock from WeeklyWins before recording.");
@@ -259,10 +260,22 @@ void handleTransfer(const RecorderBluetooth::Request &request) {
 void checkButton() {
     const bool bootPressed = digitalRead(bootButtonPin) == LOW;
     const bool switchPressed = digitalRead(switchPin) == LOW;
-    if (!recordButton.update(bootPressed, switchPressed, millis())) return;
+    const auto action = recordButton.update(bootPressed, switchPressed, millis(), static_cast<bool>(capture));
+    if (action == RecorderButton::openPairingWindow) {
+        RecorderBluetooth::openPairingWindow();
+        return;
+    }
+    if (action != RecorderButton::toggleRecording) return;
 
     if (capture) finishCapture();
     else startCapture();
+}
+
+void updatePairingIndicator() {
+    const bool pairing = RecorderBluetooth::pairingWindowActive();
+    if (capture || pairing == pairingIndicatorOn) return;
+    pairingIndicatorOn = pairing;
+    indicator(0, 0, pairing ? 24 : 0);
 }
 }  // namespace
 
@@ -284,12 +297,7 @@ void setup() {
         signalFailure("Can't remove the unfinished recording on microSD.");
         return;
     }
-    Preferences preferences;
-    if (!preferences.begin("weeklywins")) {
-        signalFailure("Can't open recorder settings.");
-        return;
-    }
-    if (!RecorderBluetooth::begin(preferences)) {
+    if (!RecorderBluetooth::begin()) {
         signalFailure("Can't start Bluetooth.");
         return;
     }
@@ -303,6 +311,7 @@ void loop() {
         return;
     }
     checkButton();
+    updatePairingIndicator();
     if (capture) captureSamples();
     const uint32_t currentSession = RecorderBluetooth::session();
     if (transferSession != currentSession) {

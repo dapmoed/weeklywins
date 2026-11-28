@@ -13,6 +13,7 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
 
     @Published private(set) var pairedID = UserDefaults.standard.string(forKey: RecorderBluetooth.pairingKey).flatMap(UUID.init(uuidString:))
     @Published private(set) var status = "Диктофон не подключён"
+    @Published private(set) var isConnected = false
 
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
@@ -58,6 +59,7 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
         needsSync = false
         reconnectImmediately = false
         pairedID = nil
+        isConnected = false
         UserDefaults.standard.removeObject(forKey: Self.pairingKey)
         reconnectTask?.cancel()
         syncTask?.cancel()
@@ -84,6 +86,7 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
         if central.state != .poweredOn {
             ready = false
             discoveringServices = false
+            isConnected = false
             finishRequest(.failure(RecorderSyncError.disconnected))
         }
     }
@@ -175,6 +178,7 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
         guard frame.first == tag, var reply else { return }
         do {
             if let payload = try reply.consume(frame) {
+                isConnected = true
                 finishRequest(.success(payload))
             } else {
                 self.reply = reply
@@ -219,6 +223,7 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
     private func connectionEnded(_ device: CBPeripheral, using central: CBCentralManager) {
         guard peripheral?.identifier == device.identifier else { return }
         ready = false
+        isConnected = false
         discoveringServices = false
         command = nil
         response = nil
@@ -285,10 +290,12 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
             status = "Импортируем записи…"
             do {
                 let count = try await RecordingService.shared.synchronizeRecorder(using: client)
-                status = count == 0 ? "Подключён. Записи импортируются автоматически." : "Импортировано записей: \(count)."
+                isConnected = true
+                status = count == 0 ? "Записи импортируются автоматически." : "Импортировано записей: \(count)."
             } catch is CancellationError {
                 if ready { status = "Импорт продолжится при следующем запуске." }
             } catch RecorderSyncError.recorderBusy {
+                isConnected = true
                 status = "Диктофон записывает. Импорт начнётся после остановки."
             } catch {
                 if ready {

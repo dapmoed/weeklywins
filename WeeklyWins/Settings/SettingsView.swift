@@ -300,8 +300,17 @@ private struct RecorderSyncView: View {
     var body: some View {
         List {
             Section {
+                Label(
+                    recorder.isConnected ? "Диктофон подключён" : "Диктофон не подключён",
+                    systemImage: recorder.isConnected ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(recorder.isConnected ? StudioTheme.mint : StudioTheme.secondary)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("esp32-device-connection-state")
+
                 if recorder.pairedID == nil {
-                    Text("Включите диктофон и добавьте его один раз. Если iPhone запросит код, он виден в мониторе порта ESP32.")
+                    Text("Удерживайте кнопку диктофона 5 секунд до синего индикатора. Затем нажмите «Подключить диктофон» и подтвердите запрос на iPhone. Serial-порт и PIN не нужны.")
                         .font(.subheadline)
                         .foregroundStyle(StudioTheme.secondary)
                     Button("Подключить диктофон") { recorder.pair() }

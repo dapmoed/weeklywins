@@ -2,14 +2,15 @@
 
 #include <BLEDevice.h>
 #include <BLESecurity.h>
-#include <Preferences.h>
 #include <atomic>
-#include <esp_random.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <host/ble_att.h>
 #include <host/ble_gatt.h>
 #include <host/ble_hs.h>
+#if defined(CONFIG_BLUEDROID_ENABLED)
+#include <esp_gatt_defs.h>
+#endif
 
 namespace RecorderBluetooth {
 namespace {
@@ -18,8 +19,12 @@ constexpr char commandUUID[] = "5C802E33-A13B-4272-B674-BF48F1663901";
 constexpr char responseUUID[] = "5C802E33-A13B-4272-B674-BF48F1663902";
 constexpr uint32_t disconnected = UINT32_MAX;
 constexpr uint16_t packetLimit = 244;
+constexpr uint32_t pairingWindowDurationMs = 60'000;
 
 std::atomic<uint32_t> connection{disconnected};
+std::atomic<uint32_t> pairingWindowStartedAt{0};
+std::atomic<bool> pairingWindowOpen{false};
+std::atomic<bool> currentConnectionBonded{false};
 uint16_t generation = 0;
 QueueHandle_t requests;
 BLECharacteristic *responseCharacteristic;
@@ -33,12 +38,38 @@ RecorderReply responseStatus;
 bool responsePending = false;
 bool haveNewRecording = false;
 
+bool isPairingWindowOpen() {
+    if (!pairingWindowOpen.load()) return false;
+    if (static_cast<uint32_t>(millis() - pairingWindowStartedAt.load()) < pairingWindowDurationMs) return true;
+    pairingWindowOpen.store(false);
+    return false;
+}
+
+class SecurityCallbacks final : public BLESecurityCallbacks {
+    bool onSecurityRequest() override {
+        return isPairingWindowOpen() || currentConnectionBonded.load();
+    }
+
+    void onAuthenticationComplete(ble_gap_conn_desc *descriptor) override {
+        if (descriptor != nullptr && descriptor->sec_state.bonded) {
+            currentConnectionBonded.store(true);
+            pairingWindowOpen.store(false);
+        }
+    }
+};
+
 class ServerCallbacks final : public BLEServerCallbacks {
     void onConnect(BLEServer *server, ble_gap_conn_desc *descriptor) override {
         if (connection.load() != disconnected) {
             server->disconnect(descriptor->conn_handle);
             return;
         }
+        const bool bonded = descriptor->sec_state.bonded;
+        if (!bonded && !isPairingWindowOpen()) {
+            server->disconnect(descriptor->conn_handle);
+            return;
+        }
+        currentConnectionBonded.store(bonded);
         ++generation;
         connection.store(uint32_t(generation) << 16 | descriptor->conn_handle);
         // Units are 1.25 ms for the connection interval and 10 ms for supervision.
@@ -49,6 +80,7 @@ class ServerCallbacks final : public BLEServerCallbacks {
         const uint32_t current = connection.load();
         if (current != disconnected && static_cast<uint16_t>(current) == descriptor->conn_handle) {
             connection.store(disconnected);
+            currentConnectionBonded.store(false);
         }
     }
 };
@@ -58,7 +90,7 @@ class CommandCallbacks final : public BLECharacteristicCallbacks {
         const uint32_t current = connection.load();
         const size_t size = characteristic->getLength();
         if (current == disconnected || static_cast<uint16_t>(current) != descriptor->conn_handle
-            || !descriptor->sec_state.encrypted || !descriptor->sec_state.authenticated
+            || !descriptor->sec_state.encrypted
             || size < 2 || size > sizeof(Request::bytes)) return;
         Request request{};
         request.session = current;
@@ -70,6 +102,7 @@ class CommandCallbacks final : public BLECharacteristicCallbacks {
 
 ServerCallbacks serverCallbacks;
 CommandCallbacks commandCallbacks;
+SecurityCallbacks securityCallbacks;
 
 bool notify(uint32_t target, const uint8_t *bytes, size_t size) {
     if (target != connection.load()) return false;
@@ -79,12 +112,7 @@ bool notify(uint32_t target, const uint8_t *bytes, size_t size) {
 }
 }  // namespace
 
-bool begin(Preferences &preferences) {
-    uint32_t pin = preferences.getUInt("ble-pin", 0);
-    if (pin < 100000 || pin > 999999) {
-        pin = 100000 + esp_random() % 900000;
-        if (!preferences.putUInt("ble-pin", pin)) return false;
-    }
+bool begin() {
     requests = xQueueCreate(1, sizeof(Request));
     if (!requests) return false;
 
@@ -92,16 +120,22 @@ bool begin(Preferences &preferences) {
     snprintf(name, sizeof(name), "WeeklyWins-%06lX", static_cast<unsigned long>(ESP.getEfuseMac() & 0xFFFFFF));
     BLEDevice::init(name);
     BLEDevice::setMTU(247);
-    BLESecurity::setCapability(ESP_IO_CAP_OUT);
-    BLESecurity::setAuthenticationMode(true, true, true);
-    BLESecurity::setPassKey(true, pin);
+    BLEDevice::setSecurityCallbacks(&securityCallbacks);
+    BLESecurity::setCapability(ESP_IO_CAP_NONE);
+    BLESecurity::setAuthenticationMode(true, false, true);
 
     BLEServer *server = BLEDevice::createServer();
     server->setCallbacks(&serverCallbacks);
     server->advertiseOnDisconnect(true);
     BLEService *service = server->createService(serviceUUID);
-    auto *command = service->createCharacteristic(commandUUID,
-        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_AUTHEN);
+    uint32_t commandProperties = BLECharacteristic::PROPERTY_WRITE;
+#if defined(CONFIG_NIMBLE_ENABLED)
+    commandProperties |= BLECharacteristic::PROPERTY_WRITE_ENC;
+#endif
+    auto *command = service->createCharacteristic(commandUUID, commandProperties);
+#if defined(CONFIG_BLUEDROID_ENABLED)
+    command->setAccessPermissions(ESP_GATT_PERM_WRITE_ENCRYPTED);
+#endif
     command->setCallbacks(&commandCallbacks);
     responseCharacteristic = service->createCharacteristic(responseUUID, BLECharacteristic::PROPERTY_NOTIFY);
     service->start();
@@ -109,8 +143,20 @@ bool begin(Preferences &preferences) {
     advertising->addServiceUUID(serviceUUID);
     advertising->setScanResponse(true);
     BLEDevice::startAdvertising();
-    Serial.printf("Bluetooth: %s  Pairing PIN: %06lu\n", name, static_cast<unsigned long>(pin));
     return true;
+}
+
+void openPairingWindow() {
+    pairingWindowStartedAt.store(millis());
+    pairingWindowOpen.store(true);
+}
+
+void closePairingWindow() {
+    pairingWindowOpen.store(false);
+}
+
+bool pairingWindowActive() {
+    return isPairingWindowOpen();
 }
 
 uint32_t session() { return connection.load(); }
