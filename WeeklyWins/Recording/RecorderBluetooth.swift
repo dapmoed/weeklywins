@@ -97,7 +97,7 @@ final class RecorderBluetooth: NSObject, ObservableObject, @preconcurrency CBCen
               let saved = devices.first(where: { $0.identifier == pairedID }) else { return }
         peripheral = saved
         saved.delegate = self
-        if saved.state == .connected { prepare(saved) }
+        if central.state == .poweredOn { findRecorder(using: central) }
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover candidate: CBPeripheral,
