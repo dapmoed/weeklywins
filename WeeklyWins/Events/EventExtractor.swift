@@ -11,8 +11,10 @@ enum EventExtractor {
     private static let explanationStart = #"(?i)\b(?:потому\s+что|почему|что|как|когда|чтобы)\b"#
 
     static func extract(_ transcript: String, recordingID: UUID) -> [DiaryEvent] {
+        // Speech recognition can leave a repeated verb immediately before a relative clause.
+        let relativePronoun = #"котор(?:ый|ая|ое|ые|ого|ой|ому|ую|ым|ыми|ых|ом)"#
         let separated = transcript.replacingOccurrences(
-            of: #"(?i),?\s+(?:потом|затем|после этого)\s+|\s+и\s+(?=(?:купил|помыл|позвонил|отправил|подготовил|сделал|сходил|убрал|починил|приготовил|проверил|обсудил)\b)"#,
+            of: #"(?i),?\s+(?:потом|затем|после этого)\s+|\s+и\s+(?=(?:купил|помыл|позвонил|отправил|подготовил|сделал|сходил|убрал|починил|приготовил|проверил|обсудил)\b(?!,?\s+\#(relativePronoun)\b))"#,
             with: ";",
             options: .regularExpression
         )
