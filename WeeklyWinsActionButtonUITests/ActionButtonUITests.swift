@@ -1794,26 +1794,22 @@ final class ActionButtonUITests: XCTestCase {
         let settings = app.buttons["settings-button"].firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.tap()
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
         let build = app.descendants(matching: .any)["settings-build"].firstMatch
-        if largestText {
-            let list = app.collectionViews.firstMatch
-            XCTAssertTrue(list.waitForExistence(timeout: 5))
-            for _ in 0..<12 where !build.isHittable { list.swipeUp() }
-            XCTAssertTrue(build.isHittable, app.debugDescription)
-        } else {
-            XCTAssertTrue(build.waitForExistence(timeout: 5))
+        if !largestText {
             XCTAssertTrue(app.staticTexts["Офлайн-распознавание"].exists)
         }
+        for _ in 0..<12 where !build.isHittable { list.swipeUp() }
+        XCTAssertTrue(build.isHittable, app.debugDescription)
         XCTAssertNotNil((build.value as? String).flatMap(Int.init))
         let settingsScreenshot = XCTAttachment(screenshot: app.screenshot())
         settingsScreenshot.name = largestText ? "A18-settings-largest-text" : "A18-settings"
         settingsScreenshot.lifetime = .keepAlways
         add(settingsScreenshot)
         let guide = app.buttons["Настроить кнопку действия"]
-        if largestText {
-            let list = app.collectionViews.firstMatch
-            for _ in 0..<8 where !guide.isHittable { list.swipeDown() }
-        }
+        for _ in 0..<12 where !guide.isHittable { list.swipeDown() }
+        XCTAssertTrue(guide.isHittable, app.debugDescription)
         guide.tap()
         XCTAssertTrue(app.staticTexts["Первоначальная настройка"].waitForExistence(timeout: 5))
         let guideScreenshot = XCTAttachment(screenshot: app.screenshot())

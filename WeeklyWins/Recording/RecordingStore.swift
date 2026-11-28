@@ -115,6 +115,45 @@ final class RecordingStore {
         return ImportSummary(imported: imported, skippedDuplicates: skipped)
     }
 
+    func hasImportedAudio(id: UUID) -> Bool {
+        guard let recording = recordings.first(where: { $0.id == id }) else { return false }
+        return recording.deletedAt != nil || recording.audioDeletedAt != nil
+            || fileManager.fileExists(atPath: fileURL(for: recording).path)
+    }
+
+    func importAudio(id: UUID, recordedAt: Date, wav: Data) throws -> Bool {
+        try validateReady()
+        guard !hasImportedAudio(id: id) else { return false }
+
+        let player = try AVAudioPlayer(data: wav, fileTypeHint: AVFileType.wav.rawValue)
+        guard player.duration.isFinite, player.duration > 0 else { throw RecorderSyncError.invalidRecording }
+        let fileName = "recorder-\(id.uuidString).wav"
+        let existing = recordings.firstIndex { $0.id == id }
+        var recording = existing.map { recordings[$0] }
+            ?? Recording(id: id, recordedAt: recordedAt, fileName: fileName, state: .saved)
+        recording.fileName = fileName
+        recording.duration = player.duration
+        if recording.transcript == nil {
+            recording.processingState = .pending
+            recording.automaticTranscriptionPending = true
+            recording.errorMessage = nil
+        }
+        let url = fileURL(for: recording)
+        try wav.write(to: url, options: .atomic)
+
+        let previous = recordings
+        if let existing { recordings[existing] = recording }
+        else { recordings.append(recording) }
+        sortRecordings()
+        do { try persist() }
+        catch {
+            recordings = previous
+            try? fileManager.removeItem(at: url)
+            throw error
+        }
+        return true
+    }
+
     func fileURL(for recording: Recording) -> URL {
         directory.appendingPathComponent(recording.fileName)
     }

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Принципиальная схема диктофона WeeklyWins</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ink: var(--foreground, light-dark(#172a26, #e8f2ef));
+      --secondary: var(--muted-foreground, light-dark(#4b615b, #aac4bc));
+      --surface: var(--card, light-dark(#eef4f1, #1c2c27));
+      --rule: var(--border, light-dark(#bdcec7, #3d5a51));
+      --focus: var(--ring, #20735e);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); font: 16px/1.55 var(--font-sans, system-ui, sans-serif); }
+    body.standalone { padding: 18px; }
+    main { width: min(100%, 880px); margin-inline: auto; }
+    h1, h2, p, figure { margin: 0; }
+    h1 { font-size: clamp(1.7rem, 5vw, 2.65rem); letter-spacing: -.035em; line-height: 1.12; }
+    header { margin-block-end: 20px; }
+    header p, figcaption, .fine { color: var(--secondary); }
+    header p { margin-block-start: 6px; }
+    section { margin-block-end: 14px; }
+    figure, .parts { padding: 16px; border-radius: var(--radius, 12px); background: var(--surface); }
+    h2 { margin-block-end: 8px; font-size: 1.12rem; line-height: 1.25; }
+    .diagram { overflow-x: auto; border-radius: 6px; }
+    main.zoomed canvas { min-width: 860px; }
+    .zoom { margin-block-start: 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface);
+      color: var(--ink); padding: 7px 11px; font: inherit; cursor: pointer; }
+    .zoom:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+    canvas { width: 100%; height: auto; display: block; background: #f7fbf9; border-radius: 6px; }
+    figcaption { margin-block-start: 9px; font-size: .88rem; }
+    code { font: 650 .92em var(--font-mono, ui-monospace, monospace); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; vertical-align: top; padding: 7px 5px; }
+    tbody tr { border-top: 1px solid var(--rule); }
+    th { font-size: .84rem; color: var(--secondary); }
+    td:first-child { white-space: nowrap; }
+    .fine { margin-block-start: 12px; font-size: .85rem; }
+    a { color: inherit; text-underline-offset: .18em; }
+    a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+    footer { margin-block-end: 12px; font-size: .83rem; color: var(--secondary); }
+    @media (max-width: 400px) {
+      figure, .parts { padding: 12px; }
+      table { font-size: .88rem; }
+    }
+    @media print {
+      :root { color-scheme: light; }
+      body.standalone { padding: 0; }
+      figure { break-inside: avoid; }
+      .zoom { display: none; }
+      main.zoomed canvas { min-width: 0; }
+      canvas { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Принципиальная схема диктофона</h1>
+    <p>YD-ESP32-23 · INMP441 · microSD · LiitoKala USB-9V · механический свитч</p>
+    <button class="zoom" type="button" aria-pressed="false">Увеличить схему</button>
+  </header>
+
+  <section>
+    <figure>
+      <div class="diagram" tabindex="0" role="region" aria-label="Чертёж схемы">
+        <canvas id="circuit" width="1720" height="1500" role="img" aria-label="Полная схема диктофона вокруг одной платы ESP32. Батарея B1 питает DC1, выход 5 В идёт на 5Vin платы и VCC адаптера SD1. Плата питает MIC1 от 3V3. GPIO 7, 8, 9 идут на SCK, WS и SD микрофона. Конденсатор C1 соединяет VDD с землёй, резистор R1 соединяет SD с землёй. L/R микрофона заземлён. SW1 замыкает GPIO 6 на землю. GPIO 10, 11, 12, 13 идут на CS, MOSI, SCK, MISO адаптера microSD. Все символы земли соединены."></canvas>
+      </div>
+      <figcaption>
+        Все символы <code>GND</code> обозначают общую землю. <code>C1</code> и <code>R1</code> добавляй, если их нет на INMP441.
+        Линия питания <code>SD1</code> подходит для HW-125 с входом 5 В и выходом <code>MISO</code> на уровне 3,3 В.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="parts">
+    <h2>Компоненты</h2>
+    <table>
+      <thead><tr><th scope="col">Позиция</th><th scope="col">Деталь</th></tr></thead>
+      <tbody>
+        <tr><td><code>B1</code></td><td>Одна LiitoKala USB-9V (6F22).</td></tr>
+        <tr><td><code>X1</code></td><td>Клипса «Кроны» для подключения батареи.</td></tr>
+        <tr><td><code>DC1</code></td><td>Понижающий DC–DC модуль с общей землёй, входом на 9 В и выходом 5 В.</td></tr>
+        <tr><td><code>U1</code></td><td>Плата YD-ESP32-23 с модулем ESP32-S3-N8R2.</td></tr>
+        <tr><td><code>MIC1</code></td><td>Модуль цифрового микрофона INMP441.</td></tr>
+        <tr><td><code>SD1</code></td><td>Адаптер microSD SPI и карта microSDHC до 32 ГБ с FAT32.</td></tr>
+        <tr><td><code>SW1</code></td><td>Механический клавиатурный свитч с двумя металлическими контактами.</td></tr>
+        <tr><td><code>R1</code></td><td>Резистор 100 кОм, если на модуле нет подтяжки SD к GND.</td></tr>
+        <tr><td><code>C1</code></td><td>Керамический конденсатор 100 нФ, если на модуле нет развязки питания.</td></tr>
+      </tbody>
+    </table>
+    <p class="fine">Выставь 5,0 В на выходе DC1 до подключения платы. Проверь питание при подключении по Bluetooth и записи. Перед подключением USB-C COM отсоедини клипсу батареи.</p>
+  </section>
+  <footer>
+    <a href="https://github.com/vcc-gnd/YD-ESP32-S3/blob/main/README.md">Распиновка YD-ESP32-S3</a> ·
+    <a href="https://product.tdk.com/system/files/dam/doc/product/sw_piezo/mic/mems-mic/data_sheet/inmp441.pdf">Даташит INMP441</a> ·
+    <a href="https://cn.liitokala.com.cn/battery/cylindricalbattery/388.html">Паспорт LiitoKala</a> ·
+    <a href="https://shillehtek.com/blogs/shillehtek-product-manuals/micro-sd-tf-card-adapter-reader-module-spi-interface-for-arduino-manual">Руководство адаптера microSD</a>
+  </footer>
+</main>
+<script>
+  if (window.top === window) document.body.classList.add('standalone');
+  const zoom = document.querySelector('.zoom');
+  zoom.addEventListener('click', () => {
+    const enabled = document.querySelector('main').classList.toggle('zoomed');
+    zoom.setAttribute('aria-pressed', String(enabled));
+    zoom.textContent = enabled ? 'Обычный масштаб' : 'Увеличить схему';
+  });
+
+  const ink = '#263c35';
+  const supply = '#a34122';
+  const clock = '#634598';
+  const select = '#006580';
+  const data = '#087353';
+  const passive = '#77540c';
+  const ctx = document.getElementById('circuit').getContext('2d');
+  ctx.scale(2, 2);
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  function wire(points, color = ink) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    for (const [index, [x, y]] of points.entries()) {
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function label(text, x, y, options = {}) {
+    const {size = 15, color = ink, align = 'left', weight = 600} = options;
+    ctx.font = weight + ' ' + size + 'px system-ui, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.fillText(text, x, y);
+  }
+
+  function moduleBox(x, y, w, h, title) {
+    ctx.fillStyle = '#e7f1eb';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = ink;
+    ctx.strokeRect(x, y, w, h);
+    label(title, x + w / 2, y + 23, {align: 'center', size: 17, weight: 750});
+  }
+
+  function contact(x, y, filled = false) {
+    ctx.beginPath();
+    ctx.arc(x, y, filled ? 3 : 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = filled ? ink : '#f7fbf9';
+    ctx.fill();
+    ctx.strokeStyle = ink;
+    ctx.stroke();
+  }
+
+  function ground(x, y) {
+    wire([[x, y], [x, y + 6]]);
+    for (const [offset, half] of [[6, 10], [10, 6], [14, 3]]) {
+      wire([[x - half, y + offset], [x + half, y + offset]]);
+    }
+  }
+
+  function arrow(x, y, direction, color) {
+    wire([[x - direction * 6, y - 4], [x, y], [x - direction * 6, y + 4]], color);
+  }
+
+  moduleBox(192, 37, 164, 126, 'DC1 · DC–DC');
+  moduleBox(330, 220, 183, 486, 'U1 · ESP32-S3');
+  moduleBox(642, 183, 155, 242, 'MIC1 · INMP441');
+  moduleBox(642, 467, 155, 239, 'SD1 · HW-125');
+
+  // The converter feeds both the board and the regulated microSD adapter.
+  label('B1 · LiitoKala', 22, 40, {size: 17});
+  label('9 В', 77, 104, {color: supply});
+  label('X1 · клипса', 146, 111, {align: 'center', size: 13});
+  label('+', 40, 85, {color: supply});
+  label('−', 40, 118);
+  wire([[62, 89], [62, 76], [192, 76]], supply);
+  wire([[48, 89], [76, 89]], supply);
+  wire([[54, 104], [70, 104]]);
+  wire([[62, 104], [62, 131], [192, 131]]);
+  contact(122, 76);
+  contact(122, 131);
+  wire([[137, 131], [137, 150]]);
+  contact(137, 131, true);
+  ground(137, 150);
+  label('IN+', 201, 81);
+  label('IN−', 201, 136);
+  label('OUT+', 347, 81, {align: 'right'});
+  label('OUT−', 347, 136, {align: 'right'});
+  wire([[356, 131], [373, 131], [373, 150]]);
+  ground(373, 150);
+  wire([[356, 76], [824, 76], [824, 505], [797, 505]], supply);
+  label('5,0 В', 531, 63, {align: 'center', color: supply, size: 17});
+  wire([[416, 76], [416, 220]], supply);
+  contact(416, 76, true);
+  label('5V / 5Vin', 416, 270, {align: 'center'});
+  label('VCC', 788, 510, {align: 'right'});
+  label('GND', 416, 690, {align: 'center'});
+  wire([[416, 706], [416, 724]]);
+  ground(416, 724);
+
+  for (const [y, port, devicePort, color, direction] of [
+    [286, '3V3', 'VDD', supply, 1],
+    [333, 'GPIO 7', 'SCK', clock, 1],
+    [357, 'GPIO 8', 'WS', select, 1],
+    [381, 'GPIO 9', 'SD', data, -1],
+    [538, 'GPIO 10', 'CS', passive, 1],
+    [568, 'GPIO 11', 'MOSI', data, 1],
+    [598, 'GPIO 12', 'SCK', clock, 1],
+    [628, 'GPIO 13', 'MISO', select, -1]
+  ]) {
+    wire([[513, y], [642, y]], color);
+    arrow(direction === 1 ? 634 : 521, y, direction, color);
+    label(port, 505, y + 5, {align: 'right'});
+    label(devicePort, 650, y + 5);
+  }
+
+  // The capacitor is connected across VDD; the resistor pulls SD down to GND.
+  contact(551, 286, true);
+  wire([[551, 286], [551, 299]], supply);
+  wire([[541, 299], [561, 299]], passive);
+  wire([[541, 306], [561, 306]], passive);
+  wire([[551, 306], [551, 313]]);
+  ground(551, 313);
+  label('C1 · 100 нФ', 565, 313, {size: 13, color: passive});
+
+  contact(551, 381, true);
+  wire([[551, 381], [551, 395]], data);
+  ctx.strokeStyle = passive;
+  ctx.strokeRect(545, 395, 12, 28);
+  wire([[551, 423], [551, 433]]);
+  ground(551, 433);
+  label('R1', 565, 407, {size: 13, color: passive});
+  label('100 кОм', 565, 423, {size: 13, color: passive});
+  label('L/R', 650, 403);
+  label('GND', 711, 418);
+  wire([[642, 398], [624, 398], [624, 433]]);
+  wire([[737, 425], [737, 450]]);
+  ground(624, 433);
+  ground(737, 450);
+
+  label('GND', 650, 686);
+  wire([[642, 681], [614, 681], [614, 701]]);
+  ground(614, 701);
+
+  label('GPIO 6', 339, 573);
+  label('INPUT_PULLUP', 339, 592, {size: 12});
+  label('SW1', 215, 525, {align: 'center', color: passive, size: 17});
+  wire([[330, 568], [242, 568]], passive);
+  wire([[242, 568], [191, 548]], passive);
+  wire([[181, 568], [137, 568], [137, 595]]);
+  contact(242, 568);
+  contact(181, 568);
+  ground(137, 595);
+</script>
+</body>
+</html>

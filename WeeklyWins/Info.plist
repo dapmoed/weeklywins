@@ -22,6 +22,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Подключение к диктофону WeeklyWins и автоматический импорт голосовых заметок.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Запись голосовых заметок о делах в течение дня.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
@@ -32,6 +34,7 @@
 	<array>
 		<string>audio</string>
 		<string>processing</string>
+		<string>bluetooth-central</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

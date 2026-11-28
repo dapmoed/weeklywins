@@ -130,6 +130,15 @@ final class EventExtractionTests: XCTestCase {
         XCTAssertEqual(events.map(\.completion), [.notCompleted])
     }
 
+    func testConjoinedVerbWithoutAnObjectKeepsRelativeClauseWithTheEvent() {
+        let text = "Сегодня собрал прибор и проверил который измеряет температуру"
+        XCTAssertEqual(EventExtractor.extract(text, recordingID: UUID()).map(\.text), [text])
+
+        let twoActions = "Сегодня собрал прибор и проверил показания"
+        XCTAssertEqual(EventExtractor.extract(twoActions, recordingID: UUID()).map(\.text),
+                       ["Сегодня собрал прибор", "проверил показания"])
+    }
+
     func testSubordinateDescriptionDoesNotChangeMainTaskStatus() {
         for text in ["Проверил как прошла встреча", "Проверил почему сервис не работал"] {
             let events = EventExtractor.extract(text, recordingID: UUID())

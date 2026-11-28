@@ -54,6 +54,8 @@ struct SettingsView: View {
                         .foregroundStyle(StudioTheme.secondary)
                 }.listRowBackground(StudioTheme.surface)
                 Section("Данные") {
+                    NavigationLink("Диктофон ESP32") { RecorderSyncView() }
+                        .accessibilityIdentifier("settings-esp32-recorder")
                     NavigationLink("Хранилище аудиозаписей") { AudioStorageView() }
                         .accessibilityIdentifier("settings-audio-storage")
                     Button("Выгрузить расшифровки (JSON)") { exportTranscripts() }
@@ -289,5 +291,45 @@ struct ActionButtonGuideView: View {
         }
         .navigationTitle("Кнопка действия").navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+    }
+}
+
+private struct RecorderSyncView: View {
+    @ObservedObject private var recorder = RecorderBluetooth.shared
+
+    var body: some View {
+        List {
+            Section {
+                Label(
+                    recorder.isConnected ? "Диктофон подключён" : "Диктофон не подключён",
+                    systemImage: recorder.isConnected ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(recorder.isConnected ? StudioTheme.mint : StudioTheme.secondary)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("esp32-device-connection-state")
+
+                if recorder.pairedID == nil {
+                    Text("Удерживайте кнопку диктофона 5 секунд до синего индикатора. Затем нажмите «Подключить диктофон» и подтвердите запрос на iPhone. Serial-порт и PIN не нужны.")
+                        .font(.subheadline)
+                        .foregroundStyle(StudioTheme.secondary)
+                    Button("Подключить диктофон") { recorder.pair() }
+                        .accessibilityIdentifier("pair-esp32-recorder")
+                } else {
+                    Text("WeeklyWins сам импортирует новые записи, когда диктофон рядом.")
+                        .font(.subheadline)
+                        .foregroundStyle(StudioTheme.secondary)
+                }
+                Text(recorder.status)
+                    .accessibilityIdentifier("esp32-recorder-status")
+                if recorder.pairedID != nil {
+                    Button("Забыть диктофон", role: .destructive) { recorder.forget() }
+                }
+            }.listRowBackground(StudioTheme.surface)
+        }
+        .scrollContentBackground(.hidden)
+        .background(StudioTheme.background)
+        .navigationTitle("Диктофон ESP32")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
