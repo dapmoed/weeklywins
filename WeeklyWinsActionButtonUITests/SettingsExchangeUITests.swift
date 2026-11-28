@@ -32,7 +32,12 @@ final class SettingsExchangeUITests: XCTestCase {
         continueAfterFailure = false
 
         app.buttons["settings-button"].tap()
-        app.buttons["settings-export-transcripts"].tap()
+        let settings = app.collectionViews.firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        let export = app.buttons["settings-export-transcripts"]
+        for _ in 0..<5 where !export.isHittable { settings.swipeUp() }
+        XCTAssertTrue(export.isHittable)
+        export.tap()
 
         let firstActivity = app.collectionViews.cells.firstMatch
         XCTAssertTrue(firstActivity.waitForExistence(timeout: 5),

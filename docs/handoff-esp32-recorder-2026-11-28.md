@@ -16,7 +16,7 @@
 - `firmware/tests/record_button_test.cpp` — проходит.
 - Arduino-ESP32 прошивка — компилируется; физическая загрузка и проверка хеша прошли.
 - Целевые проверки `RecorderSyncTests`, `SettingsExchangeUITests.testRecorderSyncIsReachableInSettings` и `ActionButtonUITests.testSettingsShowsVersionAndActionButtonGuide` — прошли.
-- Полный `xcodebuild test` до последней правки прокрутки настроек завершился с шестью UI-ошибками. Ошибка `testSettingsShowsVersionAndActionButtonGuide` была исправлена прокруткой списка и целевой тест прошёл. Остальные пять не перезапускались: `testRecordingSearchAndConfirmedDeletion`, `testReportPeriodsUpdateShareTextAcrossTabs`, `testSimulatorCanVerifyRecordingFlowInApp`, `testTodayEditAndReportDeletionUpdateAlreadyOpenedTabs`, `testExportOpensShareSheetWithVisibleActions`. Полный прогон после исправления ещё не запускался.
+- Полный `xcodebuild test` завершился с шестью UI-ошибками. После правок прокрутки настроек отдельно прошли `testSettingsShowsVersionAndActionButtonGuide` и оба теста `SettingsExchangeUITests`. Повторно воспроизвелись четыре падения в `ActionButtonUITests`: `testRecordingSearchAndConfirmedDeletion` ищет старое меню удаления, `testReportPeriodsUpdateShareTextAcrossTabs` ожидает длительность в отчёте, `testSimulatorCanVerifyRecordingFlowInApp` ищет кнопку аудио на карточке, а `testTodayEditAndReportDeletionUpdateAlreadyOpenedTabs` ожидает поле времени дела без значения. Полный прогон после этих правок ещё не запускался.
 - В сборке для iPhone есть предупреждение Xcode: «All interface orientations must be supported unless the app requires full screen»; сборку оно не остановило.
 
 ## Проверка на физической плате
@@ -26,6 +26,7 @@
 - Пользователь проверил воспроизведение импортированных записей с ESP32 в WeeklyWins на iPhone.
 - Проверен импорт при заблокированном iPhone. Пользователь сделал запись, выключил ESP32 до разблокировки iPhone и после разблокировки увидел запись в WeeklyWins.
 - Пользователь подтвердил сквозной сценарий задачи #5 с записью при отключённом Bluetooth и последующим импортом. В локальном журнале телефона была одна аудиозапись. Из её расшифровки были созданы два события из-за правила разбиения текста. Добавлена проверка, что сочетание «и проверил который…» остаётся в одном событии, а два самостоятельных действия по-прежнему разделяются.
+- После установки исправленной сборки пользователь повторил проверку на iPhone и подтвердил, что из новой записи получилось одно событие.
 - Проверена догрузка на iPhone 16 Pro с реальной ESP32. Debug-сборка разорвала BLE после сохранения первых 8192 байт. Через три секунды соединение восстановилось, первый запрос продолжил чтение со смещения 8192, и приложение импортировало одну запись длительностью 19,248 секунды. В журнале записей была одна строка с её ID. После перезапуска приложения повторный обмен вернул 0 новых записей.
 - При диагностике через COM журнал показал `Can't mount microSD` при запуске. Пользователь заметил, что батарейка была отключена. Успешный сценарий подтверждён пользователем. Напряжение на адаптере не измеряли, поэтому причина сбоя питания остаётся предположением.
 - Диагностическая сборка с подробным журналом собрана, но загрузчик COM остановился на записи в RAM, до записи во флеш. На плате осталась ранее установленная прошивка.
